@@ -1,7 +1,6 @@
 import { Suspense, lazy, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -100,33 +99,33 @@ export default function TakeoffDrawingViewer({
   const T = C.T;
 
   // Drawings store
-  const drawings = useDrawingsStore(s => s.drawings);
-  const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
-  const setSelectedDrawingId = useDrawingsStore(s => s.setSelectedDrawingId);
-  const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
-  const drawingScales = useDrawingsStore(s => s.drawingScales);
-  const setDrawingScales = useDrawingsStore(s => s.setDrawingScales);
-  const detectedReferences = useDrawingsStore(s => s.detectedReferences);
-  const refScanLoading = useDrawingsStore(s => s.refScanLoading);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
+  const setSelectedDrawingId = useDrawingPipelineStore(s => s.setSelectedDrawingId);
+  const pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
+  const drawingScales = useDrawingPipelineStore(s => s.drawingScales);
+  const setDrawingScales = useDrawingPipelineStore(s => s.setDrawingScales);
+  const detectedReferences = useDrawingPipelineStore(s => s.detectedReferences);
+  const refScanLoading = useDrawingPipelineStore(s => s.refScanLoading);
 
   // Takeoffs store
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const tkTool = useTakeoffsStore(s => s.tkTool);
-  const setTkTool = useTakeoffsStore(s => s.setTkTool);
-  const tkActivePoints = useTakeoffsStore(s => s.tkActivePoints);
-  const setTkActivePoints = useTakeoffsStore(s => s.setTkActivePoints);
-  const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
-  const tkMeasureState = useTakeoffsStore(s => s.tkMeasureState);
-  const setTkMeasureState = useTakeoffsStore(s => s.setTkMeasureState);
-  const setTkCursorPt = useTakeoffsStore(s => s.setTkCursorPt);
-  const tkCalibrations = useTakeoffsStore(s => s.tkCalibrations);
-  const tkZoom = useTakeoffsStore(s => s.tkZoom);
-  const setTkZoom = useTakeoffsStore(s => s.setTkZoom);
-  const tkPan = useTakeoffsStore(s => s.tkPan);
-  const setTkPan = useTakeoffsStore(s => s.setTkPan);
-  const tkPanelWidth = useTakeoffsStore(s => s.tkPanelWidth);
-  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
-  const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const tkTool = useDrawingPipelineStore(s => s.tkTool);
+  const setTkTool = useDrawingPipelineStore(s => s.setTkTool);
+  const tkActivePoints = useDrawingPipelineStore(s => s.tkActivePoints);
+  const setTkActivePoints = useDrawingPipelineStore(s => s.setTkActivePoints);
+  const tkActiveTakeoffId = useDrawingPipelineStore(s => s.tkActiveTakeoffId);
+  const tkMeasureState = useDrawingPipelineStore(s => s.tkMeasureState);
+  const setTkMeasureState = useDrawingPipelineStore(s => s.setTkMeasureState);
+  const setTkCursorPt = useDrawingPipelineStore(s => s.setTkCursorPt);
+  const tkCalibrations = useDrawingPipelineStore(s => s.tkCalibrations);
+  const tkZoom = useDrawingPipelineStore(s => s.tkZoom);
+  const setTkZoom = useDrawingPipelineStore(s => s.setTkZoom);
+  const tkPan = useDrawingPipelineStore(s => s.tkPan);
+  const setTkPan = useDrawingPipelineStore(s => s.setTkPan);
+  const tkPanelWidth = useDrawingPipelineStore(s => s.tkPanelWidth);
+  const tkPanelTier = useDrawingPipelineStore(s => s.tkPanelTier);
+  const tkPanelOpen = useDrawingPipelineStore(s => s.tkPanelOpen);
 
   // Items store (for running total)
   const getTotals = useItemsStore(s => s.getTotals);
@@ -731,7 +730,7 @@ export default function TakeoffDrawingViewer({
                       const cr = Math.max(30, 30 * zs),
                         lr = Math.max(12, 15 * zs);
                       let hovering = false;
-                      for (const to of useTakeoffsStore.getState().takeoffs) {
+                      for (const to of useDrawingPipelineStore.getState().takeoffs) {
                         for (const m of to.measurements || []) {
                           if (m.sheetId !== selectedDrawingId) continue;
                           if (m.type === "count") {

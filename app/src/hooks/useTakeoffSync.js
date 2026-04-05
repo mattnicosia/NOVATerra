@@ -2,9 +2,8 @@
 // Creates linked items automatically, syncs description/unit/quantity
 // Module takeoffs (with moduleId) are grouped into scope items with costed sub-parts
 import { useEffect, useRef } from "react";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
 import { uid, nn } from "@/utils/format";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { getComputedQtyCtx } from "@/utils/measurementCalc";
@@ -27,15 +26,15 @@ function getInstanceSpecs(moduleId, instanceId) {
 }
 
 function buildScaleCtx() {
-  const calibrations = useTakeoffsStore.getState().tkCalibrations;
-  const scales = useDrawingsStore.getState().drawingScales;
-  const dpi = useDrawingsStore.getState().drawingDpi;
-  const drawings = useDrawingsStore.getState().drawings;
+  const calibrations = useDrawingPipelineStore.getState().tkCalibrations;
+  const scales = useDrawingPipelineStore.getState().drawingScales;
+  const dpi = useDrawingPipelineStore.getState().drawingDpi;
+  const drawings = useDrawingPipelineStore.getState().drawings;
   return { calibrations, scales, dpi, drawings };
 }
 
 export function useTakeoffSync() {
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
   const prevRef = useRef(null);
 
   useEffect(() => {
@@ -293,7 +292,7 @@ export function useTakeoffSync() {
       }
     });
 
-    if (takeoffsChanged) useTakeoffsStore.getState().setTakeoffs(nextTakeoffs);
+    if (takeoffsChanged) useDrawingPipelineStore.getState().setTakeoffs(nextTakeoffs);
     if (itemsChanged) useItemsStore.getState().setItems(nextItems);
   }, [takeoffs]);
 }

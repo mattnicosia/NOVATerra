@@ -6,7 +6,7 @@ import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { TRADE_GROUPINGS } from "@/constants/tradeGroupings";
 import { METRO_AREAS } from "@/constants/locationFactors";
@@ -35,7 +35,7 @@ function useNodeData(nodeId) {
   const elements = useDatabaseStore(s => s.elements);
   const masterData = useMasterDataStore(s => s.masterData);
   const proposals = useMasterDataStore(s => s.masterData?.historicalProposals || []);
-  const learningRecords = useScanStore(s => s.learningRecords || []);
+  const learningRecords = useDrawingPipelineStore(s => s.learningRecords || []);
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex || []);
 
   return useMemo(() => {

@@ -525,19 +525,18 @@ async function syncEstimates() {
           // Reload stores from the fresh cloud data
           const { useItemsStore } = await import("@/stores/itemsStore");
           const { useProjectStore } = await import("@/stores/projectStore");
-          const { useDrawingsStore } = await import("@/stores/drawingsStore");
-          const { useTakeoffsStore } = await import("@/stores/takeoffsStore");
-          const { useSpecsStore } = await import("@/stores/specsStore");
+          const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
+          const { useDocumentManagementStore } = await import("@/stores/documentManagementStore");
           const { useGroupsStore } = await import("@/stores/groupsStore");
 
           if (freshData.project) useProjectStore.getState().setProject(freshData.project);
           if (freshData.items !== undefined) useItemsStore.getState().setItems(freshData.items || []);
           if (freshData.markup !== undefined) useItemsStore.getState().setMarkup(freshData.markup);
-          if (freshData.drawings) useDrawingsStore.getState().setDrawings(freshData.drawings);
-          if (freshData.takeoffs) useTakeoffsStore.getState().setTakeoffs(freshData.takeoffs);
-          if (freshData.specs) useSpecsStore.getState().setSpecs(freshData.specs);
-          if (freshData.exclusions) useSpecsStore.getState().setExclusions(freshData.exclusions);
-          if (freshData.clarifications) useSpecsStore.getState().setClarifications(freshData.clarifications);
+          if (freshData.drawings) useDrawingPipelineStore.getState().setDrawings(freshData.drawings);
+          if (freshData.takeoffs) useDrawingPipelineStore.getState().setTakeoffs(freshData.takeoffs);
+          if (freshData.specs) useDocumentManagementStore.getState().setSpecs(freshData.specs);
+          if (freshData.exclusions) useDocumentManagementStore.getState().setExclusions(freshData.exclusions);
+          if (freshData.clarifications) useDocumentManagementStore.getState().setClarifications(freshData.clarifications);
           if (freshData.groups) useGroupsStore.getState().setGroups(freshData.groups);
 
           console.log(`[cloudSync] Active estimate ${activeId} reloaded from newer cloud data`);

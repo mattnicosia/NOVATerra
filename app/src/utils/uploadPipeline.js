@@ -3,16 +3,13 @@
 // Extracted from DocumentsPage so they can be used from the combined Discovery page.
 // All store access uses .getState() so these work as plain functions.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { useDocumentsStore } from "@/stores/documentsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useNovaStore } from "@/stores/novaStore";
-import { useModelStore } from "@/stores/modelStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useGroupsStore } from "@/stores/groupsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { uid, nowStr } from "@/utils/format";
 import { callAnthropic, optimizeImageForAI } from "@/utils/ai";
 import { loadPdfJs } from "@/utils/pdf";
@@ -135,7 +132,7 @@ export async function extractDrawingPages(file, options = {}) {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const { parseIFCFile } = await import("@/utils/ifcLoader");
-      const { useModelStore } = await import("@/stores/modelStore");
+      const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
       const result = await parseIFCFile(arrayBuffer);
 
       if (!result?.elements?.length) {
@@ -144,9 +141,9 @@ export async function extractDrawingPages(file, options = {}) {
       }
 
       // Store parsed IFC data in modelStore
-      useModelStore.getState().setElements(result.elements);
-      useModelStore.getState().setIfcElements(result.elements);
-      useModelStore.setState({
+      useDrawingPipelineStore.getState().setElements(result.elements);
+      useDrawingPipelineStore.getState().setIfcElements(result.elements);
+      useDrawingPipelineStore.setState({
         ifcLoaded: true,
         ifcError: null,
         storeys: result.storeys || [],
@@ -171,7 +168,7 @@ export async function extractDrawingPages(file, options = {}) {
         ifcElementCount: result.elements.length,
         ifcStoreyCount: storeyCount,
       };
-      useDrawingsStore.setState(s => ({ drawings: [...s.drawings, d] }));
+      useDrawingPipelineStore.setState(s => ({ drawings: [...s.drawings, d] }));
 
       console.log(`[uploadPipeline] IFC imported: ${result.elements.length} elements, ${storeyCount} stories, ${wallCount} walls`);
 
@@ -188,8 +185,8 @@ export async function extractDrawingPages(file, options = {}) {
     } catch (err) {
       console.error("[uploadPipeline] IFC parse failed:", err);
       try {
-        const { useModelStore } = await import("@/stores/modelStore");
-        useModelStore.getState().setIfcError(err.message);
+        const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
+        useDrawingPipelineStore.getState().setIfcError(err.message);
       } catch { /* non-critical */ }
       return [];
     }
@@ -222,7 +219,7 @@ export async function extractDrawingPages(file, options = {}) {
       renderingScale: "",
       renderingNotes: "",
     };
-    useDrawingsStore.setState(s => ({ drawings: [...s.drawings, d] }));
+    useDrawingPipelineStore.setState(s => ({ drawings: [...s.drawings, d] }));
     return [d.id];
   }
 
@@ -281,11 +278,11 @@ export async function extractDrawingPages(file, options = {}) {
       };
 
       // Progressive: add each page to store immediately so UI shows pages appearing
-      const cur = useDrawingsStore.getState().drawings;
-      useDrawingsStore.getState().setDrawings([...cur, drawing]);
+      const cur = useDrawingPipelineStore.getState().drawings;
+      useDrawingPipelineStore.getState().setDrawings([...cur, drawing]);
 
       // Cache in pdfCanvases for immediate display (renderPdfPage will use this)
-      useDrawingsStore.setState(s => ({
+      useDrawingPipelineStore.setState(s => ({
         pdfCanvases: { ...s.pdfCanvases, [drawing.id]: jpegDataUrl },
       }));
 
@@ -328,7 +325,7 @@ export async function repairRawPdf(file) {
 
     // Find all matching pdfPreRendered drawings and invalidate their extraction cache
     // Match flexibly: exact match, or base name match (ignoring path differences)
-    const drawings = useDrawingsStore.getState().drawings;
+    const drawings = useDrawingPipelineStore.getState().drawings;
     const selectedBase = file.name.replace(/\.pdf$/i, "").toLowerCase();
     let repaired = 0;
     console.log(`[repairRawPdf] Looking for drawings matching "${file.name}" (base: "${selectedBase}")`);
@@ -391,7 +388,7 @@ export function isHigherRevision(oldRev, newRev) {
 }
 
 export function detectRevisions(newDrawingIds) {
-  const ds = useDrawingsStore.getState();
+  const ds = useDrawingPipelineStore.getState();
   const allDrawings = ds.drawings;
 
   // Build a local sheet index from NON-superseded, NON-new drawings
@@ -441,7 +438,7 @@ export function detectRevisions(newDrawingIds) {
 // Given a revision report, find all takeoffs with measurements on superseded drawings.
 
 export function analyzeRevisionImpact(revisionReport) {
-  const { takeoffs } = useTakeoffsStore.getState();
+  const { takeoffs } = useDrawingPipelineStore.getState();
   const groups = useGroupsStore.getState().groups;
   const impact = [];
 
@@ -491,16 +488,16 @@ export function analyzeRevisionImpact(revisionReport) {
 
 // ─── Auto-label drawings via AI ─────────────────────────────────────────────
 export async function autoLabelDrawings(drawingIds) {
-  const allDrawings = useDrawingsStore.getState().drawings;
-  const curScales = useDrawingsStore.getState().drawingScales;
+  const allDrawings = useDrawingPipelineStore.getState().drawings;
+  const curScales = useDrawingPipelineStore.getState().drawingScales;
   const targets = drawingIds
     ? allDrawings.filter(d => drawingIds.includes(d.id) && d.data)
     : allDrawings.filter(d => d.data && (!d.sheetNumber || !d.sheetTitle || !curScales[d.id]));
 
   if (targets.length === 0) return { count: 0, scaleCount: 0 };
 
-  useDrawingsStore.getState().setAiLabelLoading(true);
-  useDrawingsStore.getState().setAutoLabelProgress({ current: 0, total: targets.length });
+  useDrawingPipelineStore.getState().setAiLabelLoading(true);
+  useDrawingPipelineStore.getState().setAutoLabelProgress({ current: 0, total: targets.length });
   useNovaStore.getState().startTask("label", `Labeling ${targets.length} drawings...`);
 
   let count = 0,
@@ -512,14 +509,14 @@ export async function autoLabelDrawings(drawingIds) {
 
   for (let i = 0; i < targets.length; i++) {
     const d = targets[i];
-    useDrawingsStore.getState().setAutoLabelProgress({ current: i + 1, total: targets.length });
+    useDrawingPipelineStore.getState().setAutoLabelProgress({ current: i + 1, total: targets.length });
     useNovaStore
       .getState()
       .updateProgress(Math.round(((i + 1) / targets.length) * 100), `Labeling sheet ${i + 1}/${targets.length}...`);
 
     try {
       let imgData;
-      const curCanvases = useDrawingsStore.getState().pdfCanvases;
+      const curCanvases = useDrawingPipelineStore.getState().pdfCanvases;
       if (d.type === "pdf") {
         imgData = curCanvases[d.id] || (await renderPdfPage(d));
       } else {
@@ -568,39 +565,39 @@ export async function autoLabelDrawings(drawingIds) {
         }
 
         if (parsed.number && !d.sheetNumber) {
-          useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", parsed.number);
+          useDrawingPipelineStore.getState().updateDrawing(d.id, "sheetNumber", parsed.number);
           count++;
         }
         if (parsed.title && !d.sheetTitle) {
-          useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", parsed.title);
+          useDrawingPipelineStore.getState().updateDrawing(d.id, "sheetTitle", parsed.title);
           count++;
           // Infer and persist view type from title
           const vt = inferViewType(parsed.title);
-          if (vt) useDrawingsStore.getState().updateDrawing(d.id, "viewType", vt);
+          if (vt) useDrawingPipelineStore.getState().updateDrawing(d.id, "viewType", vt);
         }
         if (parsed.scale) {
           const scaleKey = matchScaleKey(parsed.scale);
-          const latestScales = useDrawingsStore.getState().drawingScales;
+          const latestScales = useDrawingPipelineStore.getState().drawingScales;
           if (scaleKey && !latestScales[d.id]) {
-            useDrawingsStore.getState().setDrawingScales({ ...latestScales, [d.id]: scaleKey });
+            useDrawingPipelineStore.getState().setDrawingScales({ ...latestScales, [d.id]: scaleKey });
             scaleCount++;
           } else if (!scaleKey) {
-            useDrawingsStore.getState().updateDrawing(d.id, "detectedScale", parsed.scale);
+            useDrawingPipelineStore.getState().updateDrawing(d.id, "detectedScale", parsed.scale);
           }
         }
 
         // Extract revision metadata from title block
         if (parsed.revision != null) {
-          useDrawingsStore.getState().updateDrawing(d.id, "revision", String(parsed.revision));
+          useDrawingPipelineStore.getState().updateDrawing(d.id, "revision", String(parsed.revision));
         }
         if (parsed.revisionDate) {
-          useDrawingsStore.getState().updateDrawing(d.id, "revisionDate", parsed.revisionDate);
+          useDrawingPipelineStore.getState().updateDrawing(d.id, "revisionDate", parsed.revisionDate);
         }
         if (parsed.revisionDescription) {
-          useDrawingsStore.getState().updateDrawing(d.id, "revisionDescription", parsed.revisionDescription);
+          useDrawingPipelineStore.getState().updateDrawing(d.id, "revisionDescription", parsed.revisionDescription);
         }
         if (parsed.issuedFor) {
-          useDrawingsStore.getState().updateDrawing(d.id, "issuedFor", parsed.issuedFor);
+          useDrawingPipelineStore.getState().updateDrawing(d.id, "issuedFor", parsed.issuedFor);
         }
 
         // Extract project metadata from title block (tries up to 3 sheets)
@@ -693,7 +690,7 @@ export async function autoLabelDrawings(drawingIds) {
 
   // Post-label: infer building params from sheet titles
   try {
-    const labeledDrawings = useDrawingsStore.getState().drawings;
+    const labeledDrawings = useDrawingPipelineStore.getState().drawings;
     const proj = useProjectStore.getState().project;
 
     if (!proj.floorCount || parseInt(proj.floorCount) === 0) {
@@ -805,15 +802,15 @@ export async function autoLabelDrawings(drawingIds) {
     /* revision detection non-critical */
   }
 
-  useDrawingsStore.getState().setAiLabelLoading(false);
-  useDrawingsStore.getState().setAutoLabelProgress(null);
+  useDrawingPipelineStore.getState().setAiLabelLoading(false);
+  useDrawingPipelineStore.getState().setAutoLabelProgress(null);
 
   // ── Auto-parse symbol legends (non-blocking) ──
   // Now that sheets are labeled, scan for legend/cover sheets and parse symbols.
   // Results are cached in legendStore and injected into all future Vision predictions.
   try {
     const { scanForLegends } = await import("@/utils/legendParser");
-    const currentDrawings = useDrawingsStore.getState().drawings;
+    const currentDrawings = useDrawingPipelineStore.getState().drawings;
     scanForLegends(currentDrawings).then(parsed => {
       if (parsed > 0) {
         useUiStore.getState().showToast(
@@ -833,8 +830,8 @@ export async function autoLabelDrawings(drawingIds) {
 
 // ─── Auto-detect building outlines ──────────────────────────────────────────
 export async function autoDetectOutlines() {
-  const allDrawings = useDrawingsStore.getState().drawings;
-  const existingOutlines = useModelStore.getState().outlines;
+  const allDrawings = useDrawingPipelineStore.getState().drawings;
+  const existingOutlines = useDrawingPipelineStore.getState().outlines;
 
   const floorPlanPatterns = [
     /floor\s*plan/i,
@@ -896,7 +893,7 @@ export async function autoDetectOutlines() {
       const result = await detectBuildingOutline(d.id);
       if (result.polygon && result.polygon.length >= 3) {
         const feetPolygon = outlineToFeet(result.polygon, d.id);
-        useModelStore.getState().setOutline(d.id, feetPolygon, "ai", result.polygon);
+        useDrawingPipelineStore.getState().setOutline(d.id, feetPolygon, "ai", result.polygon);
         detected++;
         const area = computePolygonArea(feetPolygon);
         if (area > 0 && detected === 1) {
@@ -931,7 +928,7 @@ export async function processSpecBook(file) {
     r.onerror = () => rej(new Error("Read failed"));
     r.readAsDataURL(file);
   });
-  useSpecsStore.getState().setSpecPdf({ name: file.name, data });
+  useDocumentManagementStore.getState().setSpecPdf({ name: file.name, data });
   const base64 = data.split(",")[1];
   if (!base64 || base64.length < 100) return 0;
 
@@ -964,8 +961,8 @@ export async function processSpecBook(file) {
         requirements: [],
         allocated: false,
       }));
-      const curSpecs = useSpecsStore.getState().specs;
-      useSpecsStore.getState().setSpecs([...curSpecs, ...newSpecs]);
+      const curSpecs = useDocumentManagementStore.getState().specs;
+      useDocumentManagementStore.getState().setSpecs([...curSpecs, ...newSpecs]);
       return newSpecs.length;
     }
   } catch {
@@ -1262,7 +1259,7 @@ export async function handleFileUpload(files, options = {}) {
   const classified = { rfp: [], specification: [], drawing: [], general: [] };
 
   for (const file of files) {
-    const currentDocs = useDocumentsStore.getState().documents;
+    const currentDocs = useDocumentManagementStore.getState().documents;
     if (isDuplicateFile(file.name, currentDocs)) {
       showToast(`${file.name} already uploaded — skipping`, "warn");
       continue;
@@ -1302,7 +1299,7 @@ export async function handleFileUpload(files, options = {}) {
             ? "Parsing specifications..."
             : "Stored";
 
-    const doc = useDocumentsStore.getState().addDocument({
+    const doc = useDocumentManagementStore.getState().addDocument({
       filename: file.name,
       contentType: file.type,
       size: file.size,
@@ -1319,7 +1316,7 @@ export async function handleFileUpload(files, options = {}) {
         r.onerror = () => res(null);
         r.readAsDataURL(file);
       });
-      useDocumentsStore
+      useDocumentManagementStore
         .getState()
         .updateDocument(doc.id, { data, processingStatus: "complete", processingMessage: "Stored" });
     }
@@ -1339,14 +1336,14 @@ export async function handleFileUpload(files, options = {}) {
   for (const { file, docId } of classified.rfp) {
     try {
       const fieldCount = await extractBidInfoFromDocument(file);
-      useDocumentsStore.getState().updateDocument(docId, {
+      useDocumentManagementStore.getState().updateDocument(docId, {
         processingStatus: "complete",
         processingMessage: fieldCount > 0 ? `${fieldCount} bid fields extracted` : "Analyzed — no bid fields found",
       });
       if (fieldCount >= 3) bidInfoExtracted = true;
       showToast(`${file.name}: ${fieldCount} bid fields extracted`);
     } catch (err) {
-      useDocumentsStore.getState().updateDocument(docId, {
+      useDocumentManagementStore.getState().updateDocument(docId, {
         processingStatus: "error",
         processingError: err.message,
         processingMessage: "RFP extraction failed",
@@ -1365,13 +1362,13 @@ export async function handleFileUpload(files, options = {}) {
         if (rfpFields >= 3) bidInfoExtracted = true;
       }
       const sectionCount = await processSpecBook(file);
-      useDocumentsStore.getState().updateDocument(docId, {
+      useDocumentManagementStore.getState().updateDocument(docId, {
         processingStatus: "complete",
         processingMessage: `${sectionCount} sections parsed`,
       });
       showToast(`${file.name}: ${sectionCount} spec sections parsed`);
     } catch (err) {
-      useDocumentsStore.getState().updateDocument(docId, {
+      useDocumentManagementStore.getState().updateDocument(docId, {
         processingStatus: "error",
         processingError: err.message,
         processingMessage: "Parse failed",
@@ -1398,7 +1395,7 @@ export async function handleFileUpload(files, options = {}) {
   for (const { file, docId } of classified.drawing) {
     try {
       const drawingIds = await extractDrawingPages(file, { isRendering: options.isRendering });
-      useDocumentsStore.getState().updateDocument(docId, {
+      useDocumentManagementStore.getState().updateDocument(docId, {
         processingMessage: `${drawingIds.length} pages extracted — labeling...`,
         pageCount: drawingIds.length,
         drawingIds,
@@ -1406,7 +1403,7 @@ export async function handleFileUpload(files, options = {}) {
       drawingDocIds.push({ docId, drawingIds });
       showToast(`${file.name}: ${drawingIds.length} sheets extracted`);
     } catch (err) {
-      useDocumentsStore.getState().updateDocument(docId, {
+      useDocumentManagementStore.getState().updateDocument(docId, {
         processingStatus: "error",
         processingError: err.message,
         processingMessage: "Extraction failed",
@@ -1421,7 +1418,7 @@ export async function handleFileUpload(files, options = {}) {
 
     // Step 4a: Auto-label (with 3-minute timeout so scan always runs even if labeling stalls)
     for (const { docId } of drawingDocIds) {
-      useDocumentsStore.getState().updateDocument(docId, { processingMessage: "NOVA labeling sheets..." });
+      useDocumentManagementStore.getState().updateDocument(docId, { processingMessage: "NOVA labeling sheets..." });
     }
     try {
       await Promise.race([
@@ -1429,7 +1426,7 @@ export async function handleFileUpload(files, options = {}) {
         new Promise((_, reject) => setTimeout(() => reject(new Error("Labeling timed out")), 180_000)),
       ]);
       for (const { docId } of drawingDocIds) {
-        useDocumentsStore
+        useDocumentManagementStore
           .getState()
           .updateDocument(docId, { processingMessage: "Labeled — scanning for schedules..." });
       }
@@ -1448,7 +1445,7 @@ export async function handleFileUpload(files, options = {}) {
     } catch (err) {
       console.warn("[uploadPipeline] Labeling failed/timed out:", err.message);
       for (const { docId } of drawingDocIds) {
-        useDocumentsStore
+        useDocumentManagementStore
           .getState()
           .updateDocument(docId, { processingMessage: `Label incomplete — proceeding to scan...` });
       }
@@ -1461,8 +1458,8 @@ export async function handleFileUpload(files, options = {}) {
         onComplete: () => {
           if (bidInfoExtracted) {
             // User was auto-advanced — mark results as pending review
-            import("@/stores/scanStore").then(m => {
-              m.useScanStore.getState().setScanResultsPending(true);
+            import("@/stores/drawingPipelineStore").then(m => {
+              m.useDrawingPipelineStore.getState().setScanResultsPending(true);
             });
             showToast("NOVA scan complete — review schedule results in Plan Room");
           }
@@ -1471,19 +1468,19 @@ export async function handleFileUpload(files, options = {}) {
       });
       for (const { docId, drawingIds } of drawingDocIds) {
         const count = drawingIds.length;
-        const sr = (await import("@/stores/scanStore")).useScanStore.getState().scanResults;
+        const sr = (await import("@/stores/drawingPipelineStore")).useDrawingPipelineStore.getState().scanResults;
         const schedCount = sr?.schedules?.length || 0;
         const romRange = sr?.rom?.totals
           ? `ROM $${Math.round(sr.rom.totals.low / 1000)}K–$${Math.round(sr.rom.totals.high / 1000)}K`
           : "";
-        useDocumentsStore.getState().updateDocument(docId, {
+        useDocumentManagementStore.getState().updateDocument(docId, {
           processingStatus: "complete",
           processingMessage: `${count} sheets • ${schedCount} schedules${romRange ? ` • ${romRange}` : ""}`,
         });
       }
     } catch {
       for (const { docId, drawingIds } of drawingDocIds) {
-        useDocumentsStore.getState().updateDocument(docId, {
+        useDocumentManagementStore.getState().updateDocument(docId, {
           processingStatus: "complete",
           processingMessage: `${drawingIds.length} sheets labeled (scan skipped)`,
         });
@@ -1503,7 +1500,7 @@ export async function handleFileUpload(files, options = {}) {
     // and re-scan with the complete drawing set.
     try {
       const { rescanDrawings } = await import("@/utils/discoveryScan");
-      const allDrawings = useDrawingsStore.getState().drawings;
+      const allDrawings = useDrawingPipelineStore.getState().drawings;
       if (allDrawings.length > 0) {
         rescanDrawings(allDrawings).catch(err => {
           console.warn("[uploadPipeline] Discovery scan failed (non-critical):", err.message);

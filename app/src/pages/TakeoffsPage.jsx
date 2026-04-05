@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -39,30 +38,30 @@ export default function TakeoffsPage() {
   const assemblies = useDatabaseStore(s => s.assemblies);
 
   // Drawings store
-  const drawings = useDrawingsStore(s => s.drawings);
-  const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
-  const setSelectedDrawingId = useDrawingsStore(s => s.setSelectedDrawingId);
-  const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
-  const drawingScales = useDrawingsStore(s => s.drawingScales);
-  const drawingDpi = useDrawingsStore(s => s.drawingDpi);
-  const buildSheetIndex = useDrawingsStore(s => s.buildSheetIndex);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
+  const setSelectedDrawingId = useDrawingPipelineStore(s => s.setSelectedDrawingId);
+  const pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
+  const drawingScales = useDrawingPipelineStore(s => s.drawingScales);
+  const drawingDpi = useDrawingPipelineStore(s => s.drawingDpi);
+  const buildSheetIndex = useDrawingPipelineStore(s => s.buildSheetIndex);
 
   // Takeoffs store
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const setTakeoffs = useTakeoffsStore(s => s.setTakeoffs);
-  const tkTool = useTakeoffsStore(s => s.tkTool);
-  const setTkTool = useTakeoffsStore(s => s.setTkTool);
-  const tkActivePoints = useTakeoffsStore(s => s.tkActivePoints);
-  const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
-  const tkSelectedTakeoffId = useTakeoffsStore(s => s.tkSelectedTakeoffId);
-  const setTkSelectedTakeoffId = useTakeoffsStore(s => s.setTkSelectedTakeoffId);
-  const tkMeasureState = useTakeoffsStore(s => s.tkMeasureState);
-  const tkCursorPt = useTakeoffsStore(s => s.tkCursorPt);
-  const tkCalibrations = useTakeoffsStore(s => s.tkCalibrations);
-  const tkNewInput = useTakeoffsStore(s => s.tkNewInput);
-  const tkVisibility = useTakeoffsStore(s => s.tkVisibility);
-  const setTkVisibility = useTakeoffsStore(s => s.setTkVisibility);
-  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const setTakeoffs = useDrawingPipelineStore(s => s.setTakeoffs);
+  const tkTool = useDrawingPipelineStore(s => s.tkTool);
+  const setTkTool = useDrawingPipelineStore(s => s.setTkTool);
+  const tkActivePoints = useDrawingPipelineStore(s => s.tkActivePoints);
+  const tkActiveTakeoffId = useDrawingPipelineStore(s => s.tkActiveTakeoffId);
+  const tkSelectedTakeoffId = useDrawingPipelineStore(s => s.tkSelectedTakeoffId);
+  const setTkSelectedTakeoffId = useDrawingPipelineStore(s => s.setTkSelectedTakeoffId);
+  const tkMeasureState = useDrawingPipelineStore(s => s.tkMeasureState);
+  const tkCursorPt = useDrawingPipelineStore(s => s.tkCursorPt);
+  const tkCalibrations = useDrawingPipelineStore(s => s.tkCalibrations);
+  const tkNewInput = useDrawingPipelineStore(s => s.tkNewInput);
+  const tkVisibility = useDrawingPipelineStore(s => s.tkVisibility);
+  const setTkVisibility = useDrawingPipelineStore(s => s.setTkVisibility);
+  const tkPanelTier = useDrawingPipelineStore(s => s.tkPanelTier);
 
   const activeModule = useModuleStore(s => s.activeModule);
   const setActiveModule = useModuleStore(s => s.setActiveModule);
@@ -163,7 +162,7 @@ export default function TakeoffsPage() {
   useEffect(() => {
     const savedVis = sessionStorage.getItem("bldg-tkVisibility");
     if (savedVis && ["all", "page", "active"].includes(savedVis)) {
-      useTakeoffsStore.getState().setTkVisibility(savedVis);
+      useDrawingPipelineStore.getState().setTkVisibility(savedVis);
     }
   }, []);
   useEffect(() => { sessionStorage.setItem("bldg-tkVisibility", tkVisibility); }, [tkVisibility]);
@@ -174,11 +173,11 @@ export default function TakeoffsPage() {
     const savedTier = sessionStorage.getItem("bldg-tkPanelTier");
     if (savedW) {
       const w = Number(savedW);
-      if (w >= 280 && w <= 1000) useTakeoffsStore.getState().setTkPanelWidth(w);
+      if (w >= 280 && w <= 1000) useDrawingPipelineStore.getState().setTkPanelWidth(w);
     }
     if (savedTier && ["compact", "standard", "full", "estimate"].includes(savedTier)) {
-      useTakeoffsStore.getState().setTkPanelTier(savedTier);
-      if (savedTier === "estimate") useTakeoffsStore.getState().setTkPanelOpen(false);
+      useDrawingPipelineStore.getState().setTkPanelTier(savedTier);
+      if (savedTier === "estimate") useDrawingPipelineStore.getState().setTkPanelOpen(false);
     }
   }, []);
 
@@ -561,7 +560,7 @@ export default function TakeoffsPage() {
         onRunAnalysis={runDrawingAnalysis}
         onRunSchedules={runPdfScheduleScan}
         onRunGeometry={runGeometryAnalysis}
-        onAutoCount={() => useTakeoffsStore.getState().setTkAutoCount({ phase: "select" })}
+        onAutoCount={() => useDrawingPipelineStore.getState().setTkAutoCount({ phase: "select" })}
         getMeasuredQty={getMeasuredQty}
       />
     </div>

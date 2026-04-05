@@ -12,10 +12,9 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useScanStore } from "@/stores/scanStore";
-import { useDocumentsStore } from "@/stores/documentsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -28,9 +27,9 @@ import { getScaleLabel } from "@/utils/drawingUtils";
 function DrawingIndex() {
   const C = useTheme();
   const T = C.T;
-  const drawings = useDrawingsStore(s => s.drawings);
-  const drawingScales = useDrawingsStore(s => s.drawingScales);
-  const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const drawingScales = useDrawingPipelineStore(s => s.drawingScales);
+  const pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
   const [expanded, setExpanded] = useState(false);
   const [discipline, setDiscipline] = useState(null);
   const [previewId, setPreviewId] = useState(null);
@@ -123,7 +122,7 @@ function DrawingIndex() {
               )}
             </div>
             <input value={d.sheetNumber || ""} placeholder="—"
-              onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", e.target.value)}
+              onChange={e => useDrawingPipelineStore.getState().updateDrawing(d.id, "sheetNumber", e.target.value)}
               onClick={e => e.stopPropagation()}
               style={{
                 fontFamily: T.font.sans, fontWeight: 700, color: C.accent,
@@ -134,7 +133,7 @@ function DrawingIndex() {
               onBlur={e => { e.target.style.borderColor = "transparent"; e.target.style.background = "transparent"; }}
             />
             <input value={d.sheetTitle || ""} placeholder={d.label || "Untitled"}
-              onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", e.target.value)}
+              onChange={e => useDrawingPipelineStore.getState().updateDrawing(d.id, "sheetTitle", e.target.value)}
               onClick={e => e.stopPropagation()}
               style={{
                 flex: 1, color: C.text, fontSize: 10, background: "transparent",
@@ -335,12 +334,12 @@ export default function DocumentsPage() {
   const estId = activeEstimateId || estimateId;
 
   const project = useProjectStore(s => s.project);
-  const drawings = useDrawingsStore(s => s.drawings);
-  const documents = useDocumentsStore(s => s.documents);
-  const removeDocument = useDocumentsStore(s => s.removeDocument);
-  const scanProgress = useScanStore(s => s.scanProgress);
-  const scanResults = useScanStore(s => s.scanResults);
-  const stopScan = useScanStore(s => s.stopScan);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const documents = useDocumentManagementStore(s => s.documents);
+  const removeDocument = useDocumentManagementStore(s => s.removeDocument);
+  const scanProgress = useDrawingPipelineStore(s => s.scanProgress);
+  const scanResults = useDrawingPipelineStore(s => s.scanResults);
+  const stopScan = useDrawingPipelineStore(s => s.stopScan);
   const showToast = useUiStore(s => s.showToast);
 
   const [dragOver, setDragOver] = useState(false);
@@ -358,14 +357,14 @@ export default function DocumentsPage() {
   // Stale processing recovery
   useEffect(() => {
     const interval = setInterval(() => {
-      const docs = useDocumentsStore.getState().documents;
+      const docs = useDocumentManagementStore.getState().documents;
       const fiveMinAgo = Date.now() - 5 * 60 * 1000;
       docs.forEach(d => {
         if (d.processingStatus === "processing" && d.uploadDate) {
           const uploadTime = new Date(d.uploadDate).getTime();
           if (uploadTime < fiveMinAgo) {
             const isDrawingDoc = d.docType === "drawing";
-            useDocumentsStore.getState().updateDocument(d.id, {
+            useDocumentManagementStore.getState().updateDocument(d.id, {
               processingStatus: isDrawingDoc ? "error" : "complete",
               processingError: isDrawingDoc ? "Processing timed out" : null,
             });

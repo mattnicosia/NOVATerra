@@ -210,8 +210,8 @@ export async function exportToGLTF(elements, materialAssignments = {}, filename 
  * @param {string} filename
  */
 export async function exportModelFromStore(format = "glb", filename) {
-  const { useModelStore } = await import("@/stores/modelStore");
-  const { elements, materialAssignments } = useModelStore.getState();
+  const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
+  const { elements, materialAssignments } = useDrawingPipelineStore.getState();
 
   if (elements.length === 0) throw new Error("No elements to export");
 

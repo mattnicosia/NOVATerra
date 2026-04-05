@@ -2,7 +2,7 @@
 // Pinned to top-right of the drawing area. User can resize by dragging bottom-left corner.
 import { useState, useCallback, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
@@ -14,8 +14,8 @@ const DEFAULT_H = 350;
 export default function DetailOverlay({ drawingId, onClose }) {
   const C = useTheme();
   const T = C.T;
-  const drawings = useDrawingsStore(s => s.drawings);
-  const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
 
   const drawing = drawings.find(d => d.id === drawingId);
   const imgSrc = drawing ? (drawing.type === "pdf" ? pdfCanvases[drawing.id] || drawing.data : drawing.data) : null;

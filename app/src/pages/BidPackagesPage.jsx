@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -31,14 +31,14 @@ export default function BidPackagesPage() {
   const T = C.T;
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
   const project = useProjectStore(s => s.project);
-  const bidPackages = useBidPackagesStore(s => s.bidPackages);
-  const allInvitations = useBidPackagesStore(s => s.invitations);
-  const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
+  const bidPackages = useBidManagementStore(s => s.bidPackages);
+  const allInvitations = useBidManagementStore(s => s.invitations);
+  const subResponseIntents = useBidManagementStore(s => s.subResponseIntents);
   const user = useAuthStore(s => s.user);
   const showToast = useUiStore(s => s.showToast);
   const estimateItems = useItemsStore(s => s.items);
 
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
   const subs = useMasterDataStore(s => s.masterData.subcontractors);
 
   const [showCreate, setShowCreate] = useState(false);
@@ -137,7 +137,7 @@ export default function BidPackagesPage() {
           const { packages } = await resp.json();
           if (Array.isArray(packages)) {
             for (const pkg of packages) {
-              const oldInvites = useBidPackagesStore.getState().invitations[pkg.id] || [];
+              const oldInvites = useBidManagementStore.getState().invitations[pkg.id] || [];
               const invites = (pkg.bid_invitations || []).map(inv => ({
                 id: inv.id,
                 subCompany: inv.sub_company,
@@ -154,11 +154,11 @@ export default function BidPackagesPage() {
                 intentReason: inv.intent_reason,
                 intentAt: inv.intent_at,
               }));
-              useBidPackagesStore.getState().setPackageInvitations(pkg.id, invites);
+              useBidManagementStore.getState().setPackageInvitations(pkg.id, invites);
 
               for (const inv of invites) {
                 if (inv.intent) {
-                  useBidPackagesStore.getState().setSubResponseIntent(inv.id, inv.intent, inv.intentReason);
+                  useBidManagementStore.getState().setSubResponseIntent(inv.id, inv.intent, inv.intentReason);
                 }
               }
 

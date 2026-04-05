@@ -1028,8 +1028,3 @@ export const useDrawingPipelineStore = create((set, get) => ({
   }),
 }));
 
-// ── Backward-compatible aliases ──
-export const useDrawingsStore = useDrawingPipelineStore;
-export const useScanStore = useDrawingPipelineStore;
-export const useTakeoffsStore = useDrawingPipelineStore;
-export const useModelStore = useDrawingPipelineStore;

@@ -7,8 +7,7 @@ import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { generateElementsFromTakeoffs, getPxPerFoot } from "@/utils/geometryBuilder";
 import { buildFloorMap, inferFloorFromSheet } from "@/utils/floorAssignment";
@@ -174,8 +173,8 @@ function TakeoffElement({ element }) {
    ═══════════════════════════════════════════════════════════ */
 function RealBuilding({ onRoomSelect, selectedRoom }) {
   const [hoveredRoom, setHoveredRoom] = useState(null);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   // Generate 3D elements from takeoffs
   const elements = useMemo(() => {

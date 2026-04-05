@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
@@ -12,15 +12,15 @@ import { hasAllowance, getAllowanceFields, getItemAllowanceTotal, generateAllowa
 export default function NotesPanel({ inline = false }) {
   const C = useTheme();
   const T = C.T;
-  const exclusions = useSpecsStore(s => s.exclusions);
-  const setExclusions = useSpecsStore(s => s.setExclusions);
-  const addExclusion = useSpecsStore(s => s.addExclusion);
-  const removeExclusion = useSpecsStore(s => s.removeExclusion);
-  const clarifications = useSpecsStore(s => s.clarifications);
-  const addClarification = useSpecsStore(s => s.addClarification);
-  const updateClarification = useSpecsStore(s => s.updateClarification);
-  const removeClarification = useSpecsStore(s => s.removeClarification);
-  const aiExclusionLoading = useSpecsStore(s => s.aiExclusionLoading);
+  const exclusions = useDocumentManagementStore(s => s.exclusions);
+  const setExclusions = useDocumentManagementStore(s => s.setExclusions);
+  const addExclusion = useDocumentManagementStore(s => s.addExclusion);
+  const removeExclusion = useDocumentManagementStore(s => s.removeExclusion);
+  const clarifications = useDocumentManagementStore(s => s.clarifications);
+  const addClarification = useDocumentManagementStore(s => s.addClarification);
+  const updateClarification = useDocumentManagementStore(s => s.updateClarification);
+  const removeClarification = useDocumentManagementStore(s => s.removeClarification);
+  const aiExclusionLoading = useDocumentManagementStore(s => s.aiExclusionLoading);
   const items = useItemsStore(s => s.items);
   const setShowNotesPanel = useUiStore(s => s.setShowNotesPanel);
   const showToast = useUiStore(s => s.showToast);

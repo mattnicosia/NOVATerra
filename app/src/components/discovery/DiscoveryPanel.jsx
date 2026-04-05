@@ -11,8 +11,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { card, bt, sectionLabel } from "@/utils/styles";
 import { useDiscoveryStore, DISCOVERY_CATEGORIES } from "@/stores/discoveryStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { rescanDrawings } from "@/utils/discoveryScan";
@@ -43,7 +42,7 @@ export default function DiscoveryPanel({ onNavigateToSheet, context = "discovery
   const scanActivity = useDiscoveryStore(s => s.scanActivity);
   const discoveryIndex = useDiscoveryStore(s => s.discoveryIndex);
   const lastScanAt = useDiscoveryStore(s => s.lastScanAt);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   // Filter items
   const visibleItems = useMemo(() => {
@@ -130,8 +129,8 @@ export default function DiscoveryPanel({ onNavigateToSheet, context = "discovery
       const currentItems = useItemsStore.getState().items;
       useItemsStore.getState().setItems([...currentItems, newItem]);
 
-      const currentTakeoffs = useTakeoffsStore.getState().takeoffs;
-      useTakeoffsStore.getState().setTakeoffs([...currentTakeoffs, newTakeoff]);
+      const currentTakeoffs = useDrawingPipelineStore.getState().takeoffs;
+      useDrawingPipelineStore.getState().setTakeoffs([...currentTakeoffs, newTakeoff]);
 
       // Mark discovery as actioned
       useDiscoveryStore.getState().markTakeoffCreated(item.id, takeoffId);
@@ -155,7 +154,7 @@ export default function DiscoveryPanel({ onNavigateToSheet, context = "discovery
 
   // Rescan
   const handleRescan = useCallback(() => {
-    const dwgs = useDrawingsStore.getState().drawings;
+    const dwgs = useDrawingPipelineStore.getState().drawings;
     rescanDrawings(dwgs);
   }, []);
 

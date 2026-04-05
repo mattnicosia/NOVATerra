@@ -132,31 +132,29 @@ async function _reloadActiveEstimate(data) {
   try {
     const { useProjectStore } = await import("@/stores/projectStore");
     const { useItemsStore } = await import("@/stores/itemsStore");
-    const { useDrawingsStore } = await import("@/stores/drawingsStore");
-    const { useTakeoffsStore } = await import("@/stores/takeoffsStore");
-    const { useSpecsStore } = await import("@/stores/specsStore");
+    const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
+    const { useDocumentManagementStore } = await import("@/stores/documentManagementStore");
     const { useGroupsStore } = await import("@/stores/groupsStore");
-    const { useBidLevelingStore } = await import("@/stores/bidLevelingStore");
+    const { useBidManagementStore } = await import("@/stores/bidManagementStore");
     const { useAlternatesStore } = await import("@/stores/alternatesStore");
     const { useCorrespondenceStore } = await import("@/stores/correspondenceStore");
     const { useModuleStore } = await import("@/stores/moduleStore");
-    const { useBidPackagesStore } = await import("@/stores/bidPackagesStore");
 
     if (data.project) useProjectStore.getState().setProject(data.project);
     if (data.items !== undefined) useItemsStore.getState().setItems(data.items || []);
     if (data.markup !== undefined) useItemsStore.getState().setMarkup(data.markup);
     if (data.markupOrder) useItemsStore.getState().setMarkupOrder(data.markupOrder);
-    if (data.drawings) useDrawingsStore.getState().setDrawings(data.drawings);
-    if (data.takeoffs) useTakeoffsStore.getState().setTakeoffs(data.takeoffs);
-    if (data.specs) useSpecsStore.getState().setSpecs(data.specs);
-    if (data.exclusions) useSpecsStore.getState().setExclusions(data.exclusions);
-    if (data.clarifications) useSpecsStore.getState().setClarifications(data.clarifications);
+    if (data.drawings) useDrawingPipelineStore.getState().setDrawings(data.drawings);
+    if (data.takeoffs) useDrawingPipelineStore.getState().setTakeoffs(data.takeoffs);
+    if (data.specs) useDocumentManagementStore.getState().setSpecs(data.specs);
+    if (data.exclusions) useDocumentManagementStore.getState().setExclusions(data.exclusions);
+    if (data.clarifications) useDocumentManagementStore.getState().setClarifications(data.clarifications);
     if (data.groups) useGroupsStore.getState().setGroups(data.groups);
-    if (data.bidLeveling) useBidLevelingStore.getState().setBidLeveling(data.bidLeveling);
+    if (data.bidLeveling) useBidManagementStore.getState().setBidLeveling(data.bidLeveling);
     if (data.alternates) useAlternatesStore.getState().setAlternates(data.alternates);
     if (data.correspondence) useCorrespondenceStore.getState().setCorrespondence(data.correspondence);
     if (data.modules) useModuleStore.getState().setModules(data.modules);
-    if (data.bidPackages) useBidPackagesStore.getState().setBidPackages(data.bidPackages);
+    if (data.bidPackages) useBidManagementStore.getState().setBidPackages(data.bidPackages);
 
     console.log("[cloudSync] Active estimate reloaded from Realtime update");
     useUiStore.getState().showToast("Estimate updated from another device", "info");

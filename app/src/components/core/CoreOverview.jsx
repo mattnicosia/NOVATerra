@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
 import NovaIntelligenceMeter from "@/components/core/NovaIntelligenceMeter";
 import ConfidenceEngineAdmin from "@/components/core/ConfidenceEngineAdmin";
@@ -95,7 +95,7 @@ export default function CoreOverview() {
   const proposals = useMasterDataStore(s => s.masterData.historicalProposals || []);
   const elements = useDatabaseStore(s => s.elements);
   const assemblies = useDatabaseStore(s => s.assemblies);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   // Modals
   const [showCsvModal, setShowCsvModal] = useState(false);

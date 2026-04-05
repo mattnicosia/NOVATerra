@@ -3,7 +3,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useDatabaseUiStore } from "@/stores/databaseUiStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { UNITS, BASE_UNITS, CONVERSIONS } from "@/constants/units";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -172,7 +172,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
 
   const excludeItem = () => {
     const excText = item.directive ? `${item.directive} of ${item.description}` : item.description || "";
-    useSpecsStore.getState().addExclusion({
+    useDocumentManagementStore.getState().addExclusion({
       text: excText,
       aiText: "",
       code: item.code,
@@ -183,7 +183,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
     removeItem(item.id);
     showToast("Item excluded");
     onClose();
-    useSpecsStore.getState().setAiExclusionLoading(true);
+    useDocumentManagementStore.getState().setAiExclusionLoading(true);
     callAnthropic({
       max_tokens: 100,
       messages: [
@@ -194,12 +194,12 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
       ],
     })
       .then(text => {
-        const exs = useSpecsStore.getState().exclusions;
+        const exs = useDocumentManagementStore.getState().exclusions;
         const last = exs[exs.length - 1];
-        if (last) useSpecsStore.getState().setExclusions(exs.map(x => (x.id === last.id ? { ...x, aiText: text } : x)));
+        if (last) useDocumentManagementStore.getState().setExclusions(exs.map(x => (x.id === last.id ? { ...x, aiText: text } : x)));
       })
       .catch(() => {})
-      .finally(() => useSpecsStore.getState().setAiExclusionLoading(false));
+      .finally(() => useDocumentManagementStore.getState().setAiExclusionLoading(false));
   };
 
   const costField = (label, field) => {

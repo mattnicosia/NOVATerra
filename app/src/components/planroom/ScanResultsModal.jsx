@@ -7,7 +7,7 @@ import { bt } from "@/utils/styles";
 import { SCHEDULE_TYPES } from "@/utils/scheduleParsers";
 import { NOTE_CATEGORIES, groupNotesByTrade } from "@/utils/notesExtractor";
 import PredictiveTakeoffPanel from "@/components/planroom/PredictiveTakeoffPanel";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { generateTakeoffSuggestions } from "@/nova/predictive/generateSuggestions";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 
@@ -639,7 +639,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                           <button
                             onClick={() => {
                               const notes = allNotes.filter(n => selectedNotes.has(n._key));
-                              const { addTakeoff } = useTakeoffsStore.getState();
+                              const { addTakeoff } = useDrawingPipelineStore.getState();
                               notes.forEach(note => {
                                 const div = note.csiDivisions?.[0] ? String(note.csiDivisions[0]).padStart(2, "0") : "";
                                 const group = div ? `Div ${div}` : note.category || "Notes";

@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { I } from "@/constants/icons";
 
@@ -129,7 +129,7 @@ export default function CoreSources() {
   const elements = useDatabaseStore(s => s.elements);
   const assemblies = useDatabaseStore(s => s.assemblies);
   const proposals = useMasterDataStore(s => s.masterData.historicalProposals || []);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   // Subdivision engine stats
   const subdivisionStats = useSubdivisionStore(s => s.getStats)();

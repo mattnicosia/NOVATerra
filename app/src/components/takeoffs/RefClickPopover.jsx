@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 
 // ── Schedule type display labels ──
 const SCHEDULE_TYPE_LABELS = {
@@ -17,7 +17,7 @@ const SCHEDULE_TYPE_LABELS = {
 
 export default function RefClickPopover({ refPopover, setRefPopover, setSelectedDrawingId, setDetailOverlayId }) {
   const C = useTheme();
-  const scanResults = useScanStore(s => s.scanResults);
+  const scanResults = useDrawingPipelineStore(s => s.scanResults);
 
   // Find all schedule matches for this ref number across schedule types
   const scheduleMatches = useMemo(() => {

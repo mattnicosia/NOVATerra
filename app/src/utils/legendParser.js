@@ -12,7 +12,7 @@
  */
 
 import { callAnthropic, imageBlock, SCAN_MODEL } from "@/utils/ai";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { inferDiscipline } from "@/utils/contextAssembler";
 
@@ -73,9 +73,9 @@ export async function parseLegendFromDrawing(drawing) {
   if (!estimateId) return null;
 
   // Check if already parsed
-  if (useDrawingsStore.getState().hasLegendForDrawing(estimateId, drawing.id)) {
+  if (useDrawingPipelineStore.getState().hasLegendForDrawing(estimateId, drawing.id)) {
     console.log(`[legendParser] Already parsed legend for drawing ${drawing.id}, skipping`);
-    return useDrawingsStore.getState().getLegendsForEstimate(estimateId)
+    return useDrawingPipelineStore.getState().getLegendsForEstimate(estimateId)
       .find(l => l.drawingId === drawing.id);
   }
 
@@ -145,7 +145,7 @@ export async function parseLegendFromDrawing(drawing) {
     };
 
     // Store in legendStore (persisted to IDB)
-    useDrawingsStore.getState().addLegend(estimateId, legendEntry);
+    useDrawingPipelineStore.getState().addLegend(estimateId, legendEntry);
 
     console.log(
       `[legendParser] ✓ Parsed ${cleanedSymbols.length} symbols from ` +
@@ -174,8 +174,8 @@ export async function scanForLegends(drawings) {
   if (!estimateId) return 0;
 
   const legendSheets = drawings.filter(d =>
-    useDrawingsStore.getState().isLegendSheet(d) &&
-    !useDrawingsStore.getState().hasLegendForDrawing(estimateId, d.id)
+    useDrawingPipelineStore.getState().isLegendSheet(d) &&
+    !useDrawingPipelineStore.getState().hasLegendForDrawing(estimateId, d.id)
   );
 
   if (legendSheets.length === 0) {
@@ -208,5 +208,5 @@ export async function scanForLegends(drawings) {
 export function getLegendContext(discipline) {
   const estimateId = useEstimatesStore.getState().activeEstimateId;
   if (!estimateId) return "";
-  return useDrawingsStore.getState().buildLegendContext(estimateId, discipline);
+  return useDrawingPipelineStore.getState().buildLegendContext(estimateId, discipline);
 }

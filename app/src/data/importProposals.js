@@ -3,7 +3,7 @@
 // Run once per version, then the data persists in IDB + cloud sync.
 
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
@@ -328,7 +328,7 @@ export async function importBatchParsedProposals() {
 // This is the critical step that was missing — without this, proposals don't calibrate the ROM.
 export async function calibrateFromImportedProposals() {
   // Check if already calibrated — BUT if 0 learning records exist, force recalibration
-  const scanStore = useScanStore.getState();
+  const scanStore = useDrawingPipelineStore.getState();
   const existingRecords = scanStore.learningRecords || [];
   if (localStorage.getItem(CALIBRATION_KEY) && existingRecords.length > 0) return false;
 

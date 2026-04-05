@@ -2,11 +2,10 @@
 // Chat-first layout, 2×2/2×3 preset grid, proposal cards with accept/reject.
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -34,19 +33,19 @@ export default function TakeoffNOVAPanel({
   const T = C.T;
 
   // ── Store state ──
-  const tkPredictions = useTakeoffsStore(s => s.tkPredictions);
-  const tkPredAccepted = useTakeoffsStore(s => s.tkPredAccepted);
-  const tkPredRejected = useTakeoffsStore(s => s.tkPredRejected);
-  const tkPredRefining = useTakeoffsStore(s => s.tkPredRefining);
-  const acceptPrediction = useTakeoffsStore(s => s.acceptPrediction);
-  const rejectPrediction = useTakeoffsStore(s => s.rejectPrediction);
-  const clearPredictions = useTakeoffsStore(s => s.clearPredictions);
-  const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
-  const tkTool = useTakeoffsStore(s => s.tkTool);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const addMeasurement = useTakeoffsStore(s => s.addMeasurement);
-  const drawings = useDrawingsStore(s => s.drawings);
-  const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
+  const tkPredictions = useDrawingPipelineStore(s => s.tkPredictions);
+  const tkPredAccepted = useDrawingPipelineStore(s => s.tkPredAccepted);
+  const tkPredRejected = useDrawingPipelineStore(s => s.tkPredRejected);
+  const tkPredRefining = useDrawingPipelineStore(s => s.tkPredRefining);
+  const acceptPrediction = useDrawingPipelineStore(s => s.acceptPrediction);
+  const rejectPrediction = useDrawingPipelineStore(s => s.rejectPrediction);
+  const clearPredictions = useDrawingPipelineStore(s => s.clearPredictions);
+  const tkActiveTakeoffId = useDrawingPipelineStore(s => s.tkActiveTakeoffId);
+  const tkTool = useDrawingPipelineStore(s => s.tkTool);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const addMeasurement = useDrawingPipelineStore(s => s.addMeasurement);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
   const project = useProjectStore(s => s.project);
   const showToast = useUiStore(s => s.showToast);
   const novaChatMessages = useUiStore(s => s.aiChatMessages);
@@ -319,7 +318,7 @@ export default function TakeoffNOVAPanel({
         project,
         items: useItemsStore.getState().items,
         takeoffs,
-        specs: useSpecsStore.getState().specs,
+        specs: useDocumentManagementStore.getState().specs,
         drawings,
       });
       const apiMsgs = updated.map((m, i) => {

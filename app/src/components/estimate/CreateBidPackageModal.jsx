@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import Modal from "@/components/shared/Modal";
@@ -28,12 +28,12 @@ export default function CreateBidPackageModal({ onClose }) {
 
   // Store data
   const items = useItemsStore(s => s.items);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
   const project = useProjectStore(s => s.project);
-  const addBidPackage = useBidPackagesStore(s => s.addBidPackage);
-  const presets = useBidPackagesStore(s => s.bidPackagePresets);
-  const addPreset = useBidPackagesStore(s => s.addPreset);
+  const addBidPackage = useBidManagementStore(s => s.addBidPackage);
+  const presets = useBidManagementStore(s => s.bidPackagePresets);
+  const addPreset = useBidManagementStore(s => s.addPreset);
   const _user = useAuthStore(s => s.user);
   const showToast = useUiStore(s => s.showToast);
 

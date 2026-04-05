@@ -18,12 +18,8 @@ const mockTakeoffsState = {
   tkNewUnit: "SF",
 };
 
-vi.mock("@/stores/takeoffsStore", () => ({
-  useTakeoffsStore: { getState: vi.fn(() => ({ ...mockTakeoffsState })) },
-}));
-
-vi.mock("@/stores/drawingsStore", () => ({
-  useDrawingsStore: { getState: vi.fn(() => ({ selectedDrawingId: null })) },
+vi.mock("@/stores/drawingPipelineStore", () => ({
+  useDrawingPipelineStore: { getState: vi.fn(() => ({ ...mockTakeoffsState, selectedDrawingId: null })) },
 }));
 
 vi.mock("@/stores/uiStore", () => ({
@@ -62,8 +58,7 @@ vi.mock("@/utils/format", () => ({
 // ── Import hook & mocked stores ────────────────────────────────
 
 import useTakeoffCRUD from "@/hooks/useTakeoffCRUD";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { uid } from "@/utils/format";
 
 // ── Test Suite ──────────────────────────────────────────────────
@@ -80,7 +75,7 @@ describe("useTakeoffCRUD", () => {
     uid.mockReturnValue("test-uid-001");
 
     // Reset mock state
-    useTakeoffsStore.getState.mockReturnValue({
+    useDrawingPipelineStore.getState.mockReturnValue({
       ...mockTakeoffsState,
       takeoffs: [...sampleTakeoffs],
       setTakeoffs: vi.fn(),
@@ -104,7 +99,7 @@ describe("useTakeoffCRUD", () => {
         result.current.updateTakeoff("to-1", "description", "Updated Slab");
       });
 
-      const setTakeoffs = useTakeoffsStore.getState().setTakeoffs;
+      const setTakeoffs = useDrawingPipelineStore.getState().setTakeoffs;
       expect(setTakeoffs).toHaveBeenCalledTimes(1);
       const updated = setTakeoffs.mock.calls[0][0];
       expect(updated.find(t => t.id === "to-1").description).toBe("Updated Slab");
@@ -116,7 +111,7 @@ describe("useTakeoffCRUD", () => {
         result.current.updateTakeoff("to-1", "quantity", "200");
       });
 
-      const updated = useTakeoffsStore.getState().setTakeoffs.mock.calls[0][0];
+      const updated = useDrawingPipelineStore.getState().setTakeoffs.mock.calls[0][0];
       const to = updated.find(t => t.id === "to-1");
       expect(to.description).toBe("Concrete Slab");
       expect(to.quantity).toBe("200");
@@ -129,7 +124,7 @@ describe("useTakeoffCRUD", () => {
         result.current.updateTakeoff("to-1", "description", "Changed");
       });
 
-      const updated = useTakeoffsStore.getState().setTakeoffs.mock.calls[0][0];
+      const updated = useDrawingPipelineStore.getState().setTakeoffs.mock.calls[0][0];
       expect(updated.find(t => t.id === "to-2")).toEqual(sampleTakeoffs[1]);
       expect(updated.find(t => t.id === "to-3")).toEqual(sampleTakeoffs[2]);
     });
@@ -140,7 +135,7 @@ describe("useTakeoffCRUD", () => {
         result.current.updateTakeoff("nonexistent", "description", "X");
       });
 
-      const updated = useTakeoffsStore.getState().setTakeoffs.mock.calls[0][0];
+      const updated = useDrawingPipelineStore.getState().setTakeoffs.mock.calls[0][0];
       expect(updated).toHaveLength(3);
       expect(updated).toEqual(sampleTakeoffs);
     });
@@ -155,7 +150,7 @@ describe("useTakeoffCRUD", () => {
         result.current.removeTakeoff("to-2");
       });
 
-      const setTakeoffs = useTakeoffsStore.getState().setTakeoffs;
+      const setTakeoffs = useDrawingPipelineStore.getState().setTakeoffs;
       const remaining = setTakeoffs.mock.calls[0][0];
       expect(remaining).toHaveLength(2);
       expect(remaining.find(t => t.id === "to-2")).toBeUndefined();
@@ -166,8 +161,8 @@ describe("useTakeoffCRUD", () => {
       const setMeasureState = vi.fn();
       const setTool = vi.fn();
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs: vi.fn(),
         tkActiveTakeoffId: "to-1",
@@ -189,8 +184,8 @@ describe("useTakeoffCRUD", () => {
     it("does not reset active state when removing a non-active takeoff", () => {
       const setActiveTakeoffId = vi.fn();
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs: vi.fn(),
         tkActiveTakeoffId: "to-1",
@@ -219,7 +214,7 @@ describe("useTakeoffCRUD", () => {
       });
 
       expect(newId).toBe("test-uid-001");
-      const setTakeoffs = useTakeoffsStore.getState().setTakeoffs;
+      const setTakeoffs = useDrawingPipelineStore.getState().setTakeoffs;
       const all = setTakeoffs.mock.calls[0][0];
       const newTo = all[all.length - 1];
       expect(newTo.id).toBe("test-uid-001");
@@ -237,7 +232,7 @@ describe("useTakeoffCRUD", () => {
         result.current.addTakeoff("Concrete", "Foundation Slab", "SF", "03-300");
       });
 
-      const all = useTakeoffsStore.getState().setTakeoffs.mock.calls[0][0];
+      const all = useDrawingPipelineStore.getState().setTakeoffs.mock.calls[0][0];
       const newTo = all[all.length - 1];
       expect(newTo.group).toBe("Concrete");
       expect(newTo.description).toBe("Foundation Slab");
@@ -251,7 +246,7 @@ describe("useTakeoffCRUD", () => {
         result.current.addTakeoff("", "Test", "SF", "", { moduleId: "mod-1", linkedItemId: "item-1" });
       });
 
-      const all = useTakeoffsStore.getState().setTakeoffs.mock.calls[0][0];
+      const all = useDrawingPipelineStore.getState().setTakeoffs.mock.calls[0][0];
       const newTo = all[all.length - 1];
       expect(newTo.moduleId).toBe("mod-1");
       expect(newTo.linkedItemId).toBe("item-1");
@@ -263,7 +258,7 @@ describe("useTakeoffCRUD", () => {
         result.current.addTakeoff("", "Test", "EA", "", { quantity: 5 });
       });
 
-      const all = useTakeoffsStore.getState().setTakeoffs.mock.calls[0][0];
+      const all = useDrawingPipelineStore.getState().setTakeoffs.mock.calls[0][0];
       const newTo = all[all.length - 1];
       expect(newTo.quantity).toBe(5);
     });
@@ -275,8 +270,8 @@ describe("useTakeoffCRUD", () => {
       const setActivePoints = vi.fn();
       const setContextMenu = vi.fn();
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs: vi.fn(),
         setTkActiveTakeoffId: setActiveTakeoffId,
@@ -286,7 +281,7 @@ describe("useTakeoffCRUD", () => {
         setTkContextMenu: setContextMenu,
         clearPredictions: vi.fn(),
       });
-      useDrawingsStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
+      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
 
       const { result } = renderHook(() => useTakeoffCRUD());
       act(() => {
@@ -301,10 +296,10 @@ describe("useTakeoffCRUD", () => {
 
     it("does not start measuring with noMeasure option", () => {
       const setActiveTakeoffId = vi.fn();
-      useDrawingsStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
+      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs: vi.fn(),
         setTkActiveTakeoffId: setActiveTakeoffId,
@@ -321,10 +316,10 @@ describe("useTakeoffCRUD", () => {
 
     it("does not start measuring without a drawing selected", () => {
       const setActiveTakeoffId = vi.fn();
-      useDrawingsStore.getState.mockReturnValue({ selectedDrawingId: null });
+      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: null });
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs: vi.fn(),
         setTkActiveTakeoffId: setActiveTakeoffId,
@@ -341,10 +336,10 @@ describe("useTakeoffCRUD", () => {
 
     it("does not start measuring without a description", () => {
       const setActiveTakeoffId = vi.fn();
-      useDrawingsStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
+      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs: vi.fn(),
         setTkActiveTakeoffId: setActiveTakeoffId,
@@ -361,8 +356,8 @@ describe("useTakeoffCRUD", () => {
 
     it("clears predictions after adding", () => {
       const clearPredictions = vi.fn();
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs: vi.fn(),
         clearPredictions,
@@ -388,7 +383,7 @@ describe("useTakeoffCRUD", () => {
       act(() => result.current.addTakeoffFreeform(undefined));
       act(() => result.current.addTakeoffFreeform("   "));
 
-      expect(useTakeoffsStore.getState().setTakeoffs).not.toHaveBeenCalled();
+      expect(useDrawingPipelineStore.getState().setTakeoffs).not.toHaveBeenCalled();
     });
 
     it("creates a takeoff from freeform text, trimmed", () => {
@@ -397,8 +392,8 @@ describe("useTakeoffCRUD", () => {
       const setTkDbResults = vi.fn();
       const clearPredictions = vi.fn();
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs,
         setTkNewInput,
@@ -430,8 +425,8 @@ describe("useTakeoffCRUD", () => {
       const setTkNewInput = vi.fn();
       const setTkDbResults = vi.fn();
 
-      useTakeoffsStore.getState.mockReturnValue({
-        ...useTakeoffsStore.getState(),
+      useDrawingPipelineStore.getState.mockReturnValue({
+        ...useDrawingPipelineStore.getState(),
         takeoffs: [...sampleTakeoffs],
         setTakeoffs,
         setTkNewInput,

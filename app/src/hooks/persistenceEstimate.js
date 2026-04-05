@@ -9,23 +9,18 @@ import { storage } from "@/utils/storage";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useCorrespondenceStore } from "@/stores/correspondenceStore";
-import { useDocumentsStore } from "@/stores/documentsStore";
 import { useModuleStore, migrateModuleInstances } from "@/stores/moduleStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useScanStore } from "@/stores/scanStore";
 import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
-import { useModelStore } from "@/stores/modelStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
 import { useAuthStore } from "@/stores/authStore";
@@ -217,7 +212,7 @@ export async function loadEstimate(id) {
     const projectData = data.project || useProjectStore.getState().project;
     if (projectData.setupComplete === undefined) projectData.setupComplete = true;
     useProjectStore.getState().setProject(projectData);
-    useTakeoffsStore.getState().clearPredictions();
+    useDrawingPipelineStore.getState().clearPredictions();
     useProjectStore.getState().setCodeSystem(data.codeSystem || "csi-commercial");
     useProjectStore.getState().setCustomCodes(data.customCodes || {});
     // Migrate: ensure all items have bidContext
@@ -255,9 +250,9 @@ export async function loadEstimate(id) {
     useItemsStore.getState().setCustomMarkups(data.customMarkups || []);
     useItemsStore.getState().setChangeOrders(data.changeOrders || []);
     useItemsStore.getState().setProjectAssemblies(data.projectAssemblies || []);
-    useDrawingsStore.getState().setDrawings(data.drawings || []);
-    useDrawingsStore.getState().setDrawingScales(data.drawingScales || {});
-    useDrawingsStore.getState().setDrawingDpi(data.drawingDpi || {});
+    useDrawingPipelineStore.getState().setDrawings(data.drawings || []);
+    useDrawingPipelineStore.getState().setDrawingScales(data.drawingScales || {});
+    useDrawingPipelineStore.getState().setDrawingDpi(data.drawingDpi || {});
     // Migrate takeoff data: rename builderId→moduleId, builderItemId→moduleItemId
     const migratedTakeoffs = (data.takeoffs || []).map(t => {
       if (t.builderId !== undefined && t.moduleId === undefined) {
@@ -270,24 +265,24 @@ export async function loadEstimate(id) {
     const takeoffsWithContext = migratedTakeoffs.map(t =>
       t.bidContext !== undefined ? t : { ...t, bidContext: "base" },
     );
-    useTakeoffsStore.getState().setTakeoffs(takeoffsWithContext);
-    useTakeoffsStore.getState().setTkCalibrations(data.tkCalibrations || {});
-    useBidLevelingStore.getState().setSubBidSubs(data.subBidSubs || {});
-    useBidLevelingStore.getState().setBidTotals(data.bidTotals || {});
-    useBidLevelingStore.getState().setBidCells(data.bidCells || {});
-    useBidLevelingStore.getState().setBidSelections(data.bidSelections || {});
-    useBidLevelingStore.getState().setLinkedSubs(data.linkedSubs || []);
-    useBidLevelingStore.getState().setSubKeyLabels(data.subKeyLabels || {});
-    useBidLevelingStore.getState().setPreferredSubs(data.preferredSubs || {});
-    useSpecsStore.getState().setSpecs(data.specs || []);
-    useSpecsStore.getState().setSpecPdf(data.specPdf || null);
-    useSpecsStore.getState().setExclusions(data.exclusions || []);
-    useSpecsStore.getState().setClarifications(data.clarifications || []);
+    useDrawingPipelineStore.getState().setTakeoffs(takeoffsWithContext);
+    useDrawingPipelineStore.getState().setTkCalibrations(data.tkCalibrations || {});
+    useBidManagementStore.getState().setSubBidSubs(data.subBidSubs || {});
+    useBidManagementStore.getState().setBidTotals(data.bidTotals || {});
+    useBidManagementStore.getState().setBidCells(data.bidCells || {});
+    useBidManagementStore.getState().setBidSelections(data.bidSelections || {});
+    useBidManagementStore.getState().setLinkedSubs(data.linkedSubs || []);
+    useBidManagementStore.getState().setSubKeyLabels(data.subKeyLabels || {});
+    useBidManagementStore.getState().setPreferredSubs(data.preferredSubs || {});
+    useDocumentManagementStore.getState().setSpecs(data.specs || []);
+    useDocumentManagementStore.getState().setSpecPdf(data.specPdf || null);
+    useDocumentManagementStore.getState().setExclusions(data.exclusions || []);
+    useDocumentManagementStore.getState().setClarifications(data.clarifications || []);
     useAlternatesStore.getState().setAlternates(data.alternates || []);
     useCorrespondenceStore.getState().setCorrespondences(data.correspondences || []);
-    useDocumentsStore.getState().setDocuments(data.documents || []);
-    useDocumentsStore.getState().setTagPalette(data.docTagPalette || []);
-    useDocumentsStore.getState().setTransmittals(data.docTransmittals || []);
+    useDocumentManagementStore.getState().setDocuments(data.documents || []);
+    useDocumentManagementStore.getState().setTagPalette(data.docTagPalette || []);
+    useDocumentManagementStore.getState().setTransmittals(data.docTransmittals || []);
     useCorrectionStore.getState().setCorrections(data.novaCorrections || []);
     useCorrectionStore.getState().setGlobalPatterns(data.novaCorrectionPatterns || []);
     useFirmMemoryStore.getState().setFirms(data.novaFirmMemory || {});
@@ -308,9 +303,9 @@ export async function loadEstimate(id) {
 
     // Restore scan results if present
     if (data.scanResults) {
-      useScanStore.getState().setScanResults(data.scanResults);
+      useDrawingPipelineStore.getState().setScanResults(data.scanResults);
     } else {
-      useScanStore.getState().clearScan();
+      useDrawingPipelineStore.getState().clearScan();
     }
 
     // Restore discovery index if present
@@ -324,10 +319,10 @@ export async function loadEstimate(id) {
     useGroupsStore.getState().setGroups(data.groups || [...DEFAULT_GROUPS]);
 
     // Load bid packages
-    useBidPackagesStore.getState().setBidPackages(data.bidPackages || []);
-    useBidPackagesStore.getState().setInvitations(data.bidInvitations || {});
-    useBidPackagesStore.getState().setProposals(data.bidProposals || {});
-    useBidPackagesStore.getState().setScopeGapResults(data.bidScopeGapResults || {});
+    useBidManagementStore.getState().setBidPackages(data.bidPackages || []);
+    useBidManagementStore.getState().setInvitations(data.bidInvitations || {});
+    useBidManagementStore.getState().setProposals(data.bidProposals || {});
+    useBidManagementStore.getState().setScopeGapResults(data.bidScopeGapResults || {});
 
     // One-time migration: if user cost library is empty but estimate has elements,
     // seed the global library from this estimate's elements (first load after architecture change)
@@ -349,18 +344,18 @@ export async function loadEstimate(id) {
     if (data.subdivisionLlm) useSubdivisionStore.getState().setLlmRefinements(data.subdivisionLlm);
 
     // Restore 3D model metadata
-    useModelStore.getState().reset();
-    if (data.modelOutlines) useModelStore.setState({ outlines: data.modelOutlines });
-    if (data.modelFloorAssignments) useModelStore.setState({ floorAssignments: data.modelFloorAssignments });
-    if (data.modelFloorHeight) useModelStore.setState({ floorHeight: data.modelFloorHeight });
-    if (data.modelFloorHeights) useModelStore.setState({ floorHeights: data.modelFloorHeights });
-    if (data.modelSpecOverrides) useModelStore.setState({ specOverrides: data.modelSpecOverrides });
-    if (data.modelMaterialAssignments) useModelStore.setState({ materialAssignments: data.modelMaterialAssignments });
-    if (data.modelViewMode) useModelStore.setState({ viewMode: data.modelViewMode });
-    if (data.modelAutoGenerated) useModelStore.setState({ autoGenerated: true });
+    useDrawingPipelineStore.getState().reset();
+    if (data.modelOutlines) useDrawingPipelineStore.setState({ outlines: data.modelOutlines });
+    if (data.modelFloorAssignments) useDrawingPipelineStore.setState({ floorAssignments: data.modelFloorAssignments });
+    if (data.modelFloorHeight) useDrawingPipelineStore.setState({ floorHeight: data.modelFloorHeight });
+    if (data.modelFloorHeights) useDrawingPipelineStore.setState({ floorHeights: data.modelFloorHeights });
+    if (data.modelSpecOverrides) useDrawingPipelineStore.setState({ specOverrides: data.modelSpecOverrides });
+    if (data.modelMaterialAssignments) useDrawingPipelineStore.setState({ materialAssignments: data.modelMaterialAssignments });
+    if (data.modelViewMode) useDrawingPipelineStore.setState({ viewMode: data.modelViewMode });
+    if (data.modelAutoGenerated) useDrawingPipelineStore.setState({ autoGenerated: true });
     if (data.modelIfcLoaded && data.modelIfcElements) {
       // IFC elements were persisted — restore them directly
-      useModelStore.setState({ elements: data.modelIfcElements, ifcLoaded: true });
+      useDrawingPipelineStore.setState({ elements: data.modelIfcElements, ifcLoaded: true });
     }
     // Note: auto-generated elements are NOT persisted — they'll be regenerated
     // from takeoffs by ModelTab's useEffect when the user opens the Model tab.
@@ -414,27 +409,27 @@ export async function saveEstimate(overrideId) {
     customMarkups: useItemsStore.getState().customMarkups,
     changeOrders: useItemsStore.getState().changeOrders,
     projectAssemblies: useItemsStore.getState().projectAssemblies,
-    drawings: useDrawingsStore.getState().drawings,
-    drawingScales: useDrawingsStore.getState().drawingScales,
-    drawingDpi: useDrawingsStore.getState().drawingDpi,
-    takeoffs: useTakeoffsStore.getState().takeoffs,
-    tkCalibrations: useTakeoffsStore.getState().tkCalibrations,
-    subBidSubs: useBidLevelingStore.getState().subBidSubs,
-    bidTotals: useBidLevelingStore.getState().bidTotals,
-    bidCells: useBidLevelingStore.getState().bidCells,
-    bidSelections: useBidLevelingStore.getState().bidSelections,
-    linkedSubs: useBidLevelingStore.getState().linkedSubs,
-    subKeyLabels: useBidLevelingStore.getState().subKeyLabels,
-    preferredSubs: useBidLevelingStore.getState().preferredSubs,
-    exclusions: useSpecsStore.getState().exclusions,
-    clarifications: useSpecsStore.getState().clarifications,
-    specs: useSpecsStore.getState().specs,
-    specPdf: useSpecsStore.getState().specPdf,
+    drawings: useDrawingPipelineStore.getState().drawings,
+    drawingScales: useDrawingPipelineStore.getState().drawingScales,
+    drawingDpi: useDrawingPipelineStore.getState().drawingDpi,
+    takeoffs: useDrawingPipelineStore.getState().takeoffs,
+    tkCalibrations: useDrawingPipelineStore.getState().tkCalibrations,
+    subBidSubs: useBidManagementStore.getState().subBidSubs,
+    bidTotals: useBidManagementStore.getState().bidTotals,
+    bidCells: useBidManagementStore.getState().bidCells,
+    bidSelections: useBidManagementStore.getState().bidSelections,
+    linkedSubs: useBidManagementStore.getState().linkedSubs,
+    subKeyLabels: useBidManagementStore.getState().subKeyLabels,
+    preferredSubs: useBidManagementStore.getState().preferredSubs,
+    exclusions: useDocumentManagementStore.getState().exclusions,
+    clarifications: useDocumentManagementStore.getState().clarifications,
+    specs: useDocumentManagementStore.getState().specs,
+    specPdf: useDocumentManagementStore.getState().specPdf,
     alternates: useAlternatesStore.getState().alternates,
     correspondences: useCorrespondenceStore.getState().correspondences,
-    documents: useDocumentsStore.getState().documents,
-    docTagPalette: useDocumentsStore.getState().tagPalette,
-    docTransmittals: useDocumentsStore.getState().transmittals,
+    documents: useDocumentManagementStore.getState().documents,
+    docTagPalette: useDocumentManagementStore.getState().tagPalette,
+    docTransmittals: useDocumentManagementStore.getState().transmittals,
     novaCorrections: useCorrectionStore.getState().corrections,
     novaCorrectionPatterns: useCorrectionStore.getState().globalPatterns,
     novaFirmMemory: useFirmMemoryStore.getState().firms,
@@ -444,25 +439,25 @@ export async function saveEstimate(overrideId) {
     subdivisionData: useSubdivisionStore.getState().subdivisionData,
     subdivisionOverrides: useSubdivisionStore.getState().userOverrides,
     subdivisionLlm: useSubdivisionStore.getState().llmRefinements,
-    scanResults: useScanStore.getState().scanResults,
+    scanResults: useDrawingPipelineStore.getState().scanResults,
     discoveryIndex: useDiscoveryStore.getState().discoveryIndex,
     groups: useGroupsStore.getState().groups,
-    bidPackages: useBidPackagesStore.getState().bidPackages,
-    bidInvitations: useBidPackagesStore.getState().invitations,
-    bidProposals: useBidPackagesStore.getState().proposals,
-    bidScopeGapResults: useBidPackagesStore.getState().scopeGapResults,
+    bidPackages: useBidManagementStore.getState().bidPackages,
+    bidInvitations: useBidManagementStore.getState().invitations,
+    bidProposals: useBidManagementStore.getState().proposals,
+    bidScopeGapResults: useBidManagementStore.getState().scopeGapResults,
     // 3D model metadata (persisted to survive refresh)
-    modelOutlines: useModelStore.getState().outlines,
-    modelFloorAssignments: useModelStore.getState().floorAssignments,
-    modelFloorHeight: useModelStore.getState().floorHeight,
-    modelFloorHeights: useModelStore.getState().floorHeights,
-    modelSpecOverrides: useModelStore.getState().specOverrides,
-    modelViewMode: useModelStore.getState().viewMode,
-    modelAutoGenerated: useModelStore.getState().autoGenerated,
-    modelIfcLoaded: useModelStore.getState().ifcLoaded,
-    modelMaterialAssignments: useModelStore.getState().materialAssignments,
+    modelOutlines: useDrawingPipelineStore.getState().outlines,
+    modelFloorAssignments: useDrawingPipelineStore.getState().floorAssignments,
+    modelFloorHeight: useDrawingPipelineStore.getState().floorHeight,
+    modelFloorHeights: useDrawingPipelineStore.getState().floorHeights,
+    modelSpecOverrides: useDrawingPipelineStore.getState().specOverrides,
+    modelViewMode: useDrawingPipelineStore.getState().viewMode,
+    modelAutoGenerated: useDrawingPipelineStore.getState().autoGenerated,
+    modelIfcLoaded: useDrawingPipelineStore.getState().ifcLoaded,
+    modelMaterialAssignments: useDrawingPipelineStore.getState().materialAssignments,
     // IFC elements can't be regenerated (user uploaded a file) — persist them
-    modelIfcElements: useModelStore.getState().ifcLoaded ? useModelStore.getState().elements : undefined,
+    modelIfcElements: useDrawingPipelineStore.getState().ifcLoaded ? useDrawingPipelineStore.getState().elements : undefined,
   };
 
   // ── Merge activity timer data ──

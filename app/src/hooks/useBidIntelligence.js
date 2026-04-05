@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { generateBaselineROM } from "@/utils/romEngine";
 
 /**
@@ -21,7 +21,7 @@ import { generateBaselineROM } from "@/utils/romEngine";
 export function useBidIntelligence(parsedData, editedFields = {}) {
   const estimates = useEstimatesStore(s => s.estimatesIndex);
   const { masterData: _masterData } = useMasterDataStore();
-  const calibrationFactors = useScanStore(s => s.calibrationFactors);
+  const calibrationFactors = useDrawingPipelineStore(s => s.calibrationFactors);
 
   return useMemo(() => {
     const pd = parsedData || {};

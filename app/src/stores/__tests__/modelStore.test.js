@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useModelStore } from "@/stores/modelStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 
 describe("modelStore", () => {
   beforeEach(() => {
-    useModelStore.getState().reset();
+    useDrawingPipelineStore.getState().reset();
   });
 
   // ── Initial state ──────────────────────────────────────────────
   it("has correct initial state", () => {
-    const s = useModelStore.getState();
+    const s = useDrawingPipelineStore.getState();
     expect(s.elements).toEqual([]);
     expect(s.selectedElementId).toBeNull();
     expect(s.viewMode).toBe("trade");
@@ -26,85 +26,85 @@ describe("modelStore", () => {
 
   // ── Actions ─────────────────────────────────────────────────────
   it("sets elements", () => {
-    useModelStore.getState().setElements([{ id: "e1", type: "wall" }]);
-    expect(useModelStore.getState().elements).toHaveLength(1);
-    expect(useModelStore.getState().elements[0].id).toBe("e1");
+    useDrawingPipelineStore.getState().setElements([{ id: "e1", type: "wall" }]);
+    expect(useDrawingPipelineStore.getState().elements).toHaveLength(1);
+    expect(useDrawingPipelineStore.getState().elements[0].id).toBe("e1");
   });
 
   it("sets view mode", () => {
-    useModelStore.getState().setViewMode("cost");
-    expect(useModelStore.getState().viewMode).toBe("cost");
+    useDrawingPipelineStore.getState().setViewMode("cost");
+    expect(useDrawingPipelineStore.getState().viewMode).toBe("cost");
   });
 
   it("sets outline for a drawing", () => {
     const poly = [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 8 }];
-    useModelStore.getState().setOutline("d1", poly, "ai");
-    expect(useModelStore.getState().outlines.d1.polygon).toEqual(poly);
-    expect(useModelStore.getState().outlines.d1.source).toBe("ai");
+    useDrawingPipelineStore.getState().setOutline("d1", poly, "ai");
+    expect(useDrawingPipelineStore.getState().outlines.d1.polygon).toEqual(poly);
+    expect(useDrawingPipelineStore.getState().outlines.d1.source).toBe("ai");
   });
 
   it("sets floor height overrides", () => {
-    useModelStore.getState().setFloorHeightFor("Level 1", 14);
-    useModelStore.getState().setFloorHeightFor("Level 2", 12);
-    expect(useModelStore.getState().floorHeights["Level 1"]).toBe(14);
-    expect(useModelStore.getState().floorHeights["Level 2"]).toBe(12);
+    useDrawingPipelineStore.getState().setFloorHeightFor("Level 1", 14);
+    useDrawingPipelineStore.getState().setFloorHeightFor("Level 2", 12);
+    expect(useDrawingPipelineStore.getState().floorHeights["Level 1"]).toBe(14);
+    expect(useDrawingPipelineStore.getState().floorHeights["Level 2"]).toBe(12);
   });
 
   it("sets and clears spec overrides", () => {
-    useModelStore.getState().setSpecOverride("e1", { material: "brick", costOverride: 12 });
-    expect(useModelStore.getState().specOverrides.e1.material).toBe("brick");
+    useDrawingPipelineStore.getState().setSpecOverride("e1", { material: "brick", costOverride: 12 });
+    expect(useDrawingPipelineStore.getState().specOverrides.e1.material).toBe("brick");
 
-    useModelStore.getState().setSpecOverride("e1", { finish: "painted" });
-    expect(useModelStore.getState().specOverrides.e1.material).toBe("brick");
-    expect(useModelStore.getState().specOverrides.e1.finish).toBe("painted");
+    useDrawingPipelineStore.getState().setSpecOverride("e1", { finish: "painted" });
+    expect(useDrawingPipelineStore.getState().specOverrides.e1.material).toBe("brick");
+    expect(useDrawingPipelineStore.getState().specOverrides.e1.finish).toBe("painted");
 
-    useModelStore.getState().clearSpecOverride("e1");
-    expect(useModelStore.getState().specOverrides.e1).toBeUndefined();
+    useDrawingPipelineStore.getState().clearSpecOverride("e1");
+    expect(useDrawingPipelineStore.getState().specOverrides.e1).toBeUndefined();
   });
 
   it("toggles floor visibility", () => {
-    useModelStore.getState().toggleFloorVisibility("Level 1");
-    expect(useModelStore.getState().hiddenFloors).toContain("Level 1");
+    useDrawingPipelineStore.getState().toggleFloorVisibility("Level 1");
+    expect(useDrawingPipelineStore.getState().hiddenFloors).toContain("Level 1");
 
-    useModelStore.getState().toggleFloorVisibility("Level 1");
-    expect(useModelStore.getState().hiddenFloors).not.toContain("Level 1");
+    useDrawingPipelineStore.getState().toggleFloorVisibility("Level 1");
+    expect(useDrawingPipelineStore.getState().hiddenFloors).not.toContain("Level 1");
   });
 
   it("sets section plane Y", () => {
-    useModelStore.getState().setSectionPlaneY(24);
-    expect(useModelStore.getState().sectionPlaneY).toBe(24);
+    useDrawingPipelineStore.getState().setSectionPlaneY(24);
+    expect(useDrawingPipelineStore.getState().sectionPlaneY).toBe(24);
   });
 
   it("sets xray mode", () => {
-    useModelStore.getState().setXrayMode(true);
-    expect(useModelStore.getState().xrayMode).toBe(true);
+    useDrawingPipelineStore.getState().setXrayMode(true);
+    expect(useDrawingPipelineStore.getState().xrayMode).toBe(true);
   });
 
   it("getSelectedElement returns correct element", () => {
-    useModelStore.getState().setElements([
+    useDrawingPipelineStore.getState().setElements([
       { id: "e1", type: "wall" },
       { id: "e2", type: "slab" },
     ]);
-    useModelStore.getState().setSelectedElementId("e2");
-    expect(useModelStore.getState().getSelectedElement().type).toBe("slab");
+    useDrawingPipelineStore.getState().setSelectedElementId("e2");
+    expect(useDrawingPipelineStore.getState().getSelectedElement().type).toBe("slab");
   });
 
   it("getSelectedElement returns null when nothing selected", () => {
-    expect(useModelStore.getState().getSelectedElement()).toBeNull();
+    expect(useDrawingPipelineStore.getState().getSelectedElement()).toBeNull();
   });
 
   // ── Reset ──────────────────────────────────────────────────────
   it("reset clears all state", () => {
-    useModelStore.getState().setElements([{ id: "e1" }]);
-    useModelStore.getState().setViewMode("cost");
-    useModelStore.getState().setOutline("d1", [{ x: 0, z: 0 }], "manual");
-    useModelStore.getState().setFloorHeightFor("Level 1", 14);
-    useModelStore.getState().setSpecOverride("e1", { material: "brick" });
-    useModelStore.getState().setXrayMode(true);
+    useDrawingPipelineStore.getState().setElements([{ id: "e1" }]);
+    useDrawingPipelineStore.getState().setViewMode("cost");
+    useDrawingPipelineStore.getState().setOutline("d1", [{ x: 0, z: 0 }], "manual");
+    useDrawingPipelineStore.getState().setFloorHeightFor("Level 1", 14);
+    useDrawingPipelineStore.getState().setSpecOverride("e1", { material: "brick" });
+    useDrawingPipelineStore.getState().setXrayMode(true);
 
-    useModelStore.getState().reset();
+    useDrawingPipelineStore.getState().reset();
 
-    const s = useModelStore.getState();
+    const s = useDrawingPipelineStore.getState();
     expect(s.elements).toEqual([]);
     expect(s.viewMode).toBe("trade");
     expect(s.outlines).toEqual({});
@@ -117,12 +117,12 @@ describe("modelStore", () => {
   // These tests verify the shape of data we'll persist in the estimate blob
   describe("persistence data shape", () => {
     it("metadata fields are serializable (no functions, no circular refs)", () => {
-      useModelStore.getState().setOutline("d1", [{ x: 0, z: 0 }, { x: 10, z: 5 }], "ai");
-      useModelStore.getState().setFloorHeightFor("Level 1", 14);
-      useModelStore.getState().setSpecOverride("e1", { material: "hardie-lap", costOverride: 10.75 });
-      useModelStore.getState().setViewMode("cost");
+      useDrawingPipelineStore.getState().setOutline("d1", [{ x: 0, z: 0 }, { x: 10, z: 5 }], "ai");
+      useDrawingPipelineStore.getState().setFloorHeightFor("Level 1", 14);
+      useDrawingPipelineStore.getState().setSpecOverride("e1", { material: "hardie-lap", costOverride: 10.75 });
+      useDrawingPipelineStore.getState().setViewMode("cost");
 
-      const s = useModelStore.getState();
+      const s = useDrawingPipelineStore.getState();
       const persistable = {
         outlines: s.outlines,
         floorAssignments: s.floorAssignments,
@@ -154,10 +154,10 @@ describe("modelStore", () => {
           matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
         },
       };
-      useModelStore.getState().setElements([ifcElement]);
-      useModelStore.setState({ ifcLoaded: true });
+      useDrawingPipelineStore.getState().setElements([ifcElement]);
+      useDrawingPipelineStore.setState({ ifcLoaded: true });
 
-      const s = useModelStore.getState();
+      const s = useDrawingPipelineStore.getState();
       const json = JSON.stringify(s.elements);
       const parsed = JSON.parse(json);
       expect(parsed[0].geometry.vertices).toEqual([0, 0, 0, 1, 0, 0, 1, 1, 0]);

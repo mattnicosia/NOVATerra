@@ -1,7 +1,7 @@
 // Hook: fires deadline-based auto-response triggers (48h / 24h reminders)
 // Runs on an interval, checks all active bid packages for approaching due dates
 import { useEffect, useRef } from "react";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { fireAutoResponse } from "@/utils/autoResponseEngine";
@@ -13,7 +13,7 @@ export default function useAutoResponseTimers() {
 
   useEffect(() => {
     const checkDeadlines = () => {
-      const { bidPackages, invitations } = useBidPackagesStore.getState();
+      const { bidPackages, invitations } = useBidManagementStore.getState();
       const { hasDraft, triggerConfig } = useAutoResponseStore.getState();
       const project = useProjectStore.getState().project;
 

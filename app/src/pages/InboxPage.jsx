@@ -7,7 +7,7 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { supabase } from "@/utils/supabase";
 import { loadEstimate } from "@/hooks/usePersistence";
 import { processContact } from "@/utils/contactDedup";
@@ -625,7 +625,7 @@ export default function InboxPage() {
       // Force drawings into store from local data — loadEstimate IDB round-trip
       // can lose the race with runFullScan's store read
       if (data.drawings && data.drawings.length > 0) {
-        useDrawingsStore.getState().setDrawings(data.drawings);
+        useDrawingPipelineStore.getState().setDrawings(data.drawings);
       }
       steps = setStep(steps, discoveryStepIdx, "active", "Running NOVA Discovery...");
       try {
@@ -817,7 +817,7 @@ export default function InboxPage() {
 
           // Merge drawings using version tracking
           if (newDrawings.length > 0) {
-            useDrawingsStore.getState().mergeAddendumDrawings(newDrawings, addendumNumber);
+            useDrawingPipelineStore.getState().mergeAddendumDrawings(newDrawings, addendumNumber);
           }
           steps = setStep(
             steps,

@@ -65,25 +65,16 @@ vi.mock("@/stores/uiStore", () => {
   return { useUiStore: store };
 });
 
-vi.mock("@/stores/drawingsStore", () => {
-  const state = { setDrawings: vi.fn(), setDrawingScales: vi.fn(), setDrawingDpi: vi.fn() };
+vi.mock("@/stores/drawingPipelineStore", () => {
+  const state = { setDrawings: vi.fn(), setDrawingScales: vi.fn(), setDrawingDpi: vi.fn(), setTakeoffs: vi.fn(), setTkCalibrations: vi.fn(), clearScan: vi.fn() };
   const store = () => state;
   store.getState = () => state;
   store.setState = vi.fn();
   store.subscribe = vi.fn();
-  return { useDrawingsStore: store };
+  return { useDrawingPipelineStore: store };
 });
 
-vi.mock("@/stores/takeoffsStore", () => {
-  const state = { setTakeoffs: vi.fn(), setTkCalibrations: vi.fn() };
-  const store = () => state;
-  store.getState = () => state;
-  store.setState = vi.fn();
-  store.subscribe = vi.fn();
-  return { useTakeoffsStore: store };
-});
-
-vi.mock("@/stores/bidLevelingStore", () => {
+vi.mock("@/stores/bidManagementStore", () => {
   const state = {
     setSubBidSubs: vi.fn(),
     setBidTotals: vi.fn(),
@@ -96,16 +87,16 @@ vi.mock("@/stores/bidLevelingStore", () => {
   store.getState = () => state;
   store.setState = vi.fn();
   store.subscribe = vi.fn();
-  return { useBidLevelingStore: store };
+  return { useBidManagementStore: store };
 });
 
-vi.mock("@/stores/specsStore", () => {
-  const state = { setSpecs: vi.fn(), setSpecPdf: vi.fn(), setExclusions: vi.fn(), setClarifications: vi.fn() };
+vi.mock("@/stores/documentManagementStore", () => {
+  const state = { setSpecs: vi.fn(), setSpecPdf: vi.fn(), setExclusions: vi.fn(), setClarifications: vi.fn(), setDocuments: vi.fn() };
   const store = () => state;
   store.getState = () => state;
   store.setState = vi.fn();
   store.subscribe = vi.fn();
-  return { useSpecsStore: store };
+  return { useDocumentManagementStore: store };
 });
 
 vi.mock("@/stores/alternatesStore", () => {
@@ -117,15 +108,6 @@ vi.mock("@/stores/alternatesStore", () => {
   return { useAlternatesStore: store };
 });
 
-vi.mock("@/stores/documentsStore", () => {
-  const state = { setDocuments: vi.fn() };
-  const store = () => state;
-  store.getState = () => state;
-  store.setState = vi.fn();
-  store.subscribe = vi.fn();
-  return { useDocumentsStore: store };
-});
-
 vi.mock("@/stores/moduleStore", () => {
   const state = { setModuleInstances: vi.fn(), setActiveModule: vi.fn() };
   const store = () => state;
@@ -133,15 +115,6 @@ vi.mock("@/stores/moduleStore", () => {
   store.setState = vi.fn();
   store.subscribe = vi.fn();
   return { useModuleStore: store };
-});
-
-vi.mock("@/stores/scanStore", () => {
-  const state = { clearScan: vi.fn() };
-  const store = () => state;
-  store.getState = () => state;
-  store.setState = vi.fn();
-  store.subscribe = vi.fn();
-  return { useScanStore: store };
 });
 
 vi.mock("@/stores/masterDataStore", () => {

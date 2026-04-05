@@ -9,7 +9,7 @@ import { useDatabaseStore } from "@/stores/databaseStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useTaskStore } from "@/stores/taskStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import * as cloudSync from "@/utils/cloudSync";
@@ -114,7 +114,7 @@ export async function saveTasks() {
 
 // Save bid package presets
 export async function saveBidPackagePresets() {
-  const presets = useBidPackagesStore.getState().bidPackagePresets;
+  const presets = useBidManagementStore.getState().bidPackagePresets;
   const ok = await storage.set(idbKey("bldg-bid-package-presets"), JSON.stringify(presets));
   if (!ok) {
     console.error("[usePersistence] Failed to save bid package presets");

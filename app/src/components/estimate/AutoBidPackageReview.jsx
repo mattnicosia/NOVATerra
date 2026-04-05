@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -29,12 +29,12 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
 
   // Stores
   const items = useItemsStore(s => s.items);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
   const subs = useMasterDataStore(s => s.masterData.subcontractors);
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
   const _project = useProjectStore(s => s.project);
-  const addBidPackage = useBidPackagesStore(s => s.addBidPackage);
-  const setPackageInvitations = useBidPackagesStore(s => s.setPackageInvitations);
+  const addBidPackage = useBidManagementStore(s => s.addBidPackage);
+  const setPackageInvitations = useBidManagementStore(s => s.setPackageInvitations);
   const showToast = useUiStore(s => s.showToast);
 
   // Local mutable state — store originals so unchecked items remain visible in the list

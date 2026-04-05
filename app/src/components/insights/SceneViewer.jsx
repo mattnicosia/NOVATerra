@@ -10,7 +10,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { useModelStore } from "@/stores/modelStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { getMaterial } from "@/utils/materialEngine";
 import { calculateLevelMiters } from "@/utils/pascalAlgorithms";
 
@@ -663,21 +663,21 @@ function FloorLabel({ label, elevation, xOffset }) {
 
 // ── Main Scene ───────────────────────────────────────────────────
 export default function SceneViewer() {
-  const elements = useModelStore(s => s.elements);
-  const roomElements = useModelStore(s => s.roomElements || []);
-  const selectedElementId = useModelStore(s => s.selectedElementId);
-  const hoveredElementId = useModelStore(s => s.hoveredElementId);
-  const viewMode = useModelStore(s => s.viewMode);
-  const selectElement = useModelStore(s => s.selectElement);
-  const setHoveredElement = useModelStore(s => s.setHoveredElement);
-  const outlines = useModelStore(s => s.outlines);
-  const floorAssignments = useModelStore(s => s.floorAssignments);
-  const coverageCells = useModelStore(s => s.coverageCells);
-  const floorHeight = useModelStore(s => s.floorHeight);
-  const hiddenFloors = useModelStore(s => s.hiddenFloors);
-  const sectionPlaneY = useModelStore(s => s.sectionPlaneY);
-  const xrayMode = useModelStore(s => s.xrayMode);
-  const materialAssignments = useModelStore(s => s.materialAssignments);
+  const elements = useDrawingPipelineStore(s => s.elements);
+  const roomElements = useDrawingPipelineStore(s => s.roomElements || []);
+  const selectedElementId = useDrawingPipelineStore(s => s.selectedElementId);
+  const hoveredElementId = useDrawingPipelineStore(s => s.hoveredElementId);
+  const viewMode = useDrawingPipelineStore(s => s.viewMode);
+  const selectElement = useDrawingPipelineStore(s => s.selectElement);
+  const setHoveredElement = useDrawingPipelineStore(s => s.setHoveredElement);
+  const outlines = useDrawingPipelineStore(s => s.outlines);
+  const floorAssignments = useDrawingPipelineStore(s => s.floorAssignments);
+  const coverageCells = useDrawingPipelineStore(s => s.coverageCells);
+  const floorHeight = useDrawingPipelineStore(s => s.floorHeight);
+  const hiddenFloors = useDrawingPipelineStore(s => s.hiddenFloors);
+  const sectionPlaneY = useDrawingPipelineStore(s => s.sectionPlaneY);
+  const xrayMode = useDrawingPipelineStore(s => s.xrayMode);
+  const materialAssignments = useDrawingPipelineStore(s => s.materialAssignments);
 
   const maxCost = useMemo(() => {
     const costs = elements.map(e => e.cost).filter(c => c > 0);

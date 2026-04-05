@@ -29,8 +29,7 @@
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useNovaStore } from "@/stores/novaStore";
 import { useUiStore } from "@/stores/uiStore";
 import { uid, today, nowStr } from "@/utils/format";
@@ -171,7 +170,7 @@ export async function runAutopilot({
     }
   }
 
-  const drawingCount = useDrawingsStore.getState().drawings.filter(d => d.data).length;
+  const drawingCount = useDrawingPipelineStore.getState().drawings.filter(d => d.data).length;
   onProgress("pdf", 25, `${drawingCount} drawing pages loaded`);
   checkAbort(signal);
 

@@ -7,21 +7,17 @@ import { storage } from "@/utils/storage";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useCorrespondenceStore } from "@/stores/correspondenceStore";
-import { useDocumentsStore } from "@/stores/documentsStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useScanStore } from "@/stores/scanStore";
 import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useInboxStore } from "@/stores/inboxStore";
@@ -30,7 +26,6 @@ import { useActivityTimerStore } from "@/stores/activityTimerStore";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import { useFirmMemoryStore } from "@/nova/learning/firmMemory";
 import { useSnapshotsStore } from "@/stores/snapshotsStore";
-import { useModelStore } from "@/stores/modelStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { idbKey } from "@/utils/idbKey";
@@ -76,7 +71,7 @@ export function resetAllStores() {
 
   useProjectStore.setState({ project: { name: "New Estimate" } });
   useItemsStore.setState({ items: [], customMarkups: [], changeOrders: [], projectAssemblies: [] });
-  useTakeoffsStore.setState({
+  useDrawingPipelineStore.setState({
     takeoffs: [],
     tkCalibrations: {},
     tkPredictions: null,
@@ -86,8 +81,8 @@ export function resetAllStores() {
     tkPredRefining: false,
     tkNovaPanelOpen: false,
   });
-  useDrawingsStore.setState({ drawings: [], drawingScales: {}, drawingDpi: {} });
-  useBidLevelingStore.setState({
+  useDrawingPipelineStore.setState({ drawings: [], drawingScales: {}, drawingDpi: {} });
+  useBidManagementStore.setState({
     subBidSubs: {},
     bidTotals: {},
     bidCells: {},
@@ -96,18 +91,18 @@ export function resetAllStores() {
     subKeyLabels: {},
   });
   useAlternatesStore.setState({ alternates: [] });
-  useSpecsStore.setState({ specs: [], specPdf: null, exclusions: [], clarifications: [] });
+  useDocumentManagementStore.setState({ specs: [], specPdf: null, exclusions: [], clarifications: [] });
   useCorrespondenceStore.setState({ correspondences: [] });
-  useDocumentsStore.setState({ documents: [], tagPalette: [], transmittals: [] });
+  useDocumentManagementStore.setState({ documents: [], tagPalette: [], transmittals: [] });
   useCorrectionStore.setState({ corrections: [], globalPatterns: [] });
   useFirmMemoryStore.setState({ firms: {} });
   useModuleStore.setState({ moduleInstances: {}, activeModule: null });
-  useScanStore.getState().clearScan?.();
+  useDrawingPipelineStore.getState().clearScan?.();
   useDiscoveryStore.getState().reset();
-  useBidPackagesStore.setState({ bidPackages: [], invitations: {}, proposals: {}, scopeGapResults: {} });
+  useBidManagementStore.setState({ bidPackages: [], invitations: {}, proposals: {}, scopeGapResults: {} });
   useGroupsStore.setState({ groups: [...DEFAULT_GROUPS] });
   useSubdivisionStore.getState().clearSubdivisionData?.();
-  useModelStore.getState().reset();
+  useDrawingPipelineStore.getState().reset();
 
   useCollaborationStore.getState().cleanup?.();
   useCollaborationStore.setState({ currentLock: null, isLockHolder: false, lockError: null, presenceUsers: [] });

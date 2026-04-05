@@ -3,7 +3,7 @@
 
 import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
@@ -66,10 +66,10 @@ function timeSince(dateStr) {
 
 export default function SubResponseBoard() {
   const C = useTheme();
-  const bidPackages = useBidPackagesStore(s => s.bidPackages);
-  const invitations = useBidPackagesStore(s => s.invitations);
-  const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
-  const scopeGapResults = useBidPackagesStore(s => s.scopeGapResults);
+  const bidPackages = useBidManagementStore(s => s.bidPackages);
+  const invitations = useBidManagementStore(s => s.invitations);
+  const subResponseIntents = useBidManagementStore(s => s.subResponseIntents);
+  const scopeGapResults = useBidManagementStore(s => s.scopeGapResults);
 
   // Aggregate all active invitations across packages
   const { columns, passed, kpis } = useMemo(() => {

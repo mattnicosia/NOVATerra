@@ -14,7 +14,7 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { buildFloorMap, inferFloorFromSheet } from "@/utils/floorAssignment";
 import { getPxPerFoot } from "@/utils/geometryBuilder";
@@ -136,7 +136,7 @@ function isArchitecturalFloorPlan(drawing) {
 export default function ArchitectSketch() {
   const C = useTheme();
   const T = C.T;
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   // NOVA Scan data — floor count, per-floor heights from projectStore
   const project = useProjectStore(s => s.project);

@@ -3,8 +3,8 @@ import DOMPurify from "dompurify";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -18,8 +18,8 @@ export default function BidIntelModal({ onClose }) {
   const project = useProjectStore(s => s.project);
   const items = useItemsStore(s => s.items);
   const getTotals = useItemsStore(s => s.getTotals);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const specs = useSpecsStore(s => s.specs);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const specs = useDocumentManagementStore(s => s.specs);
   const showToast = useUiStore(s => s.showToast);
 
   const [loading, setLoading] = useState(false);

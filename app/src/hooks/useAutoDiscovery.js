@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { runFullScan } from "@/utils/scanRunner";
@@ -28,9 +27,9 @@ export function useAutoDiscovery() {
 
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
-  const drawingsCount = useDrawingsStore(s => s.drawings.length);
-  const scanResults = useScanStore(s => s.scanResults);
-  const scanPhase = useScanStore(s => s.scanProgress.phase);
+  const drawingsCount = useDrawingPipelineStore(s => s.drawings.length);
+  const scanResults = useDrawingPipelineStore(s => s.scanResults);
+  const scanPhase = useDrawingPipelineStore(s => s.scanProgress.phase);
 
   useEffect(() => {
     // Clear timer on any dependency change (re-evaluate from scratch)
@@ -61,9 +60,9 @@ export function useAutoDiscovery() {
     // scan results (which load slightly after drawings)
     timerRef.current = setTimeout(() => {
       // Re-check from fresh store state (not stale closure)
-      const freshDrawings = useDrawingsStore.getState().drawings;
-      const freshResults = useScanStore.getState().scanResults;
-      const freshProgress = useScanStore.getState().scanProgress;
+      const freshDrawings = useDrawingPipelineStore.getState().drawings;
+      const freshResults = useDrawingPipelineStore.getState().scanResults;
+      const freshProgress = useDrawingPipelineStore.getState().scanProgress;
       const freshEstId = useEstimatesStore.getState().activeEstimateId;
 
       if (!freshEstId) return;
@@ -87,7 +86,7 @@ export function useAutoDiscovery() {
 
       // Set scanResultsPending so PlanRoomPage auto-opens results modal
       // when the user eventually navigates there
-      useScanStore.getState().setScanResultsPending(true);
+      useDrawingPipelineStore.getState().setScanResultsPending(true);
 
       runFullScan({
         onComplete: () => {

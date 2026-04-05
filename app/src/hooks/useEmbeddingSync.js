@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useDatabaseStore } from '@/stores/databaseStore';
 import { useMasterDataStore } from '@/stores/masterDataStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
+import { useDrawingPipelineStore } from '@/stores/drawingPipelineStore';
 import { useAuthStore } from '@/stores/authStore';
 import { embedAndStore } from '@/utils/vectorSearch';
 import { buildNotesEmbeddingText } from '@/utils/notesExtractor';
@@ -151,7 +151,7 @@ export function useEmbeddingSync() {
   useEffect(() => {
     if (!user) return;
 
-    const unsub = useDrawingsStore.subscribe((state) => {
+    const unsub = useDrawingPipelineStore.subscribe((state) => {
       const drawings = state.drawings;
       if (!drawings?.length) return;
 

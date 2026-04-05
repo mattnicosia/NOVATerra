@@ -8,18 +8,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the stores that getPxPerFoot reads from
-vi.mock("@/stores/drawingsStore", () => ({
-  useDrawingsStore: {
+vi.mock("@/stores/drawingPipelineStore", () => ({
+  useDrawingPipelineStore: {
     getState: () => ({
       drawingScales: {},
       drawingDpi: {},
-    }),
-  },
-}));
-
-vi.mock("@/stores/takeoffsStore", () => ({
-  useTakeoffsStore: {
-    getState: () => ({
       tkCalibrations: {
         "test-drawing": {
           // User calibrated a 10-foot line that measures 150 canvas pixels

@@ -14,10 +14,8 @@
  * - handleScanReferences, handlePdfRepairDrop
  */
 import { useCallback, useRef, useEffect } from "react";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useModelStore } from "@/stores/modelStore";
 import { unitToTool } from "@/hooks/useMeasurementEngine";
 import { uid, nn } from "@/utils/format";
 import { TO_COLORS, loadPdfJs } from "@/utils/takeoffHelpers";
@@ -46,14 +44,14 @@ export default function useTakeoffActions({
   // ─── addMeasurement ───
   const addMeasurement = useCallback(
     (takeoffId, measurement) => {
-      useTakeoffsStore.getState().addMeasurement(takeoffId, measurement);
+      useDrawingPipelineStore.getState().addMeasurement(takeoffId, measurement);
       triggerMeasureFlash(takeoffId);
     },
     [triggerMeasureFlash],
   );
 
   const removeMeasurement = useCallback((takeoffId, measurementId) => {
-    const s = useTakeoffsStore.getState();
+    const s = useDrawingPipelineStore.getState();
     s.setTakeoffs(
       s.takeoffs.map(t => {
         if (t.id !== takeoffId) return t;
@@ -65,9 +63,9 @@ export default function useTakeoffActions({
   // ─── AI Takeoff helpers ───
   const addTakeoffFromAI = useCallback(item => {
     const id = uid();
-    const current = useTakeoffsStore.getState().takeoffs;
+    const current = useDrawingPipelineStore.getState().takeoffs;
     const bidCtx = useUiStore.getState().activeGroupId || "base";
-    useTakeoffsStore.getState().setTakeoffs([
+    useDrawingPipelineStore.getState().setTakeoffs([
       ...current,
       {
         id,
@@ -91,17 +89,17 @@ export default function useTakeoffActions({
         },
       },
     ]);
-    useTakeoffsStore.getState().clearPredictions();
-    useTakeoffsStore.getState().setTkNewInput("");
-    useTakeoffsStore.getState().setTkDbResults([]);
-    const drawingId = useDrawingsStore.getState().selectedDrawingId;
+    useDrawingPipelineStore.getState().clearPredictions();
+    useDrawingPipelineStore.getState().setTkNewInput("");
+    useDrawingPipelineStore.getState().setTkDbResults([]);
+    const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
     if (drawingId && hasScale(drawingId)) {
       showToast(`\u2726 Added: ${item.description} \u2014 AI priced \u2014 measuring`);
-      useTakeoffsStore.getState().setTkActiveTakeoffId(id);
-      useTakeoffsStore.getState().setTkTool(unitToTool(item.unit || "SF"));
-      useTakeoffsStore.getState().setTkMeasureState("measuring");
-      useTakeoffsStore.getState().setTkActivePoints([]);
-      useTakeoffsStore.getState().setTkContextMenu(null);
+      useDrawingPipelineStore.getState().setTkActiveTakeoffId(id);
+      useDrawingPipelineStore.getState().setTkTool(unitToTool(item.unit || "SF"));
+      useDrawingPipelineStore.getState().setTkMeasureState("measuring");
+      useDrawingPipelineStore.getState().setTkActivePoints([]);
+      useDrawingPipelineStore.getState().setTkContextMenu(null);
     } else if (drawingId) {
       showToast("Please calibrate this drawing first \u2014 set a scale before measuring", "error");
     } else {
@@ -111,7 +109,7 @@ export default function useTakeoffActions({
 
   const insertAIGroupIntoTakeoffs = useCallback(result => {
     const bidCtx = useUiStore.getState().activeGroupId || "base";
-    const current = useTakeoffsStore.getState().takeoffs;
+    const current = useDrawingPipelineStore.getState().takeoffs;
     const groupName = result.groupName || "AI Group";
     const newTakeoffs = result.items.map((item, i) => ({
       id: uid(),
@@ -134,10 +132,10 @@ export default function useTakeoffActions({
         subcontractor: nn(item.subcontractor),
       },
     }));
-    useTakeoffsStore.getState().setTakeoffs([...current, ...newTakeoffs]);
-    useTakeoffsStore.getState().clearPredictions();
-    useTakeoffsStore.getState().setTkNewInput("");
-    useTakeoffsStore.getState().setTkDbResults([]);
+    useDrawingPipelineStore.getState().setTakeoffs([...current, ...newTakeoffs]);
+    useDrawingPipelineStore.getState().clearPredictions();
+    useDrawingPipelineStore.getState().setTkNewInput("");
+    useDrawingPipelineStore.getState().setTkDbResults([]);
     showToast(`\u2726 Added ${result.items.length} items as "${groupName}" \u2014 AI priced`);
   }, [showToast]);
 
@@ -161,10 +159,10 @@ export default function useTakeoffActions({
   // ─── Measurement lifecycle ───
   const engageMeasuring = useCallback(
     toId => {
-      const s = useTakeoffsStore.getState();
+      const s = useDrawingPipelineStore.getState();
       const to = s.takeoffs.find(t => t.id === toId);
       if (!to) return;
-      const drawingId = useDrawingsStore.getState().selectedDrawingId;
+      const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
       if (drawingId && !hasScale(drawingId)) {
         showToast("Please calibrate this drawing first \u2014 set a scale before measuring", "error");
         return;
@@ -200,7 +198,7 @@ export default function useTakeoffActions({
       s.setTkContextMenu(null);
       s.setTkShowVars(null);
       if (tkPanelMode !== "open") s.setTkPanelOpen(false);
-      const drawState = useDrawingsStore.getState();
+      const drawState = useDrawingPipelineStore.getState();
       const warmDrawing = drawState.drawings.find(d => d.id === drawState.selectedDrawingId);
       if (warmDrawing && warmDrawing.type === "pdf" && (warmDrawing.data || warmDrawing.pdfRawBase64)) {
         warmPredictions(warmDrawing, to.description).catch(() => {});
@@ -211,11 +209,11 @@ export default function useTakeoffActions({
   );
 
   const stopMeasuring = useCallback(() => {
-    const s = useTakeoffsStore.getState();
+    const s = useDrawingPipelineStore.getState();
     const pts = s.tkActivePoints || [];
     const tool = s.tkTool;
     const activeTo = s.tkActiveTakeoffId;
-    const drawingId = useDrawingsStore.getState().selectedDrawingId;
+    const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
     if (pts.length >= 2 && tool === "linear" && activeTo) {
       addMeasurement(activeTo, {
         type: "linear",
@@ -259,22 +257,22 @@ export default function useTakeoffActions({
   }, [addMeasurement, tkPanelMode]);
 
   const pauseMeasuring = useCallback(() => {
-    useTakeoffsStore.getState().setTkMeasureState("paused");
-    useTakeoffsStore.getState().setTkActivePoints([]);
-    useTakeoffsStore.getState().setTkCursorPt(null);
+    useDrawingPipelineStore.getState().setTkMeasureState("paused");
+    useDrawingPipelineStore.getState().setTkActivePoints([]);
+    useDrawingPipelineStore.getState().setTkCursorPt(null);
   }, []);
 
   // ─── Auto-count ───
   const startAutoCount = useCallback(takeoffId => {
     stopMeasuring();
-    useTakeoffsStore.getState().setTkAutoCount({ takeoffId, phase: "select", samplePt: null, results: [] });
+    useDrawingPipelineStore.getState().setTkAutoCount({ takeoffId, phase: "select", samplePt: null, results: [] });
     showToast("Click on a sample symbol to auto-count", "info");
   }, [stopMeasuring, showToast]);
 
   // ─── Calibration ───
   const finishCalibration = useCallback(() => {
-    const s = useTakeoffsStore.getState();
-    const ds = useDrawingsStore.getState();
+    const s = useDrawingPipelineStore.getState();
+    const ds = useDrawingPipelineStore.getState();
     if (s.tkActivePoints.length < 2 || !nn(s.tkCalibInput.dist)) return;
     s.setTkCalibrations({
       ...s.tkCalibrations,
@@ -294,8 +292,8 @@ export default function useTakeoffActions({
   // ─── Outline tool ───
   const handleOutlineClick = useCallback(
     e => {
-      const s = useTakeoffsStore.getState();
-      const ds = useDrawingsStore.getState();
+      const s = useDrawingPipelineStore.getState();
+      const ds = useDrawingPipelineStore.getState();
       if (s.tkTool !== "outline" || !ds.selectedDrawingId) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -311,11 +309,11 @@ export default function useTakeoffActions({
         const pixelPoly = vertices.map(p => ({ x: p.x, y: p.y }));
         try {
           const feetPoly = outlineToFeet(pixelPoly, ds.selectedDrawingId);
-          useModelStore.getState().setOutline(ds.selectedDrawingId, feetPoly, "manual", pixelPoly);
+          useDrawingPipelineStore.getState().setOutline(ds.selectedDrawingId, feetPoly, "manual", pixelPoly);
           showToast(`Building outline saved (${vertices.length} vertices)`);
         } catch (err) {
           console.warn("outlineToFeet failed, using pixel coords:", err);
-          useModelStore.getState().setOutline(
+          useDrawingPipelineStore.getState().setOutline(
             ds.selectedDrawingId,
             vertices.map(p => ({ x: p.x, z: p.y })),
             "manual",
@@ -364,7 +362,7 @@ export default function useTakeoffActions({
     const fromId = tkDragTakeoff.current;
     const toId = tkDragOverTakeoff.current;
     if (!fromId || !toId || fromId === toId) return;
-    const s = useTakeoffsStore.getState();
+    const s = useDrawingPipelineStore.getState();
     const arr = [...s.takeoffs];
     const fromIdx = arr.findIndex(t => t.id === fromId);
     const toIdx = arr.findIndex(t => t.id === toId);
@@ -376,10 +374,10 @@ export default function useTakeoffActions({
 
   // ─── Render PDF page ───
   const renderPdfPage = useCallback(async drawing => {
-    const current = useDrawingsStore.getState().pdfCanvases;
+    const current = useDrawingPipelineStore.getState().pdfCanvases;
     if (current[drawing.id]) return current[drawing.id];
     if (drawing.pdfPreRendered && drawing.data) {
-      useDrawingsStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: drawing.data } }));
+      useDrawingPipelineStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: drawing.data } }));
       return drawing.data;
     }
     if (drawing.type !== "pdf" || !drawing.data) return null;
@@ -396,7 +394,7 @@ export default function useTakeoffActions({
       canvas.height = vp.height;
       await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
       const url = canvas.toDataURL("image/jpeg", 0.8);
-      useDrawingsStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: url } }));
+      useDrawingPipelineStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: url } }));
       return url;
     } catch (e) {
       console.error("renderPdfPage:", e);
@@ -406,8 +404,8 @@ export default function useTakeoffActions({
 
   const handleSelectDrawing = useCallback(
     id => {
-      useDrawingsStore.getState().setSelectedDrawingId(id);
-      const d = useDrawingsStore.getState().drawings.find(dr => dr.id === id);
+      useDrawingPipelineStore.getState().setSelectedDrawingId(id);
+      const d = useDrawingPipelineStore.getState().drawings.find(dr => dr.id === id);
       if (d?.type === "pdf" && d.data) renderPdfPage(d);
     },
     [renderPdfPage],
@@ -420,7 +418,7 @@ export default function useTakeoffActions({
 
   const handleScanReferences = useCallback(
     async drawingIdOverride => {
-      const ds = useDrawingsStore.getState();
+      const ds = useDrawingPipelineStore.getState();
       const dId = drawingIdOverride || ds.selectedDrawingId;
       if (!dId || ds.refScanLoading) return;
       const drawing = ds.drawings.find(d => d.id === dId);
@@ -474,7 +472,7 @@ export default function useTakeoffActions({
         console.error("[ScanRefs]", err);
         showToast("Reference scan failed", "error");
       } finally {
-        useDrawingsStore.getState().setRefScanLoading(null);
+        useDrawingPipelineStore.getState().setRefScanLoading(null);
       }
     },
     [canvasRef, showToast],
@@ -484,7 +482,7 @@ export default function useTakeoffActions({
 
   // Auto-scan effect
   useEffect(() => {
-    const ds = useDrawingsStore.getState();
+    const ds = useDrawingPipelineStore.getState();
     const selectedDrawingId = ds.selectedDrawingId;
     if (!selectedDrawingId) return;
     if (ds.detectedReferences[selectedDrawingId]?.length > 0) return;
@@ -513,7 +511,7 @@ export default function useTakeoffActions({
       const count = await repairRawPdf(file);
       if (count > 0) {
         showToast(`\u2726 Repaired ${count} drawing${count > 1 ? "s" : ""} \u2014 predictions now enabled!`, "success");
-        useTakeoffsStore.getState().clearPredictions();
+        useDrawingPipelineStore.getState().clearPredictions();
       } else {
         showToast("No drawings needed repair (file name didn't match)", "error");
       }

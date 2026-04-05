@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useReportsStore } from "@/stores/reportsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { supabase } from "@/utils/supabase";
 import { PROPOSAL_FONTS, PROPOSAL_ACCENTS, PROPOSAL_ORIENTATIONS, loadProposalFont } from "@/constants/proposalStyles";
@@ -24,7 +24,7 @@ export default function ProposalDesignPanel() {
   const resetDesign = useReportsStore(s => s.resetProposalDesign);
   const heroImage = useReportsStore(s => s.heroImage);
   const setHeroImage = useReportsStore(s => s.setHeroImage);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
   const project = useProjectStore(s => s.project);
 
   const [customHex, setCustomHex] = useState(design.customAccent || "");
@@ -59,7 +59,7 @@ export default function ProposalDesignPanel() {
     if (raw && typeof raw === "string" && raw.startsWith("data:")) return raw;
 
     // Try PDF canvas
-    const canvases = useDrawingsStore.getState().pdfCanvases;
+    const canvases = useDrawingPipelineStore.getState().pdfCanvases;
     const canvas = canvases?.[drawingId];
     if (canvas?.toDataURL) return canvas.toDataURL("image/jpeg", 0.85);
 

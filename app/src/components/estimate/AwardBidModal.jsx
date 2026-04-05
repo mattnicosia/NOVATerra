@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -21,10 +21,10 @@ const fmt = v =>
 export default function AwardBidModal({ bidPackage, onClose }) {
   const C = useTheme();
   const T = C.T;
-  const invitations = useBidPackagesStore(s => s.invitations);
-  const proposals = useBidPackagesStore(s => s.proposals);
-  const updateBidPackage = useBidPackagesStore(s => s.updateBidPackage);
-  const updateInvitationStatus = useBidPackagesStore(s => s.updateInvitationStatus);
+  const invitations = useBidManagementStore(s => s.invitations);
+  const proposals = useBidManagementStore(s => s.proposals);
+  const updateBidPackage = useBidManagementStore(s => s.updateBidPackage);
+  const updateInvitationStatus = useBidManagementStore(s => s.updateInvitationStatus);
   const items = useItemsStore(s => s.items);
   const showToast = useUiStore(s => s.showToast);
 

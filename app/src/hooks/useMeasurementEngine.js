@@ -7,8 +7,7 @@
  * All functions are deterministic given drawing state — no side effects.
  */
 import { useCallback, useMemo } from "react";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { PDF_RENDER_DPI, DEFAULT_IMAGE_DPI } from "@/constants/scales";
 import { nn } from "@/utils/format";
 
@@ -69,11 +68,11 @@ export const evalFormula = (formula, variables, measured) => {
 // ─── Hook ─────────────
 
 export default function useMeasurementEngine() {
-  const drawings = useDrawingsStore(s => s.drawings);
-  const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
-  const drawingScales = useDrawingsStore(s => s.drawingScales);
-  const drawingDpi = useDrawingsStore(s => s.drawingDpi);
-  const tkCalibrations = useTakeoffsStore(s => s.tkCalibrations);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
+  const drawingScales = useDrawingPipelineStore(s => s.drawingScales);
+  const drawingDpi = useDrawingPipelineStore(s => s.drawingDpi);
+  const tkCalibrations = useDrawingPipelineStore(s => s.tkCalibrations);
 
   /** Get the DPI for a specific drawing (PDF vs image) */
   const getDrawingDpi = useCallback(

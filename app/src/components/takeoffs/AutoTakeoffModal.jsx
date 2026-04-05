@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useScanStore } from "@/stores/scanStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import { generateTakeoffSuggestions } from "@/nova/predictive/generateSuggestions";
@@ -16,7 +15,7 @@ const CONF_COLORS = { high: "#22c55e", medium: "#f59e0b", low: "#ef4444" };
 export default function AutoTakeoffModal({ onClose }) {
   const C = useTheme();
   const T = C.T;
-  const scanResults = useScanStore(s => s.scanResults);
+  const scanResults = useDrawingPipelineStore(s => s.scanResults);
   const showToast = useUiStore(s => s.showToast);
 
   const suggestions = useMemo(() => generateTakeoffSuggestions(scanResults), [scanResults]);
@@ -51,7 +50,7 @@ export default function AutoTakeoffModal({ onClose }) {
     const toAdd = suggestions.filter(s => selected.has(s.id));
     if (!toAdd.length) return;
 
-    const { addTakeoff } = useTakeoffsStore.getState();
+    const { addTakeoff } = useDrawingPipelineStore.getState();
     const { addElement } = useItemsStore.getState();
     const { logCorrection } = useCorrectionStore.getState();
 

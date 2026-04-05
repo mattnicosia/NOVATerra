@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useModelStore } from "@/stores/modelStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProductStore } from "@/stores/productStore";
 import { bt, inp, card } from "@/utils/styles";
 import { getMaterial, searchMaterials, getCategories, getMaterialsForElement, computeSwapImpact } from "@/utils/materialEngine";
@@ -16,9 +16,9 @@ export default function MaterialPicker({ element }) {
   const C = useTheme();
   const T = C.T;
 
-  const materialAssignments = useModelStore(s => s.materialAssignments);
-  const assignMaterial = useModelStore(s => s.assignMaterial);
-  const removeMaterialAssignment = useModelStore(s => s.removeMaterialAssignment);
+  const materialAssignments = useDrawingPipelineStore(s => s.materialAssignments);
+  const assignMaterial = useDrawingPipelineStore(s => s.assignMaterial);
+  const removeMaterialAssignment = useDrawingPipelineStore(s => s.removeMaterialAssignment);
 
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState(null);

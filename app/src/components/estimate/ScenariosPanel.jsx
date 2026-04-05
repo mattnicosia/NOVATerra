@@ -8,10 +8,9 @@ import { useTheme } from "@/hooks/useTheme";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useSpecsStore } from "@/stores/specsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { callAnthropicStream, buildProjectContext } from "@/utils/ai";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -125,10 +124,10 @@ export default function ScenariosPanel() {
   const setActiveGroupId = useUiStore(s => s.setActiveGroupId);
   const showToast = useUiStore(s => s.showToast);
   const items = useItemsStore(s => s.items);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
   const project = useProjectStore(s => s.project);
-  const specs = useSpecsStore(s => s.specs);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const specs = useDocumentManagementStore(s => s.specs);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   const [collapsed, setCollapsed] = useState({});
   const [editingId, setEditingId] = useState(null);
@@ -372,8 +371,8 @@ Prioritize by likelihood the architect/owner will request these.`,
     useItemsStore
       .getState()
       .setItems(curItems.map(i => (allIds.has(i.bidContext || "base") ? { ...i, bidContext: targetId } : i)));
-    const curTk = useTakeoffsStore.getState().takeoffs;
-    useTakeoffsStore
+    const curTk = useDrawingPipelineStore.getState().takeoffs;
+    useDrawingPipelineStore
       .getState()
       .setTakeoffs(curTk.map(t => (allIds.has(t.bidContext || "base") ? { ...t, bidContext: targetId } : t)));
     allIds.forEach(id => {

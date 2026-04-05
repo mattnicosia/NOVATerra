@@ -1,6 +1,5 @@
 import { useCallback } from "react";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
 import {
   callAnthropic,
@@ -47,8 +46,8 @@ export default function useTakeoffCanvasHandlers({
       if (!canvasRef.current) return;
 
       // Read ALL store state fresh inside callback
-      const tkStore = useTakeoffsStore.getState();
-      const dwgStore = useDrawingsStore.getState();
+      const tkStore = useDrawingPipelineStore.getState();
+      const dwgStore = useDrawingPipelineStore.getState();
       const showToast = useUiStore.getState().showToast;
 
       const {
@@ -98,15 +97,15 @@ export default function useTakeoffCanvasHandlers({
 
       // ── Count prediction helpers (shared by paused handler and main count path) ──
       const handleCountPredictions = (clickPt, to) => {
-        const s = useTakeoffsStore.getState();
+        const s = useDrawingPipelineStore.getState();
         const currentActiveId = s.tkActiveTakeoffId;
         const { tkPredictions: preds, tkPredAccepted: accepted, tkPredRejected: rejected } = s;
         if (preds && preds.predictions.length > 0) {
           const nearbyPred = findNearbyPrediction(preds.predictions, clickPt, accepted, rejected, 30);
           if (nearbyPred) {
             acceptPrediction(nearbyPred.id);
-            const captureDrawing = useDrawingsStore.getState().drawings.find(
-              d => d.id === useDrawingsStore.getState().selectedDrawingId,
+            const captureDrawing = useDrawingPipelineStore.getState().drawings.find(
+              d => d.id === useDrawingPipelineStore.getState().selectedDrawingId,
             );
             recordPredictionFeedback(preds.tag, preds.strategy || preds.source, true, {
               takeoffId: currentActiveId,
@@ -116,7 +115,7 @@ export default function useTakeoffCanvasHandlers({
               totalPredictions: preds.predictions?.length || 0,
               _refireCallback: (drw, tkId) => {
                 // Re-fire Vision with first-click example on same sheet
-                const tkState = useTakeoffsStore.getState();
+                const tkState = useDrawingPipelineStore.getState();
                 const tkOff = tkState.takeoffs.find(t => t.id === tkId);
                 if (drw && tkOff) {
                   runSmartPredictions(drw, tkOff, "count", clickPt).then(result => {
@@ -135,7 +134,7 @@ export default function useTakeoffCanvasHandlers({
               type: "count",
               points: [nearbyPred.point || clickPt],
               value: 1,
-              sheetId: useDrawingsStore.getState().selectedDrawingId,
+              sheetId: useDrawingPipelineStore.getState().selectedDrawingId,
               color: to.color,
               predicted: true,
               tag: preds.tag,
@@ -143,15 +142,15 @@ export default function useTakeoffCanvasHandlers({
             return true;
           }
           recordPredictionMiss();
-          const ctx = useTakeoffsStore.getState().tkPredContext;
+          const ctx = useDrawingPipelineStore.getState().tkPredContext;
           if (ctx && ctx.consecutiveMisses >= 3) {
             clearPredictions();
-            const drawingId = useDrawingsStore.getState().selectedDrawingId;
-            const drawing = useDrawingsStore.getState().drawings.find(d => d.id === drawingId);
+            const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+            const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === drawingId);
             if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
               runSmartPredictions(drawing, to, "count", clickPt)
                 .then(result => {
-                  if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveId) return;
+                  if (useDrawingPipelineStore.getState().tkActiveTakeoffId !== currentActiveId) return;
                   if (result.predictions.length > 0) {
                     setTkPredictions({
                       tag: result.tag,
@@ -172,16 +171,16 @@ export default function useTakeoffCanvasHandlers({
       };
 
       const triggerCountPredictions = (clickPt, to) => {
-        const { tkPredictions: preds } = useTakeoffsStore.getState();
+        const { tkPredictions: preds } = useDrawingPipelineStore.getState();
         const hasPreds = preds && preds.predictions && preds.predictions.length > 0;
         if (hasPreds) return;
 
-        const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-        const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+        const currentDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+        const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === currentDrawingId);
         if (!drawing || drawing.type !== "pdf") return;
 
         // Get the rendered image source for template matching
-        const imgSrc = useDrawingsStore.getState().pdfCanvases[currentDrawingId] || drawing.data;
+        const imgSrc = useDrawingPipelineStore.getState().pdfCanvases[currentDrawingId] || drawing.data;
 
         // ── Strategy 1: Template Matching (instant, offline, high accuracy) ──
         if (imgSrc) {
@@ -199,7 +198,7 @@ export default function useTakeoffCanvasHandlers({
             drawingId: currentDrawingId,
           })
             .then(result => {
-              if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+              if (useDrawingPipelineStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
               if (result.predictions.length > 0) {
                 setTkPredictions({
                   tag: to.description,
@@ -216,7 +215,7 @@ export default function useTakeoffCanvasHandlers({
                 if (drawing.data || drawing.pdfRawBase64) {
                   runSmartPredictions(drawing, to, "count", clickPt)
                     .then(aiResult => {
-                      if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                      if (useDrawingPipelineStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
                       if (aiResult.predictions.length > 0) {
                         setTkPredictions({
                           tag: aiResult.tag,
@@ -242,7 +241,7 @@ export default function useTakeoffCanvasHandlers({
               if (drawing.data || drawing.pdfRawBase64) {
                 runSmartPredictions(drawing, to, "count", clickPt)
                   .then(aiResult => {
-                    if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                    if (useDrawingPipelineStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
                     if (aiResult.predictions.length > 0) {
                       setTkPredictions({
                         tag: aiResult.tag,
@@ -500,7 +499,7 @@ Where confidence is "high", "medium", or "low".`,
             tkPredictions: linPreds,
             tkPredAccepted: linAccepted,
             tkPredRejected: linRejected,
-          } = useTakeoffsStore.getState();
+          } = useDrawingPipelineStore.getState();
           if (linPreds && linPreds.predictions.length > 0) {
             const nearbyPred = findNearbyPrediction(
               linPreds.predictions,
@@ -511,27 +510,27 @@ Where confidence is "high", "medium", or "low".`,
             );
             if (nearbyPred) {
               acceptPrediction(nearbyPred.id);
-              const capDrwLin = useDrawingsStore.getState().drawings.find(
-                d => d.id === useDrawingsStore.getState().selectedDrawingId,
+              const capDrwLin = useDrawingPipelineStore.getState().drawings.find(
+                d => d.id === useDrawingPipelineStore.getState().selectedDrawingId,
               );
               recordPredictionFeedback(linPreds.tag, linPreds.strategy || linPreds.source, true, {
-                takeoffId: useTakeoffsStore.getState().tkActiveTakeoffId,
+                takeoffId: useDrawingPipelineStore.getState().tkActiveTakeoffId,
                 description: to?.description || "",
                 drawing: capDrwLin,
                 point: nearbyPred.point || tkActivePoints[0],
               });
             } else {
               recordPredictionMiss();
-              const ctx = useTakeoffsStore.getState().tkPredContext;
+              const ctx = useDrawingPipelineStore.getState().tkPredContext;
               if (ctx && ctx.consecutiveMisses >= 3) {
                 clearPredictions();
                 // Re-scan immediately after clearing (can't rely on !linPreds — it's a stale local)
-                const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-                const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+                const currentDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+                const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === currentDrawingId);
                 if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
                   runSmartPredictions(drawing, to, "linear", tkActivePoints[0])
                     .then(result => {
-                      if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                      if (useDrawingPipelineStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
                       if (result.predictions.length > 0) {
                         setTkPredictions({
                           tag: result.tag,
@@ -552,8 +551,8 @@ Where confidence is "high", "medium", or "low".`,
 
           // Predictive takeoff: run smart predictions whenever none exist
           if (!linPreds) {
-            const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-            const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+            const currentDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+            const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === currentDrawingId);
             if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
               (async () => {
                 try {
@@ -573,7 +572,7 @@ Where confidence is "high", "medium", or "low".`,
                     );
                     // Cross-sheet scan: find same tag on other sheets
                     if (result.tag) {
-                      const allDwgs = useDrawingsStore.getState().drawings;
+                      const allDwgs = useDrawingPipelineStore.getState().drawings;
                       scanAllSheets(allDwgs, result.tag, "linear")
                         .then(sheetResults => {
                           const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
@@ -623,7 +622,7 @@ Where confidence is "high", "medium", or "low".`,
               tkPredictions: areaPreds,
               tkPredAccepted: areaAccepted,
               tkPredRejected: areaRejected,
-            } = useTakeoffsStore.getState();
+            } = useDrawingPipelineStore.getState();
             if (areaPreds && areaPreds.predictions.length > 0) {
               const nearbyPred = findNearbyPrediction(
                 areaPreds.predictions,
@@ -634,27 +633,27 @@ Where confidence is "high", "medium", or "low".`,
               );
               if (nearbyPred) {
                 acceptPrediction(nearbyPred.id);
-                const capDrwArea = useDrawingsStore.getState().drawings.find(
-                  d => d.id === useDrawingsStore.getState().selectedDrawingId,
+                const capDrwArea = useDrawingPipelineStore.getState().drawings.find(
+                  d => d.id === useDrawingPipelineStore.getState().selectedDrawingId,
                 );
                 recordPredictionFeedback(areaPreds.tag, areaPreds.strategy || areaPreds.source, true, {
-                  takeoffId: useTakeoffsStore.getState().tkActiveTakeoffId,
+                  takeoffId: useDrawingPipelineStore.getState().tkActiveTakeoffId,
                   description: to?.description || "",
                   drawing: capDrwArea,
                   point: nearbyPred.point || tkActivePoints[0],
                 });
               } else {
                 recordPredictionMiss();
-                const ctx = useTakeoffsStore.getState().tkPredContext;
+                const ctx = useDrawingPipelineStore.getState().tkPredContext;
                 if (ctx && ctx.consecutiveMisses >= 3) {
                   clearPredictions();
                   // Re-scan immediately after clearing (can't rely on !areaPreds — it's a stale local)
-                  const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-                  const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+                  const currentDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+                  const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === currentDrawingId);
                   if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
                     runSmartPredictions(drawing, to, "area", tkActivePoints[0])
                       .then(result => {
-                        if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                        if (useDrawingPipelineStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
                         if (result.predictions.length > 0) {
                           setTkPredictions({
                             tag: result.tag,
@@ -674,8 +673,8 @@ Where confidence is "high", "medium", or "low".`,
             }
             // Area predictions: run smart predictions whenever none exist
             if (!areaPreds) {
-              const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-              const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+              const currentDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+              const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === currentDrawingId);
               if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
                 (async () => {
                   try {
@@ -693,7 +692,7 @@ Where confidence is "high", "medium", or "low".`,
                       showToast(`Found ${result.predictions.length} room predictions — review`);
                       // Cross-sheet scan: find same tag on other sheets
                       if (result.tag) {
-                        const allDwgs = useDrawingsStore.getState().drawings;
+                        const allDwgs = useDrawingPipelineStore.getState().drawings;
                         scanAllSheets(allDwgs, result.tag, "area")
                           .then(sheetResults => {
                             const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
@@ -735,7 +734,7 @@ Where confidence is "high", "medium", or "low".`,
             tkPredictions: areaPredsDbl,
             tkPredAccepted: areaAccDbl,
             tkPredRejected: areaRejDbl,
-          } = useTakeoffsStore.getState();
+          } = useDrawingPipelineStore.getState();
           if (areaPredsDbl && areaPredsDbl.predictions.length > 0) {
             const nearbyPred = findNearbyPrediction(
               areaPredsDbl.predictions,
@@ -746,27 +745,27 @@ Where confidence is "high", "medium", or "low".`,
             );
             if (nearbyPred) {
               acceptPrediction(nearbyPred.id);
-              const capDrwDbl = useDrawingsStore.getState().drawings.find(
-                d => d.id === useDrawingsStore.getState().selectedDrawingId,
+              const capDrwDbl = useDrawingPipelineStore.getState().drawings.find(
+                d => d.id === useDrawingPipelineStore.getState().selectedDrawingId,
               );
               recordPredictionFeedback(areaPredsDbl.tag, areaPredsDbl.strategy || areaPredsDbl.source, true, {
-                takeoffId: useTakeoffsStore.getState().tkActiveTakeoffId,
+                takeoffId: useDrawingPipelineStore.getState().tkActiveTakeoffId,
                 description: to?.description || "",
                 drawing: capDrwDbl,
                 point: nearbyPred.point || tkActivePoints[0],
               });
             } else {
               recordPredictionMiss();
-              const ctx = useTakeoffsStore.getState().tkPredContext;
+              const ctx = useDrawingPipelineStore.getState().tkPredContext;
               if (ctx && ctx.consecutiveMisses >= 3) {
                 clearPredictions();
                 // Re-scan immediately after clearing (can't rely on !areaPredsDbl — it's a stale local)
-                const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-                const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+                const currentDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+                const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === currentDrawingId);
                 if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
                   runSmartPredictions(drawing, to, "area", tkActivePoints[0])
                     .then(result => {
-                      if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                      if (useDrawingPipelineStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
                       if (result.predictions.length > 0) {
                         setTkPredictions({
                           tag: result.tag,
@@ -786,8 +785,8 @@ Where confidence is "high", "medium", or "low".`,
           }
           // Area predictions: run smart predictions whenever none exist
           if (!areaPredsDbl) {
-            const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-            const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+            const currentDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+            const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === currentDrawingId);
             if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
               (async () => {
                 try {
@@ -805,7 +804,7 @@ Where confidence is "high", "medium", or "low".`,
                     showToast(`Found ${result.predictions.length} room predictions — review`);
                     // Cross-sheet scan: find same tag on other sheets
                     if (result.tag) {
-                      const allDwgs = useDrawingsStore.getState().drawings;
+                      const allDwgs = useDrawingPipelineStore.getState().drawings;
                       scanAllSheets(allDwgs, result.tag, "area")
                         .then(sheetResults => {
                           const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
@@ -859,13 +858,13 @@ Where confidence is "high", "medium", or "low".`,
       const isTrackpadPan = !isPinch && !isLineMode && (hasLateral || hadRecentLateral);
       const isZoom = isPinch || isLineMode || (!isTrackpadPan && !hasLateral);
 
-      const { setTkZoom, setTkPan } = useTakeoffsStore.getState();
+      const { setTkZoom, setTkPan } = useDrawingPipelineStore.getState();
 
       if (isZoom) {
         // ZOOM at cursor position — read state directly (Zustand setters don't support functional updaters)
         const sensitivity = isPinch ? 0.006 : 0.003;
         const zoomFactor = Math.pow(2, -e.deltaY * sensitivity);
-        const { tkZoom: prevZoom, tkPan: prevPan } = useTakeoffsStore.getState();
+        const { tkZoom: prevZoom, tkPan: prevPan } = useDrawingPipelineStore.getState();
         const newZoom = Math.max(10, Math.min(800, Math.round(prevZoom * zoomFactor)));
         if (newZoom !== prevZoom) {
           const scaleChange = newZoom / prevZoom;
@@ -880,7 +879,7 @@ Where confidence is "high", "medium", or "low".`,
         }
       } else {
         // PAN: trackpad two-finger scroll
-        const { tkPan: prevPan } = useTakeoffsStore.getState();
+        const { tkPan: prevPan } = useDrawingPipelineStore.getState();
         setTkPan({ x: prevPan.x - e.deltaX, y: prevPan.y - e.deltaY });
       }
     },
@@ -892,7 +891,7 @@ Where confidence is "high", "medium", or "low".`,
     e => {
       if (e.button === 2 || e.button === 1) {
         e.preventDefault();
-        const { setTkContextMenu, tkPan } = useTakeoffsStore.getState();
+        const { setTkContextMenu, tkPan } = useDrawingPipelineStore.getState();
         setTkContextMenu(null);
         tkPanning.current = true;
         tkPanStart.current = { x: e.clientX, y: e.clientY, panX: tkPan.x, panY: tkPan.y, moved: false };

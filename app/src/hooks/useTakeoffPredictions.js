@@ -1,7 +1,6 @@
 import { useRef, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { hexAlpha } from "@/utils/fieldPhysics";
 import { extractPageData, isExtracted } from "@/utils/pdfExtractor";
 import { runSmartPredictions } from "@/utils/predictiveEngine";
@@ -26,28 +25,28 @@ export default function useTakeoffPredictions({ canvasRef }) {
   const predScanPhaseRef = useRef(0);
 
   // Store subscriptions — used as effect dependencies to trigger re-runs
-  const drawings = useDrawingsStore(s => s.drawings);
-  const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
 
-  const tkPredictions = useTakeoffsStore(s => s.tkPredictions);
-  const tkPredAccepted = useTakeoffsStore(s => s.tkPredAccepted);
-  const tkPredRejected = useTakeoffsStore(s => s.tkPredRejected);
-  const tkPredContext = useTakeoffsStore(s => s.tkPredContext);
-  const tkPredRefining = useTakeoffsStore(s => s.tkPredRefining);
-  const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const tkRefinementPending = useTakeoffsStore(s => s.tkRefinementPending);
-  const tkTool = useTakeoffsStore(s => s.tkTool);
+  const tkPredictions = useDrawingPipelineStore(s => s.tkPredictions);
+  const tkPredAccepted = useDrawingPipelineStore(s => s.tkPredAccepted);
+  const tkPredRejected = useDrawingPipelineStore(s => s.tkPredRejected);
+  const tkPredContext = useDrawingPipelineStore(s => s.tkPredContext);
+  const tkPredRefining = useDrawingPipelineStore(s => s.tkPredRefining);
+  const tkActiveTakeoffId = useDrawingPipelineStore(s => s.tkActiveTakeoffId);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const tkRefinementPending = useDrawingPipelineStore(s => s.tkRefinementPending);
+  const tkTool = useDrawingPipelineStore(s => s.tkTool);
 
   // ─── PREDICTIVE TAKEOFF: Refinement re-fire after consecutive misses ───
   useEffect(() => {
     if (!tkRefinementPending) return;
     // Clear the flag immediately to prevent loops
-    useTakeoffsStore.getState().clearRefinementPending();
+    useDrawingPipelineStore.getState().clearRefinementPending();
 
     // Gather current context from stores (fresh reads to avoid stale closures)
-    const { tkActiveTakeoffId: toId, takeoffs: tks, tkTool: tool } = useTakeoffsStore.getState();
-    const { selectedDrawingId: dwgId, drawings: dwgs } = useDrawingsStore.getState();
+    const { tkActiveTakeoffId: toId, takeoffs: tks, tkTool: tool } = useDrawingPipelineStore.getState();
+    const { selectedDrawingId: dwgId, drawings: dwgs } = useDrawingPipelineStore.getState();
     const activeTo = tks.find(t => t.id === toId);
     const drawing = dwgs.find(d => d.id === dwgId);
     if (!activeTo || !drawing) return;
@@ -58,14 +57,14 @@ export default function useTakeoffPredictions({ canvasRef }) {
     runSmartPredictions(drawing, activeTo, measureType, null)
       .then(result => {
         if (result && result.predictions?.length > 0) {
-          useTakeoffsStore.getState().setTkPredictions(result);
+          useDrawingPipelineStore.getState().setTkPredictions(result);
         } else {
           // No new predictions found — clear refining state
-          useTakeoffsStore.getState().setTkPredRefining(false);
+          useDrawingPipelineStore.getState().setTkPredRefining(false);
         }
       })
       .catch(() => {
-        useTakeoffsStore.getState().setTkPredRefining(false);
+        useDrawingPipelineStore.getState().setTkPredRefining(false);
       });
   }, [tkRefinementPending]);
 

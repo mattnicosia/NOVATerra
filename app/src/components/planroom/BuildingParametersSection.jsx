@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useProjectStore } from '@/stores/projectStore';
-import { useScanStore } from '@/stores/scanStore';
+import { useDrawingPipelineStore } from '@/stores/drawingPipelineStore';
 import Sec from '@/components/shared/Sec';
 import Fld from '@/components/shared/Fld';
 import Text from '@/components/shared/Text';
@@ -56,7 +56,7 @@ export default function BuildingParametersSection() {
   const C = useTheme();
   const project = useProjectStore(s => s.project);
   const setProject = useProjectStore(s => s.setProject);
-  const addCorrection = useScanStore(s => s.addParameterCorrection);
+  const addCorrection = useDrawingPipelineStore(s => s.addParameterCorrection);
 
   const up = (field, value) => setProject({ ...project, [field]: value });
 
@@ -121,7 +121,7 @@ export default function BuildingParametersSection() {
   const paramConf = project.parameterConfidence || {};
 
   // Get evidence sources for tooltips
-  const scanResults = useScanStore(s => s.scanResults);
+  const scanResults = useDrawingPipelineStore(s => s.scanResults);
   const evidenceSources = {};
   if (scanResults?.parameterEvidence) {
     for (const e of scanResults.parameterEvidence) {

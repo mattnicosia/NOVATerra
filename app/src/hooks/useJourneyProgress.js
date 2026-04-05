@@ -6,20 +6,19 @@
 // Completion criteria are "meaningful" per Chamath — not just visiting a page.
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useMemo, useRef } from "react";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useDocumentsStore } from "@/stores/documentsStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { runValidation } from "@/utils/costValidation";
 
 export function useJourneyProgress() {
   // Targeted primitive selectors — minimize re-renders
-  const drawingCount = useDrawingsStore(s => s.drawings.length);
-  const documentCount = useDocumentsStore(s => s.documents.length);
-  const scanResults = useScanStore(s => s.scanResults);
+  const drawingCount = useDrawingPipelineStore(s => s.drawings.length);
+  const documentCount = useDocumentManagementStore(s => s.documents.length);
+  const scanResults = useDrawingPipelineStore(s => s.scanResults);
   const setupComplete = useProjectStore(s => s.project.setupComplete);
   const projectName = useProjectStore(s => s.project.name);
   const jobType = useProjectStore(s => s.project.jobType);
@@ -27,8 +26,8 @@ export function useJourneyProgress() {
   const bidDue = useProjectStore(s => s.project.bidDue);
   const items = useItemsStore(s => s.items);
   const itemCount = items.length;
-  const bidPackages = useBidPackagesStore(s => s.bidPackages);
-  const invitations = useBidPackagesStore(s => s.invitations);
+  const bidPackages = useBidManagementStore(s => s.bidPackages);
+  const invitations = useBidManagementStore(s => s.invitations);
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
 

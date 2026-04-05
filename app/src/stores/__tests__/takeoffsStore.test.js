@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUndoStore } from "@/stores/undoStore";
 
 // Helper to get fresh state
-const getState = () => useTakeoffsStore.getState();
-const setState = partial => useTakeoffsStore.setState(partial);
+const getState = () => useDrawingPipelineStore.getState();
+const setState = partial => useDrawingPipelineStore.setState(partial);
 
 // Seed a takeoff directly into state (bypasses addTakeoff action)
 const seedTakeoff = (overrides = {}) => {
@@ -34,7 +34,7 @@ describe("takeoffsStore", () => {
     vi.runAllTimers();
 
     // Reset store to initial state
-    useTakeoffsStore.setState({
+    useDrawingPipelineStore.setState({
       takeoffs: [],
       tkTool: "select",
       tkActivePoints: [],

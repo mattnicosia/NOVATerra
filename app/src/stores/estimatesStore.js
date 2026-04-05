@@ -4,14 +4,11 @@ import { storage } from "@/utils/storage";
 import { useUiStore } from "@/stores/uiStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
-import { useDocumentsStore } from "@/stores/documentsStore";
 import { useModuleStore } from "@/stores/moduleStore";
-import { useScanStore } from "@/stores/scanStore";
 
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -334,19 +331,19 @@ export const useEstimatesStore = create((set, get) => ({
     useItemsStore.getState().setMarkupOrder(blankMarkupOrder);
     useItemsStore.getState().setCustomMarkups([]);
     useItemsStore.getState().setChangeOrders([]);
-    useDrawingsStore.getState().setDrawings([]);
-    useDrawingsStore.getState().setDrawingScales({});
-    useDrawingsStore.getState().setDrawingDpi({});
-    useTakeoffsStore.getState().setTakeoffs([]);
-    useTakeoffsStore.getState().setTkCalibrations({});
-    useBidLevelingStore.getState().setSubBidSubs({});
-    useBidLevelingStore.getState().setBidTotals({});
-    useBidLevelingStore.getState().setBidCells({});
-    useBidLevelingStore.getState().setBidSelections({});
-    useBidLevelingStore.getState().setLinkedSubs([]);
-    useBidLevelingStore.getState().setSubKeyLabels({});
-    useSpecsStore.getState().setSpecs([]);
-    useSpecsStore.getState().setSpecPdf(null);
+    useDrawingPipelineStore.getState().setDrawings([]);
+    useDrawingPipelineStore.getState().setDrawingScales({});
+    useDrawingPipelineStore.getState().setDrawingDpi({});
+    useDrawingPipelineStore.getState().setTakeoffs([]);
+    useDrawingPipelineStore.getState().setTkCalibrations({});
+    useBidManagementStore.getState().setSubBidSubs({});
+    useBidManagementStore.getState().setBidTotals({});
+    useBidManagementStore.getState().setBidCells({});
+    useBidManagementStore.getState().setBidSelections({});
+    useBidManagementStore.getState().setLinkedSubs([]);
+    useBidManagementStore.getState().setSubKeyLabels({});
+    useDocumentManagementStore.getState().setSpecs([]);
+    useDocumentManagementStore.getState().setSpecPdf(null);
     // Auto-populate boilerplate from company profile
     const draftProfile = useMasterDataStore.getState().getCompanyInfo(companyProfileId);
     const bpExclusions = (draftProfile?.boilerplateExclusions || [])
@@ -355,13 +352,13 @@ export const useEstimatesStore = create((set, get) => ({
     const bpClarifications = (draftProfile?.boilerplateNotes || [])
       .filter(n => n.text)
       .map(n => ({ id: uid(), text: n.text, category: n.category || "clarification", source: "boilerplate" }));
-    useSpecsStore.getState().setExclusions(bpExclusions);
-    useSpecsStore.getState().setClarifications(bpClarifications);
+    useDocumentManagementStore.getState().setExclusions(bpExclusions);
+    useDocumentManagementStore.getState().setClarifications(bpClarifications);
     useAlternatesStore.getState().setAlternates([]);
-    useDocumentsStore.getState().setDocuments([]);
+    useDocumentManagementStore.getState().setDocuments([]);
     useModuleStore.getState().setModuleInstances({});
     useModuleStore.getState().setActiveModule(null);
-    useScanStore.getState().clearScan();
+    useDrawingPipelineStore.getState().clearScan();
 
     // Clear NOVA chat from previous estimate
     useUiStore.getState().setAiChatMessages([]);

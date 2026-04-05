@@ -5,7 +5,7 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { normalizeProposal, getNormalizationTrace } from "@/utils/normalizationEngine";
 import { validateProposal, getStatusColor, getStatusLabel } from "@/utils/proposalValidation";
@@ -314,8 +314,8 @@ function ProposalsTab() {
 
 /* ── CALIBRATION TAB ── */
 function CalibrationTab() {
-  const getCalibrationFactors = useScanStore(s => s.getCalibrationFactors);
-  const learningRecords = useScanStore(s => s.learningRecords);
+  const getCalibrationFactors = useDrawingPipelineStore(s => s.getCalibrationFactors);
+  const learningRecords = useDrawingPipelineStore(s => s.learningRecords);
 
   const factors = useMemo(() => getCalibrationFactors(), [getCalibrationFactors, learningRecords]);
 
@@ -388,7 +388,7 @@ function CalibrationTab() {
 /* ── PIPELINE TAB ── */
 function PipelineTab() {
   const proposals = useMasterDataStore(s => s.masterData?.historicalProposals || []);
-  const learningRecords = useScanStore(s => s.learningRecords);
+  const learningRecords = useDrawingPipelineStore(s => s.learningRecords);
 
   const steps = [
     { label: "1. IMPORT", desc: "Proposal PDF uploaded or batch imported", count: proposals.length, color: "#4DA6FF", detail: `${proposals.filter(p => p.source === "pdf-upload").length} PDF uploads, ${proposals.filter(p => p.source?.includes("import")).length} batch imports` },

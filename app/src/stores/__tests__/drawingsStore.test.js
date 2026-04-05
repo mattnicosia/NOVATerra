@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 
 // Helper to get fresh state
-const getState = () => useDrawingsStore.getState();
+const getState = () => useDrawingPipelineStore.getState();
 
 // Default initial state shape for reset
 const initialState = {
@@ -24,7 +24,7 @@ const initialState = {
 };
 
 beforeEach(() => {
-  useDrawingsStore.setState(initialState);
+  useDrawingPipelineStore.setState(initialState);
 });
 
 // ── 1. Initial State Shape ──────────────────────────────────────────
@@ -123,7 +123,7 @@ describe("setDrawings", () => {
 
 describe("updateDrawing", () => {
   beforeEach(() => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", label: "Plan A", scale: null, tags: [] },
         { id: "d2", label: "Plan B", scale: "1/4", tags: ["structural"] },
@@ -162,7 +162,7 @@ describe("updateDrawing", () => {
 
 describe("removeDrawing", () => {
   beforeEach(() => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", label: "A" },
         { id: "d2", label: "B" },
@@ -198,7 +198,7 @@ describe("removeDrawing", () => {
 
 describe("selection", () => {
   beforeEach(() => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", label: "Plan A" },
         { id: "d2", label: "Plan B" },
@@ -239,7 +239,7 @@ describe("previewDrawingId", () => {
 
 describe("buildSheetIndex", () => {
   it("builds an index from sheetNumber to drawing id", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", sheetNumber: "A-101" },
         { id: "d2", sheetNumber: "S-201" },
@@ -252,7 +252,7 @@ describe("buildSheetIndex", () => {
   });
 
   it("adds normalized (dash/space stripped) keys for fuzzy matching", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", sheetNumber: "A-101" }],
     });
     getState().buildSheetIndex();
@@ -262,7 +262,7 @@ describe("buildSheetIndex", () => {
   });
 
   it("does not add a normalized key when it equals the original (no dash/space)", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", sheetNumber: "A101" }],
     });
     getState().buildSheetIndex();
@@ -272,7 +272,7 @@ describe("buildSheetIndex", () => {
   });
 
   it("excludes superseded drawings from the index", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", sheetNumber: "A-101", superseded: true },
         { id: "d2", sheetNumber: "A-101" },
@@ -283,7 +283,7 @@ describe("buildSheetIndex", () => {
   });
 
   it("excludes drawings without a sheetNumber", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", label: "No Sheet" }],
     });
     getState().buildSheetIndex();
@@ -293,7 +293,7 @@ describe("buildSheetIndex", () => {
 
 describe("getActiveDrawings", () => {
   it("returns only non-superseded drawings", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", superseded: true }, { id: "d2" }, { id: "d3", superseded: false }],
     });
     const active = getState().getActiveDrawings();
@@ -302,14 +302,14 @@ describe("getActiveDrawings", () => {
   });
 
   it("returns all drawings when none are superseded", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1" }, { id: "d2" }],
     });
     expect(getState().getActiveDrawings()).toHaveLength(2);
   });
 
   it("returns empty array when all are superseded", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", superseded: true },
         { id: "d2", superseded: true },
@@ -341,7 +341,7 @@ describe("detectedReferences", () => {
 
 describe("supersedeDrawing", () => {
   beforeEach(() => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", label: "Original", sheetNumber: "A-101" },
         { id: "d2", label: "Revision", sheetNumber: "A-101" },
@@ -373,7 +373,7 @@ describe("supersedeDrawing", () => {
   });
 
   it("appends to existing versionHistory", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         {
           id: "d1",
@@ -389,7 +389,7 @@ describe("supersedeDrawing", () => {
 
 describe("getVersionChain", () => {
   it("returns the full chain from oldest to newest", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", supersededBy: "d2" },
         { id: "d2", supersedes: "d1", supersededBy: "d3" },
@@ -401,7 +401,7 @@ describe("getVersionChain", () => {
   });
 
   it("returns the same chain regardless of which version is queried", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", supersededBy: "d2" },
         { id: "d2", supersedes: "d1", supersededBy: "d3" },
@@ -417,7 +417,7 @@ describe("getVersionChain", () => {
   });
 
   it("returns a single-element chain for a standalone drawing", () => {
-    useDrawingsStore.setState({ drawings: [{ id: "d1" }] });
+    useDrawingPipelineStore.setState({ drawings: [{ id: "d1" }] });
     expect(getState().getVersionChain("d1")).toEqual([{ id: "d1" }]);
   });
 
@@ -428,7 +428,7 @@ describe("getVersionChain", () => {
 
 describe("mergeAddendumDrawings", () => {
   it("supersedes existing drawing matched by sheetNumber", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", sheetNumber: "A-101", label: "Original", revision: "0" }],
     });
     const added = getState().mergeAddendumDrawings([{ id: "d2", sheetNumber: "A-101", label: "Rev 1" }], 1);
@@ -449,7 +449,7 @@ describe("mergeAddendumDrawings", () => {
   });
 
   it("matches by label when sheetNumber is absent", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", label: "Floor Plan", revision: "0" }],
     });
     getState().mergeAddendumDrawings([{ id: "d2", label: "Floor Plan" }], 2);
@@ -458,7 +458,7 @@ describe("mergeAddendumDrawings", () => {
   });
 
   it("adds as new drawing when no match is found", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", sheetNumber: "A-101" }],
     });
     const added = getState().mergeAddendumDrawings([{ id: "d2", sheetNumber: "M-101", label: "Mech Plan" }], 1);
@@ -473,7 +473,7 @@ describe("mergeAddendumDrawings", () => {
   });
 
   it("handles multiple addendum drawings at once", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", sheetNumber: "A-101", revision: "0" },
         { id: "d2", sheetNumber: "A-102", revision: "0" },
@@ -494,7 +494,7 @@ describe("mergeAddendumDrawings", () => {
   });
 
   it("does not match against already-superseded drawings", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [
         { id: "d1", sheetNumber: "A-101", superseded: true },
         { id: "d2", sheetNumber: "A-101" },
@@ -507,7 +507,7 @@ describe("mergeAddendumDrawings", () => {
   });
 
   it("increments revision number from existing drawing", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", sheetNumber: "A-101", revision: "3" }],
     });
     getState().mergeAddendumDrawings([{ id: "n1", sheetNumber: "A-101" }], 1);
@@ -579,7 +579,7 @@ describe("edge cases", () => {
   });
 
   it("removing the last drawing leaves an empty array", () => {
-    useDrawingsStore.setState({ drawings: [{ id: "d1" }], selectedDrawingId: "d1" });
+    useDrawingPipelineStore.setState({ drawings: [{ id: "d1" }], selectedDrawingId: "d1" });
     getState().removeDrawing("d1");
     expect(getState().drawings).toEqual([]);
     expect(getState().selectedDrawingId).toBeNull();
@@ -591,7 +591,7 @@ describe("edge cases", () => {
   });
 
   it("getVersionChain handles broken chain gracefully (missing intermediate)", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1", supersededBy: "d_missing" }],
     });
     // Chain starts at d1 but supersededBy points to nonexistent drawing
@@ -600,7 +600,7 @@ describe("edge cases", () => {
   });
 
   it("getVersionChain handles broken backwards chain gracefully", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d2", supersedes: "d_missing" }],
     });
     // Can't walk backwards past d2, so chain is just d2
@@ -609,14 +609,14 @@ describe("edge cases", () => {
   });
 
   it("mergeAddendumDrawings with empty array returns empty and does not modify state", () => {
-    useDrawingsStore.setState({ drawings: [{ id: "d1" }] });
+    useDrawingPipelineStore.setState({ drawings: [{ id: "d1" }] });
     const added = getState().mergeAddendumDrawings([], 1);
     expect(added).toEqual([]);
     expect(getState().drawings).toHaveLength(1);
   });
 
   it("supersedeDrawing does not affect unrelated drawings", () => {
-    useDrawingsStore.setState({
+    useDrawingPipelineStore.setState({
       drawings: [{ id: "d1" }, { id: "d2" }, { id: "d3", label: "Bystander" }],
     });
     getState().supersedeDrawing("d1", "d2", 1);
@@ -625,7 +625,7 @@ describe("edge cases", () => {
   });
 
   it("updateDrawing produces a new object reference (immutability)", () => {
-    useDrawingsStore.setState({ drawings: [{ id: "d1", label: "A" }] });
+    useDrawingPipelineStore.setState({ drawings: [{ id: "d1", label: "A" }] });
     const before = getState().drawings[0];
     getState().updateDrawing("d1", "label", "B");
     const after = getState().drawings[0];

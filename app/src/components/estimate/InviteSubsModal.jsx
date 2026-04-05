@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import Modal from "@/components/shared/Modal";
@@ -188,7 +188,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
       );
 
       // 3. Update local store
-      const existingInvites = useBidPackagesStore.getState().invitations[packageId] || [];
+      const existingInvites = useBidManagementStore.getState().invitations[packageId] || [];
       const newLocalInvites = serverInvites.map(inv => ({
         id: inv.id,
         subCompany: inv.sub_company,
@@ -199,7 +199,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
         status: inv.status,
         sentAt: inv.sent_at,
       }));
-      useBidPackagesStore.getState().setPackageInvitations(packageId, [...existingInvites, ...newLocalInvites]);
+      useBidManagementStore.getState().setPackageInvitations(packageId, [...existingInvites, ...newLocalInvites]);
 
       showToast(`${subsToInvite.length} invitation${subsToInvite.length !== 1 ? "s" : ""} sent`);
       onClose();

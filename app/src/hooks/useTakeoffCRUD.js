@@ -5,8 +5,7 @@
  * All functions use getState() to avoid stale closures.
  */
 import { useCallback } from "react";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { MODULES } from "@/constants/modules";
@@ -17,13 +16,13 @@ import { uid } from "@/utils/format";
 export default function useTakeoffCRUD() {
   /** Update a single field on a takeoff */
   const updateTakeoff = useCallback((id, f, v) => {
-    const s = useTakeoffsStore.getState();
+    const s = useDrawingPipelineStore.getState();
     s.setTakeoffs(s.takeoffs.map(t => (t.id === id ? { ...t, [f]: v } : t)));
   }, []);
 
   /** Delete a takeoff + clean up module links */
   const removeTakeoff = useCallback(id => {
-    const s = useTakeoffsStore.getState();
+    const s = useDrawingPipelineStore.getState();
     const toRemove = s.takeoffs.find(t => t.id === id);
     s.setTakeoffs(s.takeoffs.filter(t => t.id !== id));
     if (s.tkActiveTakeoffId === id) {
@@ -71,7 +70,7 @@ export default function useTakeoffCRUD() {
   /** Create a takeoff and optionally start measuring */
   const addTakeoff = useCallback((group = "", desc = "", unit = "SF", code = "", opts = {}) => {
     const id = uid();
-    const ts = useTakeoffsStore.getState();
+    const ts = useDrawingPipelineStore.getState();
     const { noMeasure: _noMeasure, quantity, ...extraFields } = opts;
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     ts.setTakeoffs([
@@ -94,7 +93,7 @@ export default function useTakeoffCRUD() {
       },
     ]);
     ts.clearPredictions();
-    const drawingId = useDrawingsStore.getState().selectedDrawingId;
+    const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
     if (drawingId && desc && !opts.noMeasure) {
       ts.setTkActiveTakeoffId(id);
       ts.setTkTool(unitToTool(unit));
@@ -108,7 +107,7 @@ export default function useTakeoffCRUD() {
   /** Create a takeoff from a database element and start measuring */
   const addTakeoffFromDb = useCallback(el => {
     const id = uid();
-    const ts = useTakeoffsStore.getState();
+    const ts = useDrawingPipelineStore.getState();
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     ts.setTakeoffs([
       ...ts.takeoffs,
@@ -132,7 +131,7 @@ export default function useTakeoffCRUD() {
     ts.setTkNewInput("");
     ts.setTkDbResults([]);
     useUiStore.getState().showToast(`Added: ${el.name} — measuring`);
-    const drawingId = useDrawingsStore.getState().selectedDrawingId;
+    const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
     if (drawingId) {
       ts.setTkActiveTakeoffId(id);
       ts.setTkTool(unitToTool(el.unit || "SF"));
@@ -146,7 +145,7 @@ export default function useTakeoffCRUD() {
   const addTakeoffFreeform = useCallback(desc => {
     if (!desc?.trim()) return;
     const id = uid();
-    const ts = useTakeoffsStore.getState();
+    const ts = useDrawingPipelineStore.getState();
     const unit = ts.tkNewUnit || "SF";
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     ts.setTakeoffs([
@@ -171,10 +170,10 @@ export default function useTakeoffCRUD() {
     ts.setTkNewInput("");
     ts.setTkDbResults([]);
     useUiStore.getState().showToast(`Added: ${desc.trim()} — measuring`);
-    const drawingId = useDrawingsStore.getState().selectedDrawingId;
+    const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
     if (drawingId) {
       setTimeout(() => {
-        const ts2 = useTakeoffsStore.getState();
+        const ts2 = useDrawingPipelineStore.getState();
         ts2.setTkActiveTakeoffId(id);
         ts2.setTkTool(unitToTool(unit));
         ts2.setTkMeasureState("measuring");
@@ -186,7 +185,7 @@ export default function useTakeoffCRUD() {
 
   /** Insert all elements from an assembly as takeoffs */
   const insertAssemblyIntoTakeoffs = useCallback(asm => {
-    const ts = useTakeoffsStore.getState();
+    const ts = useDrawingPipelineStore.getState();
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     const newTakeoffs = asm.elements.map((el, i) => ({
       id: uid(),

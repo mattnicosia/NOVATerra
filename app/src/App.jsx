@@ -20,7 +20,7 @@ const DraftApprovalPanel = lazy(() => import("@/components/shared/DraftApprovalP
 import { useAuthStore } from "@/stores/authStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
-// useDrawingsStore removed — no longer needed in App header
+// useDrawingPipelineStore removed — no longer needed in App header
 import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";

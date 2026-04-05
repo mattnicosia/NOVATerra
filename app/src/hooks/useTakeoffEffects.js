@@ -13,8 +13,7 @@
  * - Session persistence effects
  */
 import { useEffect, useRef } from "react";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
 import { unitToTool } from "@/hooks/useMeasurementEngine";
 import { uid } from "@/utils/format";
@@ -57,8 +56,8 @@ export default function useTakeoffEffects({
 
   // ─── Pan listeners ───
   useEffect(() => {
-    const setTkPan = useTakeoffsStore.getState().setTkPan;
-    const setTkContextMenu = useTakeoffsStore.getState().setTkContextMenu;
+    const setTkPan = useDrawingPipelineStore.getState().setTkPan;
+    const setTkContextMenu = useDrawingPipelineStore.getState().setTkContextMenu;
     const onMove = e => {
       if (!tkPanning.current) return;
       const dx = e.clientX - tkPanStart.current.x;
@@ -87,22 +86,22 @@ export default function useTakeoffEffects({
 
   // Reset pan on drawing change
   useEffect(() => {
-    useTakeoffsStore.getState().setTkPan({ x: 0, y: 0 });
+    useDrawingPipelineStore.getState().setTkPan({ x: 0, y: 0 });
   }, [selectedDrawingId]);
 
   // ─── Proactive predictions ───
   useEffect(() => {
     const scanKey = `${tkActiveTakeoffId}::${selectedDrawingId}`;
     if (scanKey !== predScanKeyRef.current) {
-      useTakeoffsStore.getState().clearPredictions();
+      useDrawingPipelineStore.getState().clearPredictions();
       predScanKeyRef.current = scanKey;
     }
     if (!tkActiveTakeoffId || !selectedDrawingId) return;
-    const currentMeasureState = useTakeoffsStore.getState().tkMeasureState;
+    const currentMeasureState = useDrawingPipelineStore.getState().tkMeasureState;
     if (currentMeasureState !== "measuring" && currentMeasureState !== "paused") return;
-    const to = useTakeoffsStore.getState().takeoffs.find(t => t.id === tkActiveTakeoffId);
+    const to = useDrawingPipelineStore.getState().takeoffs.find(t => t.id === tkActiveTakeoffId);
     if (!to) return;
-    const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
+    const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === selectedDrawingId);
     if (!drawing || drawing.type !== "pdf" || !drawing.data) {
       console.log(`[NOVA] Proactive scan blocked: type=${drawing?.type} data=${!!drawing?.data}`);
       return;
@@ -131,10 +130,10 @@ export default function useTakeoffEffects({
           result.source, result.strategy, result.tag,
           result.predictions.length, "predictions", result.message || "",
         );
-        const currentActiveId = useTakeoffsStore.getState().tkActiveTakeoffId;
+        const currentActiveId = useDrawingPipelineStore.getState().tkActiveTakeoffId;
         if (currentActiveId !== tkActiveTakeoffId) return;
         if (result.predictions.length > 0) {
-          useTakeoffsStore.getState().setTkPredictions({
+          useDrawingPipelineStore.getState().setTkPredictions({
             tag: result.tag,
             predictions: result.predictions,
             scanning: false,
@@ -143,7 +142,7 @@ export default function useTakeoffEffects({
             strategy: result.strategy,
             takeoffId: result.takeoffId,
           });
-          useTakeoffsStore.getState().initPredContext(result.tag, result.source, result.confidence);
+          useDrawingPipelineStore.getState().initPredContext(result.tag, result.source, result.confidence);
           showToast(`\u2726 Found ${result.predictions.length} "${result.tag || "items"}" \u2014 review predictions`, "success");
         } else {
           console.log("[NOVA] Proactive scan returned 0 predictions:", result.message || result.strategy);
@@ -183,7 +182,7 @@ export default function useTakeoffEffects({
       const isTyping = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 
       if (e.key === "Escape") {
-        useTakeoffsStore.getState().setTkContextMenu(null);
+        useDrawingPipelineStore.getState().setTkContextMenu(null);
         if (isTyping) {
           document.activeElement.blur();
           return;
@@ -191,18 +190,18 @@ export default function useTakeoffEffects({
         if (tkMeasureState === "measuring" || tkMeasureState === "paused") {
           stopMeasuring();
         } else if (tkSelectedTakeoffId) {
-          useTakeoffsStore.getState().setTkSelectedTakeoffId(null);
-          useTakeoffsStore.getState().setTkActivePoints([]);
-          if (tkTool !== "select") useTakeoffsStore.getState().setTkTool("select");
+          useDrawingPipelineStore.getState().setTkSelectedTakeoffId(null);
+          useDrawingPipelineStore.getState().setTkActivePoints([]);
+          if (tkTool !== "select") useDrawingPipelineStore.getState().setTkTool("select");
         } else {
-          useTakeoffsStore.getState().setTkActivePoints([]);
-          if (tkTool !== "select") useTakeoffsStore.getState().setTkTool("select");
+          useDrawingPipelineStore.getState().setTkActivePoints([]);
+          if (tkTool !== "select") useDrawingPipelineStore.getState().setTkTool("select");
         }
         return;
       }
 
       if (e.key === "Tab" && !isTyping) {
-        const allTos = useTakeoffsStore.getState().takeoffs;
+        const allTos = useDrawingPipelineStore.getState().takeoffs;
         if (allTos.length === 0) return;
         e.preventDefault();
         const currentIdx = allTos.findIndex(t => t.id === tkSelectedTakeoffId);
@@ -216,7 +215,7 @@ export default function useTakeoffEffects({
           stopMeasuring();
         }
         const nextId = allTos[nextIdx].id;
-        useTakeoffsStore.getState().setTkSelectedTakeoffId(nextId);
+        useDrawingPipelineStore.getState().setTkSelectedTakeoffId(nextId);
         requestAnimationFrame(() => {
           const el = document.querySelector(`[data-takeoff-id="${nextId}"]`);
           if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -226,7 +225,7 @@ export default function useTakeoffEffects({
 
       if (e.key === "Enter" && !isTyping) {
         if (tkSelectedTakeoffId && tkMeasureState !== "measuring") {
-          const drawingId = useDrawingsStore.getState().selectedDrawingId;
+          const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
           if (drawingId) {
             e.preventDefault();
             engageMeasuring(tkSelectedTakeoffId);
@@ -238,8 +237,8 @@ export default function useTakeoffEffects({
       if ((e.key === "Delete" || e.key === "Backspace") && !isTyping) {
         if (tkSelectedTakeoffId && tkMeasureState !== "measuring") {
           e.preventDefault();
-          useTakeoffsStore.getState().removeTakeoff(tkSelectedTakeoffId);
-          useTakeoffsStore.getState().setTkSelectedTakeoffId(null);
+          useDrawingPipelineStore.getState().removeTakeoff(tkSelectedTakeoffId);
+          useDrawingPipelineStore.getState().setTkSelectedTakeoffId(null);
         }
         return;
       }
@@ -247,11 +246,11 @@ export default function useTakeoffEffects({
       if ((e.metaKey || e.ctrlKey) && e.key === "d" && !isTyping) {
         if (tkSelectedTakeoffId) {
           e.preventDefault();
-          const allTos = useTakeoffsStore.getState().takeoffs;
+          const allTos = useDrawingPipelineStore.getState().takeoffs;
           const src = allTos.find(t => t.id === tkSelectedTakeoffId);
           if (src) {
             const dup = { ...src, id: uid(), linkedItemId: "", measurements: [] };
-            useTakeoffsStore.getState().setTakeoffs([...allTos, dup]);
+            useDrawingPipelineStore.getState().setTakeoffs([...allTos, dup]);
           }
         }
         return;
@@ -265,7 +264,7 @@ export default function useTakeoffEffects({
   // ─── DB search ───
   useEffect(() => {
     if (!tkNewInput.trim()) {
-      useTakeoffsStore.getState().setTkDbResults([]);
+      useDrawingPipelineStore.getState().setTkDbResults([]);
       return;
     }
     const q = tkNewInput.toLowerCase();
@@ -284,7 +283,7 @@ export default function useTakeoffEffects({
       ...asmResults.map(a => ({ ...a, _type: "assembly" })),
       ...itemResults.map(el => ({ ...el, _type: "item" })),
     ];
-    useTakeoffsStore.getState().setTkDbResults(combined);
+    useDrawingPipelineStore.getState().setTkDbResults(combined);
   }, [tkNewInput, elements, assemblies]);
 
   // ─── Auto-select first drawing + lazy PDF rendering ───
@@ -293,7 +292,7 @@ export default function useTakeoffEffects({
     const withData = drawings.filter(d => d.data);
     if (withData.length === 0) return;
 
-    const ds = useDrawingsStore.getState();
+    const ds = useDrawingPipelineStore.getState();
     if (!ds.selectedDrawingId || !withData.find(d => d.id === ds.selectedDrawingId)) {
       const savedId = sessionStorage.getItem("bldg-selectedDrawingId");
       const savedDrawing = savedId && withData.find(d => d.id === savedId);
@@ -304,7 +303,7 @@ export default function useTakeoffEffects({
 
     let cancelled = false;
     (async () => {
-      const current = useDrawingsStore.getState().pdfCanvases;
+      const current = useDrawingPipelineStore.getState().pdfCanvases;
       const pending = withData.filter(d => d.type === "pdf" && !current[d.id]);
       for (const d of pending) {
         if (cancelled) break;
@@ -319,7 +318,7 @@ export default function useTakeoffEffects({
 
   // ─── One-time migration: infer viewType ───
   useEffect(() => {
-    const ds = useDrawingsStore.getState();
+    const ds = useDrawingPipelineStore.getState();
     ds.drawings.forEach(d => {
       if (d.sheetTitle && !d.viewType) {
         const vt = inferViewType(d.sheetTitle);
@@ -335,9 +334,9 @@ export default function useTakeoffEffects({
     setGeoAnalysis({ loading: false, results: null });
     const prevId = prevDrawingIdRef.current;
     if (prevId && prevId !== selectedDrawingId) {
-      useTakeoffsStore.getState().saveTkSheetView(prevId);
+      useDrawingPipelineStore.getState().saveTkSheetView(prevId);
       try {
-        const s = useTakeoffsStore.getState();
+        const s = useDrawingPipelineStore.getState();
         if (s.tkActiveTakeoffId && s.tkPredictions) {
           const { autoRecordFromPredState } = require("@/utils/crossSheetLearning");
           const manualCount = (s.takeoffs.find(t => t.id === s.tkActiveTakeoffId)?.measurements || [])
@@ -352,10 +351,10 @@ export default function useTakeoffEffects({
       } catch { /* cross-sheet learning non-critical */ }
     }
     if (selectedDrawingId && selectedDrawingId !== prevId) {
-      const restored = useTakeoffsStore.getState().restoreTkSheetView(selectedDrawingId);
+      const restored = useDrawingPipelineStore.getState().restoreTkSheetView(selectedDrawingId);
       if (!restored) {
-        useTakeoffsStore.getState().setTkZoom(100);
-        useTakeoffsStore.getState().setTkPan({ x: 0, y: 0 });
+        useDrawingPipelineStore.getState().setTkZoom(100);
+        useDrawingPipelineStore.getState().setTkPan({ x: 0, y: 0 });
       }
     }
     prevDrawingIdRef.current = selectedDrawingId;

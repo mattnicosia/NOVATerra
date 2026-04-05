@@ -1,7 +1,7 @@
 // Shared drawing utility functions — used by DocumentsPage and PlanRoomPage
 import { SCALE_PRESETS } from "@/constants/scales";
 import { loadPdfJs } from "@/utils/pdf";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 
 // Convert ArrayBuffer to base64
 export const arrayBufferToBase64 = buffer => {
@@ -112,12 +112,12 @@ export function getScaleLabel(key) {
 // Render PDF page to canvas data URL (caches in drawingsStore.pdfCanvases)
 // Handles both legacy PDF drawings (raw PDF base64) and pre-rendered pages (JPEG).
 export async function renderPdfPage(drawing) {
-  const currentCanvases = useDrawingsStore.getState().pdfCanvases;
+  const currentCanvases = useDrawingPipelineStore.getState().pdfCanvases;
   if (currentCanvases[drawing.id]) return currentCanvases[drawing.id];
 
   // Pre-rendered PDF page: data is already a JPEG — cache and return directly
   if (drawing.pdfPreRendered && drawing.data) {
-    useDrawingsStore.setState(s => ({
+    useDrawingPipelineStore.setState(s => ({
       pdfCanvases: { ...s.pdfCanvases, [drawing.id]: drawing.data },
     }));
     return drawing.data;
@@ -137,7 +137,7 @@ export async function renderPdfPage(drawing) {
     canvas.height = vp.height;
     await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
     const url = canvas.toDataURL("image/jpeg", 0.8);
-    useDrawingsStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: url } }));
+    useDrawingPipelineStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: url } }));
     return url;
   } catch (e) {
     console.error("renderPdfPage error:", e);

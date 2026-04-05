@@ -2,9 +2,9 @@ import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useDatabaseUiStore } from "@/stores/databaseUiStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useGroupsStore } from "@/stores/groupsStore";
@@ -49,13 +49,13 @@ export default function EstimatePage() {
   const getTotals = useItemsStore(s => s.getTotals);
   const markup = useItemsStore(s => s.markup);
 
-  const dragItemId = useBidLevelingStore(s => s.dragItemId);
-  const setDragItemId = useBidLevelingStore(s => s.setDragItemId);
-  const dragOverSk = useBidLevelingStore(s => s.dragOverSk);
-  const setDragOverSk = useBidLevelingStore(s => s.setDragOverSk);
+  const dragItemId = useBidManagementStore(s => s.dragItemId);
+  const setDragItemId = useBidManagementStore(s => s.setDragItemId);
+  const dragOverSk = useBidManagementStore(s => s.dragOverSk);
+  const setDragOverSk = useBidManagementStore(s => s.setDragOverSk);
 
-  const exclusions = useSpecsStore(s => s.exclusions);
-  const clarifications = useSpecsStore(s => s.clarifications);
+  const exclusions = useDocumentManagementStore(s => s.exclusions);
+  const clarifications = useDocumentManagementStore(s => s.clarifications);
 
   const estSearch = useUiStore(s => s.estSearch);
   const setEstSearch = useUiStore(s => s.setEstSearch);

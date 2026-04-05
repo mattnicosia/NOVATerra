@@ -15,7 +15,7 @@
 
 import { useCorrectionStore } from "../learning/correctionStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 
 // ── CSI Division Labels ──
@@ -116,7 +116,7 @@ function buildProposalContext(context) {
  * Build calibration factor context
  */
 function buildCalibrationContext(context) {
-  const scanStore = useScanStore.getState();
+  const scanStore = useDrawingPipelineStore.getState();
   if (!scanStore.getCalibrationFactors) return "";
 
   try {

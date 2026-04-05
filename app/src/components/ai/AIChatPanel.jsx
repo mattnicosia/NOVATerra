@@ -3,9 +3,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useSpecsStore } from "@/stores/specsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { callAnthropic, buildProjectContext } from "@/utils/ai";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
 import { novaCost } from "@/nova/agents/cost";
@@ -65,9 +64,9 @@ export default function AIChatPanel() {
   const setMessages = useUiStore(s => s.setAiChatMessages);
   const project = useProjectStore(s => s.project);
   const items = useItemsStore(s => s.items);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const specs = useSpecsStore(s => s.specs);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const specs = useDocumentManagementStore(s => s.specs);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -839,7 +838,7 @@ function renderInline(text, C) {
     const after = text.slice(idx + sheetMatch[0].length);
 
     // Find matching drawing
-    const allDrawings = useDrawingsStore.getState().drawings;
+    const allDrawings = useDrawingPipelineStore.getState().drawings;
     const match = allDrawings.find(d =>
       d.sheetNumber === sheetRef ||
       d.sheetNumber?.replace(/[.-]/g, "") === sheetRef.replace(/[.-]/g, "") ||
@@ -851,7 +850,7 @@ function renderInline(text, C) {
         {before && renderInline(before, C)}
         <span
           onClick={match ? () => {
-            useDrawingsStore.getState().setSelectedDrawingId(match.id);
+            useDrawingPipelineStore.getState().setSelectedDrawingId(match.id);
             // Navigate to takeoffs if not already there
             if (!window.location.pathname.includes("/takeoffs")) {
               const estMatch = window.location.pathname.match(/\/estimate\/([^/]+)/);

@@ -11,8 +11,7 @@
 import { useState, useCallback, useMemo, useEffect, Suspense, lazy } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEstimatesStore } from "@/stores/estimatesStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { loadEstimate } from "@/hooks/usePersistence";
 
 // ── Color tokens (Epichust-inspired dark steel palette) ──

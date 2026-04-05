@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { useDocumentsStore } from "@/stores/documentsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
@@ -58,9 +58,9 @@ export default function DocumentsPanel({ onRemove, categoryFilter }) {
   const T = C.T;
 
   /* ── store ── */
-  const documents = useDocumentsStore((s) => s.documents);
-  const tagPalette = useDocumentsStore((s) => s.tagPalette);
-  const transmittals = useDocumentsStore((s) => s.transmittals);
+  const documents = useDocumentManagementStore((s) => s.documents);
+  const tagPalette = useDocumentManagementStore((s) => s.tagPalette);
+  const transmittals = useDocumentManagementStore((s) => s.transmittals);
 
   /* ── local state ── */
   const [search, setSearch] = useState("");
@@ -86,7 +86,7 @@ export default function DocumentsPanel({ onRemove, categoryFilter }) {
   const versionFileRef = useRef(null);
 
   /* ── derived ── */
-  const folders = useDocumentsStore((s) => s.getFolders());
+  const folders = useDocumentManagementStore((s) => s.getFolders());
 
   const filtered = useMemo(() => {
     let list = documents;
@@ -129,7 +129,7 @@ export default function DocumentsPanel({ onRemove, categoryFilter }) {
   if (documents.length === 0) return null;
 
   /* ── actions ── */
-  const store = useDocumentsStore.getState;
+  const store = useDocumentManagementStore.getState;
   const toggleSelect = (id) => {
     const next = new Set(selectedIds);
     next.has(id) ? next.delete(id) : next.add(id);

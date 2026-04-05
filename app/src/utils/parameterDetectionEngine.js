@@ -10,7 +10,7 @@
 // Phase E: Targeted AI Verification (0-3 API calls) — cropped 600px room views
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { analyzeDrawingGeometry } from "@/utils/geometryEngine";
 import { callAnthropic, optimizeImageForAI, imageBlock, cropImageRegion } from "@/utils/ai";
 import { renderPdfPage } from "@/utils/drawingUtils";
@@ -58,7 +58,7 @@ export async function runParameterDetection({ parsedSchedules = [], scheduleEvid
   const allEvidence = [];
 
   // Find all floor plan drawings
-  const allDrawings = useDrawingsStore.getState().drawings.filter(d => d.data);
+  const allDrawings = useDrawingPipelineStore.getState().drawings.filter(d => d.data);
   const planPatterns = [
     /floor\s*plan/i,
     /main\s*(level|floor)/i,
@@ -391,7 +391,7 @@ async function expandedAIAnalysis(floorPlanDrawings, existingEvidence) {
   for (const d of floorPlanDrawings) {
     try {
       let imgData;
-      const curCanvases = useDrawingsStore.getState().pdfCanvases;
+      const curCanvases = useDrawingPipelineStore.getState().pdfCanvases;
       if (d.type === "pdf") {
         imgData = curCanvases[d.id] || (await renderPdfPage(d));
       } else {

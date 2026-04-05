@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useAlternatesStore } from "@/stores/alternatesStore";
 import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
@@ -30,7 +30,7 @@ export default function AlternatesPage() {
   const markup = useItemsStore(s => s.markup);
   const markupOrder = useItemsStore(s => s.markupOrder) || DEFAULT_MARKUP_ORDER;
   const customMarkups = useItemsStore(s => s.customMarkups);
-  const specs = useSpecsStore(s => s.specs);
+  const specs = useDocumentManagementStore(s => s.specs);
   const project = useProjectStore(s => s.project);
 
   const veLoading = useUiStore(s => s.veLoading);

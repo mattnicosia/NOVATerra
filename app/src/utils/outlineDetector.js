@@ -1,7 +1,7 @@
 // outlineDetector.js — Detect building outline from plan sheet images using Claude Vision
 // Returns building perimeter polygon in feet-space for 3D shell rendering
 
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { callAnthropic, optimizeImageForAI, imageBlock } from "@/utils/ai";
 import { getPxPerFoot } from "@/utils/geometryBuilder";
 
@@ -44,12 +44,12 @@ export async function ensureDrawingImage(drawing) {
 
   // Pre-rendered PDF page — data is already a JPEG
   if (drawing.pdfPreRendered && drawing.data) {
-    useDrawingsStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: drawing.data } }));
+    useDrawingPipelineStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: drawing.data } }));
     return drawing.data;
   }
 
   // Check if already rendered
-  const { pdfCanvases } = useDrawingsStore.getState();
+  const { pdfCanvases } = useDrawingPipelineStore.getState();
   if (pdfCanvases[drawing.id]) return pdfCanvases[drawing.id];
 
   // Render the PDF page from raw PDF data
@@ -68,7 +68,7 @@ export async function ensureDrawingImage(drawing) {
     await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
     const url = canvas.toDataURL("image/jpeg", 0.8);
     // Store in drawingsStore so other code can use it
-    useDrawingsStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: url } }));
+    useDrawingPipelineStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: url } }));
     return url;
   } catch (e) {
     console.error("ensureDrawingImage:", e);
@@ -96,7 +96,7 @@ Return ONLY a JSON array of {x, y} objects. No explanation, no markdown fences. 
  */
 export async function detectBuildingOutline(drawingId) {
   // Get or render the drawing image
-  const { drawings } = useDrawingsStore.getState();
+  const { drawings } = useDrawingPipelineStore.getState();
   const drawing = drawings.find(d => d.id === drawingId);
   const base64 = await ensureDrawingImage(drawing);
   if (!base64) throw new Error(`No image found for drawing ${drawingId}`);

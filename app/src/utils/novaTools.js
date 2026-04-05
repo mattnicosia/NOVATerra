@@ -525,8 +525,7 @@ export async function executeNovaTool(toolName, toolInput) {
     }
 
     case "query_project_info": {
-      const { useScanStore } = await import("@/stores/scanStore");
-      const { useDrawingsStore } = await import("@/stores/drawingsStore");
+      const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
       const include = toolInput.include || ['project', 'rom', 'scan', 'schedules'];
       const result = {};
 
@@ -539,7 +538,7 @@ export async function executeNovaTool(toolName, toolInput) {
         };
       }
       if (include.includes('rom')) {
-        const scanResults = useScanStore.getState().scanResults;
+        const scanResults = useDrawingPipelineStore.getState().scanResults;
         const rom = scanResults?.rom;
         if (rom?.totals) {
           result.rom = {
@@ -550,16 +549,16 @@ export async function executeNovaTool(toolName, toolInput) {
         }
       }
       if (include.includes('scan')) {
-        const scanResults = useScanStore.getState().scanResults;
+        const scanResults = useDrawingPipelineStore.getState().scanResults;
         result.scan = {
           hasResults: !!scanResults,
-          drawingCount: useDrawingsStore.getState().drawings.length,
+          drawingCount: useDrawingPipelineStore.getState().drawings.length,
           schedulesDetected: scanResults?.schedules?.length || 0,
           notesExtracted: scanResults?.notes?.length || 0,
         };
       }
       if (include.includes('schedules')) {
-        const scanResults = useScanStore.getState().scanResults;
+        const scanResults = useDrawingPipelineStore.getState().scanResults;
         result.schedules = (scanResults?.schedules || []).map(s => ({
           type: s.type, entryCount: s.entries?.length || 0, sheetLabel: s.sheetLabel,
         }));
@@ -569,10 +568,10 @@ export async function executeNovaTool(toolName, toolInput) {
 
     case "filter_takeoff_suggestions": {
       const { action, criteria } = toolInput;
-      const { useScanStore } = await import("@/stores/scanStore");
+      const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
       const { useUiStore } = await import("@/stores/uiStore");
       const { generateTakeoffSuggestions } = await import("@/nova/predictive/generateSuggestions");
-      const scanResults = useScanStore.getState().scanResults;
+      const scanResults = useDrawingPipelineStore.getState().scanResults;
       if (!scanResults) return { success: false, message: "No scan results available. Run a plan scan first." };
 
       const suggestions = generateTakeoffSuggestions(scanResults);

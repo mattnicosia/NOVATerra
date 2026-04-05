@@ -9,11 +9,10 @@
  */
 import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useRfiStore } from "@/stores/rfiStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useSpecsStore } from "@/stores/specsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
@@ -32,18 +31,18 @@ export default function RFIPanel() {
   const T = C.T;
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
   const showToast = useUiStore(s => s.showToast);
-  const rfis = useRfiStore(s => s.rfis);
-  const loaded = useRfiStore(s => s.loaded);
-  const addBulkRFIs = useRfiStore(s => s.addBulkRFIs);
-  const addRFI = useRfiStore(s => s.addRFI);
-  const updateRFI = useRfiStore(s => s.updateRFI);
-  const setRFIStatus = useRfiStore(s => s.setRFIStatus);
-  const removeRFI = useRfiStore(s => s.removeRFI);
+  const rfis = useDocumentManagementStore(s => s.rfis);
+  const loaded = useDocumentManagementStore(s => s.loaded);
+  const addBulkRFIs = useDocumentManagementStore(s => s.addBulkRFIs);
+  const addRFI = useDocumentManagementStore(s => s.addRFI);
+  const updateRFI = useDocumentManagementStore(s => s.updateRFI);
+  const setRFIStatus = useDocumentManagementStore(s => s.setRFIStatus);
+  const removeRFI = useDocumentManagementStore(s => s.removeRFI);
 
   const project = useProjectStore(s => s.project);
   const items = useItemsStore(s => s.items);
-  const specs = useSpecsStore(s => s.specs);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const specs = useDocumentManagementStore(s => s.specs);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
   const [generating, setGenerating] = useState(false);
   const [streamText, setStreamText] = useState("");
@@ -53,7 +52,7 @@ export default function RFIPanel() {
 
   // Load RFIs on mount
   useEffect(() => {
-    if (estimateId && !loaded) useRfiStore.getState().loadRFIs(estimateId);
+    if (estimateId && !loaded) useDocumentManagementStore.getState().loadRFIs(estimateId);
   }, [estimateId, loaded]);
 
   const filteredRFIs = useMemo(() => (filter === "all" ? rfis : rfis.filter(r => r.status === filter)), [rfis, filter]);
@@ -158,7 +157,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
 
   const handleAddManual = () => {
     addRFI(estimateId, { source: "manual" });
-    const newRfi = useRfiStore.getState().rfis.at(-1);
+    const newRfi = useDocumentManagementStore.getState().rfis.at(-1);
     if (newRfi) setExpandedRFI(newRfi.id);
   };
 

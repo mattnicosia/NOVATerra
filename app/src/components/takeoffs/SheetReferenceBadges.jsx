@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 
 export default function SheetReferenceBadges({ selectedDrawingId, detectedReferences, setRefPopover, refPopover }) {
   const C = useTheme();
   const [hoveredRef, setHoveredRef] = useState(null);
-  const drawings = useDrawingsStore(s => s.drawings);
-  const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
-  const sheetIndex = useDrawingsStore(s => s.sheetIndex);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
+  const sheetIndex = useDrawingPipelineStore(s => s.sheetIndex);
 
   const refs = detectedReferences[selectedDrawingId];
   if (!selectedDrawingId || !refs || refs.length === 0) return null;
@@ -35,7 +35,7 @@ export default function SheetReferenceBadges({ selectedDrawingId, detectedRefere
           e.stopPropagation();
           // Navigate to the target drawing sheet
           if (targetDId) {
-            useDrawingsStore.getState().setSelectedDrawingId(targetDId);
+            useDrawingPipelineStore.getState().setSelectedDrawingId(targetDId);
           } else {
             // No target found — show popover
             setRefPopover(

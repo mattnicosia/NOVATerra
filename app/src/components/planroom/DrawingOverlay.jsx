@@ -16,8 +16,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, card, inp } from "@/utils/styles";
@@ -59,12 +58,12 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Get canvas data for both drawings
-  const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
+  const pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
   const canvasA = pdfCanvases[drawingA?.id];
   const canvasB = pdfCanvases[drawingB?.id];
 
   // Get takeoffs for overlay
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
   const takeoffsA = useMemo(() => {
     if (!showTakeoffs || !drawingA) return [];
     return takeoffs.filter(t => t.drawingRef === drawingA.id && t.measurements?.some(m => m.points?.length > 0));
@@ -77,7 +76,7 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
   // Available drawings list
   const allDrawings = useMemo(() => {
     if (drawings?.length > 0) return drawings;
-    return useDrawingsStore.getState().drawings.filter(d => d.data || pdfCanvases[d.id]);
+    return useDrawingPipelineStore.getState().drawings.filter(d => d.data || pdfCanvases[d.id]);
   }, [drawings, pdfCanvases]);
 
   // Compute pixel difference with heat map density + stats

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import CompanySwitcher from "@/components/shared/CompanySwitcher";
@@ -1662,9 +1662,9 @@ function NewCompanyModal({ tab, companyTag: _companyTag, onSave, onClose, C, T }
 
 /* ── SubDetailPanel — expandable prequalification + performance ── */
 function SubDetailPanel({ sub, onUpdate, C, T }) {
-  const bidPackages = useBidPackagesStore(s => s.bidPackages);
-  const invitations = useBidPackagesStore(s => s.invitations);
-  const _proposals = useBidPackagesStore(s => s.proposals);
+  const bidPackages = useBidManagementStore(s => s.bidPackages);
+  const invitations = useBidManagementStore(s => s.invitations);
+  const _proposals = useBidManagementStore(s => s.proposals);
 
   // Compute performance from bid packages data
   const perf = useMemo(() => {

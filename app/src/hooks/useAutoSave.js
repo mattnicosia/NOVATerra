@@ -17,11 +17,10 @@ import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
-import { useSpecsStore } from "@/stores/specsStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
@@ -29,10 +28,8 @@ import { useModuleStore } from "@/stores/moduleStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useTaskStore } from "@/stores/taskStore";
 import { useGroupsStore } from "@/stores/groupsStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
-import { useModelStore } from "@/stores/modelStore";
 import { useUiStore } from "@/stores/uiStore";
 
 // ── Selector-based subscribe helper ─────────────────────────
@@ -117,24 +114,24 @@ export function useAutoSave() {
     const unsubs = [
       subSlice(useProjectStore, s => s.project, scheduleEstSave),
       subSlice(useItemsStore, s => s.items, scheduleEstSave),
-      subSlice(useTakeoffsStore, s => s.takeoffs, scheduleEstSave),
-      subSlice(useBidLevelingStore, s => s.subBidSubs, scheduleEstSave),
-      subSlice(useBidLevelingStore, s => s.linkedSubs, scheduleEstSave),
-      subSlice(useBidLevelingStore, s => s.overrides, scheduleEstSave),
-      subSlice(useBidLevelingStore, s => s.selections, scheduleEstSave),
+      subSlice(useDrawingPipelineStore, s => s.takeoffs, scheduleEstSave),
+      subSlice(useBidManagementStore, s => s.subBidSubs, scheduleEstSave),
+      subSlice(useBidManagementStore, s => s.linkedSubs, scheduleEstSave),
+      subSlice(useBidManagementStore, s => s.overrides, scheduleEstSave),
+      subSlice(useBidManagementStore, s => s.selections, scheduleEstSave),
       subSlice(useAlternatesStore, s => s.alternates, scheduleEstSave),
-      subSlice(useSpecsStore, s => s.specs, scheduleEstSave),
-      subSlice(useSpecsStore, s => s.exclusions, scheduleEstSave),
-      subSlice(useSpecsStore, s => s.clarifications, scheduleEstSave),
+      subSlice(useDocumentManagementStore, s => s.specs, scheduleEstSave),
+      subSlice(useDocumentManagementStore, s => s.exclusions, scheduleEstSave),
+      subSlice(useDocumentManagementStore, s => s.clarifications, scheduleEstSave),
       subSlice(useCorrespondenceStore, s => s.correspondences, scheduleEstSave),
       subSlice(useModuleStore, s => s.moduleInstances, scheduleEstSave),
       subSlice(useGroupsStore, s => s.groups, scheduleEstSave),
-      subSlice(useBidPackagesStore, s => s.bidPackages, scheduleEstSave),
-      subSlice(useBidPackagesStore, s => s.invitations, scheduleEstSave),
-      subSlice(useBidPackagesStore, s => s.proposals, scheduleEstSave),
-      subSlice(useModelStore, s => s.elements, scheduleEstSave),
-      subSlice(useModelStore, s => s.levels, scheduleEstSave),
-      subSlice(useDrawingsStore, s => s.drawings, scheduleDrawSave),
+      subSlice(useBidManagementStore, s => s.bidPackages, scheduleEstSave),
+      subSlice(useBidManagementStore, s => s.invitations, scheduleEstSave),
+      subSlice(useBidManagementStore, s => s.proposals, scheduleEstSave),
+      subSlice(useDrawingPipelineStore, s => s.elements, scheduleEstSave),
+      subSlice(useDrawingPipelineStore, s => s.levels, scheduleEstSave),
+      subSlice(useDrawingPipelineStore, s => s.drawings, scheduleDrawSave),
       // Flush pending save for outgoing estimate, then cancel timers
       useEstimatesStore.subscribe((state, prev) => {
         if (state.activeEstimateId !== prev.activeEstimateId) {
@@ -253,7 +250,7 @@ export function useAutoSave() {
   }, [persistenceLoaded, storeTasks]);
 
   // ── Bid package presets (debounced) ────────────────────
-  const bpPresets = useBidPackagesStore(s => s.bidPackagePresets);
+  const bpPresets = useBidManagementStore(s => s.bidPackagePresets);
   useEffect(() => {
     if (!persistenceLoaded) return;
     if (bpPresetsTimer.current) clearTimeout(bpPresetsTimer.current);

@@ -5,12 +5,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useUiStore } from "@/stores/uiStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useSpecsStore } from "@/stores/specsStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useNovaStore } from "@/stores/novaStore";
 import {
   callAnthropic,
@@ -105,7 +104,7 @@ function extractJSON(text, type = "array") {
  * @returns {Promise<Object|null>} scan results or null on failure
  */
 export async function runFullScan({ onComplete, onError, signal } = {}) {
-  const currentDrawings = useDrawingsStore.getState().drawings.filter(d => d.data);
+  const currentDrawings = useDrawingPipelineStore.getState().drawings.filter(d => d.data);
   if (currentDrawings.length === 0) {
     const msg = "No drawings to scan. Upload documents first.";
     useUiStore.getState().showToast(msg, "error");
@@ -113,7 +112,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     return null;
   }
 
-  const { setScanResults, setScanProgress, setScanError, clearScan, createAbortController } = useScanStore.getState();
+  const { setScanResults, setScanProgress, setScanError, clearScan, createAbortController } = useDrawingPipelineStore.getState();
   const showToast = useUiStore.getState().showToast;
 
   // Create abort controller if no external signal provided
@@ -124,7 +123,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
 
   clearScan();
   // Re-create controller after clearScan reset it
-  if (!signal) useScanStore.getState().createAbortController();
+  if (!signal) useDrawingPipelineStore.getState().createAbortController();
 
   useNovaStore.getState().startTask("scan", `Scanning ${currentDrawings.length} drawings...`);
   setScanProgress({
@@ -156,7 +155,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           message: `OCR: sheet ${idx + 1}/${currentDrawings.length}...`,
         });
         let imgData;
-        const curCanvases = useDrawingsStore.getState().pdfCanvases;
+        const curCanvases = useDrawingPipelineStore.getState().pdfCanvases;
         if (d.type === "pdf") {
           imgData = curCanvases[d.id] || (await renderPdfPage(d));
         } else {
@@ -189,7 +188,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         // Store OCR result on drawing for future reuse
         if (ocrText) {
           try {
-            useDrawingsStore.getState().updateDrawing(d.id, "ocrCache", {
+            useDrawingPipelineStore.getState().updateDrawing(d.id, "ocrCache", {
               text: ocrText,
               timestamp: Date.now(),
             });
@@ -299,7 +298,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           sheetLabel: det.sheetLabel || `Sheet ${idx + 1}`,
         });
         try {
-          useDrawingsStore.getState().updateDrawing(det.sheetId, "extractedNotes", result);
+          useDrawingPipelineStore.getState().updateDrawing(det.sheetId, "extractedNotes", result);
         } catch {
           /* non-critical */
         }
@@ -832,8 +831,8 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
 
       // Store evidence in scan results for debugging
       if (detectionResult?.evidence?.length > 0) {
-        useScanStore.getState().setScanResults({
-          ...useScanStore.getState().scanResults,
+        useDrawingPipelineStore.getState().setScanResults({
+          ...useDrawingPipelineStore.getState().scanResults,
           parameterEvidence: detectionResult.evidence,
           parameterTiming: detectionResult.timing,
         });
@@ -855,15 +854,15 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     let effectiveSF = proj.projectSF;
     let sfEstimate = null;
     if (!effectiveSF || parseFloat(effectiveSF) === 0) {
-      const pCtx = buildProjectContext({ project: proj, drawings: useDrawingsStore.getState().drawings });
+      const pCtx = buildProjectContext({ project: proj, drawings: useDrawingPipelineStore.getState().drawings });
       sfEstimate = await estimateProjectSF({
-        drawings: useDrawingsStore.getState().drawings,
+        drawings: useDrawingPipelineStore.getState().drawings,
         schedules: validSchedules,
         projectContext: pCtx,
       });
       if (sfEstimate?.estimatedSF) effectiveSF = sfEstimate.estimatedSF;
     }
-    const calibrationFactors = useScanStore
+    const calibrationFactors = useDrawingPipelineStore
       .getState()
       .getCalibrationFactors(proj.jobType, proj.workType || "", proj.laborType || "");
     const buildingParams = {
@@ -900,8 +899,8 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     const projectCtx = buildProjectContext({
       project: { ...proj, projectSF: effectiveSF || proj.projectSF },
       items: useItemsStore.getState().items,
-      drawings: useDrawingsStore.getState().drawings,
-      specs: useSpecsStore.getState().specs,
+      drawings: useDrawingPipelineStore.getState().drawings,
+      specs: useDocumentManagementStore.getState().specs,
     });
     const romStart = Date.now();
     const augmentedROM = await augmentROMWithAI({
@@ -920,7 +919,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     // ── Phase 3.1: Verify ROM (agent self-check) ──
     try {
       const { verifyROM } = await import("@/utils/scanVerifier");
-      const calFactors = useScanStore.getState().getCalibrationFactors?.(proj.jobType, proj.workType || "", proj.laborType || "") || {};
+      const calFactors = useDrawingPipelineStore.getState().getCalibrationFactors?.(proj.jobType, proj.workType || "", proj.laborType || "") || {};
       const romVerification = verifyROM(augmentedROM, effectiveSF, proj.jobType, calFactors);
       if (!romVerification.pass) {
         console.log(`[scanRunner] Phase 3.1: ROM verification flagged ${romVerification.issues.length} issues`);
@@ -1105,7 +1104,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
 
     // Clear abort controller on success
     try {
-      useScanStore.setState({ scanAbortController: null });
+      useDrawingPipelineStore.setState({ scanAbortController: null });
     } catch {
       /* ok */
     }

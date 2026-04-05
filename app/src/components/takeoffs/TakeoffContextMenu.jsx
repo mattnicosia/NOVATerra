@@ -1,6 +1,5 @@
 import { useTheme } from "@/hooks/useTheme";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
@@ -21,16 +20,16 @@ export default function TakeoffContextMenu({
   removeTakeoff,
 }) {
   const C = useTheme();
-  const tkContextMenu = useTakeoffsStore(s => s.tkContextMenu);
-  const setTkContextMenu = useTakeoffsStore(s => s.setTkContextMenu);
-  const tkMeasureState = useTakeoffsStore(s => s.tkMeasureState);
-  const tkSelectedTakeoffId = useTakeoffsStore(s => s.tkSelectedTakeoffId);
-  const setTkSelectedTakeoffId = useTakeoffsStore(s => s.setTkSelectedTakeoffId);
-  const tkActivePoints = useTakeoffsStore(s => s.tkActivePoints);
-  const setTkActivePoints = useTakeoffsStore(s => s.setTkActivePoints);
-  const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
+  const tkContextMenu = useDrawingPipelineStore(s => s.tkContextMenu);
+  const setTkContextMenu = useDrawingPipelineStore(s => s.setTkContextMenu);
+  const tkMeasureState = useDrawingPipelineStore(s => s.tkMeasureState);
+  const tkSelectedTakeoffId = useDrawingPipelineStore(s => s.tkSelectedTakeoffId);
+  const setTkSelectedTakeoffId = useDrawingPipelineStore(s => s.setTkSelectedTakeoffId);
+  const tkActivePoints = useDrawingPipelineStore(s => s.tkActivePoints);
+  const setTkActivePoints = useDrawingPipelineStore(s => s.setTkActivePoints);
+  const tkActiveTakeoffId = useDrawingPipelineStore(s => s.tkActiveTakeoffId);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
 
   if (!tkContextMenu) return null;
 
@@ -96,7 +95,7 @@ export default function TakeoffContextMenu({
             Undo Last Point
           </div>
         )}
-        {isMeasuring && tkActivePoints.length >= 2 && useTakeoffsStore.getState().tkTool === "linear" && (
+        {isMeasuring && tkActivePoints.length >= 2 && useDrawingPipelineStore.getState().tkTool === "linear" && (
           <div
             className="nav-item"
             onClick={() => {
@@ -118,7 +117,7 @@ export default function TakeoffContextMenu({
             <Ic d={I.check} size={12} color={C.accent} /> Finish Segment
           </div>
         )}
-        {isMeasuring && tkActivePoints.length >= 3 && useTakeoffsStore.getState().tkTool === "area" && (
+        {isMeasuring && tkActivePoints.length >= 3 && useDrawingPipelineStore.getState().tkTool === "area" && (
           <div
             className="nav-item"
             onClick={() => {

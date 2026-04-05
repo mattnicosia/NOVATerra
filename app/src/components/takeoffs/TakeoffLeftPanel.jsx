@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useModuleStore } from "@/stores/moduleStore";
@@ -14,22 +13,14 @@ import { MODULE_LIST } from "@/constants/modules";
 import ModulePanel from "@/components/takeoffs/ModulePanel";
 import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine";
 import FormulaExpressionRow from "@/components/takeoffs/FormulaExpressionRow";
+import TakeoffSearchBar from "@/components/takeoffs/TakeoffSearchBar";
+import TakeoffScopeSuggestions from "@/components/takeoffs/TakeoffScopeSuggestions";
 import NotesPanel from "@/components/estimate/NotesPanel";
 import ScenariosPanel from "@/components/estimate/ScenariosPanel";
 import RFIPanel from "@/components/estimate/RFIPanel";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
 import AutoTakeoffModal from "@/components/takeoffs/AutoTakeoffModal";
-import { useProjectStore } from "@/stores/projectStore";
-import { useScanStore } from "@/stores/scanStore";
-import { callAnthropic } from "@/utils/ai";
-import {
-  TO_COLORS,
-  _novaCache,
-  _novaCacheEvict,
-  NOVA_SYSTEM_PROMPT,
-  buildNovaUserMsg,
-  parseNovaResponse,
-} from "@/utils/takeoffHelpers";
+import { TO_COLORS } from "@/utils/takeoffHelpers";
 
 const EstimatePanelView = lazy(() => import("@/components/estimate/EstimatePanelView"));
 const DiscoveryPanel = lazy(() => import("@/components/discovery/DiscoveryPanel"));
@@ -113,39 +104,31 @@ export default function TakeoffLeftPanel({
   const getItemTotal = useItemsStore(s => s.getItemTotal);
   const getTotals = useItemsStore(s => s.getTotals);
 
-  const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
-  const drawings = useDrawingsStore(s => s.drawings);
+  const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
 
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const setTakeoffs = useTakeoffsStore(s => s.setTakeoffs);
-  const tkTool = useTakeoffsStore(s => s.tkTool);
-  const setTkTool = useTakeoffsStore(s => s.setTkTool);
-  const setTkActivePoints = useTakeoffsStore(s => s.setTkActivePoints);
-  const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
-  const tkSelectedTakeoffId = useTakeoffsStore(s => s.tkSelectedTakeoffId);
-  const setTkSelectedTakeoffId = useTakeoffsStore(s => s.setTkSelectedTakeoffId);
-  const tkMeasureState = useTakeoffsStore(s => s.tkMeasureState);
-  const setTkMeasureState = useTakeoffsStore(s => s.setTkMeasureState);
-  const tkShowVars = useTakeoffsStore(s => s.tkShowVars);
-  const setTkShowVars = useTakeoffsStore(s => s.setTkShowVars);
-  const tkScopeSuggestions = useTakeoffsStore(s => s.tkScopeSuggestions);
-  const setTkScopeSuggestions = useTakeoffsStore(s => s.setTkScopeSuggestions);
-  const tkPanelWidth = useTakeoffsStore(s => s.tkPanelWidth);
-  const setTkPanelWidth = useTakeoffsStore(s => s.setTkPanelWidth);
-  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
-  const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
-  const setTkPanelOpen = useTakeoffsStore(s => s.setTkPanelOpen);
-  const tkVisibility = useTakeoffsStore(s => s.tkVisibility);
-  const setTkVisibility = useTakeoffsStore(s => s.setTkVisibility);
-  const tkNewInput = useTakeoffsStore(s => s.tkNewInput);
-  const setTkNewInput = useTakeoffsStore(s => s.setTkNewInput);
-  const tkNewUnit = useTakeoffsStore(s => s.tkNewUnit);
-  const setTkNewUnit = useTakeoffsStore(s => s.setTkNewUnit);
-  const tkDbResults = useTakeoffsStore(s => s.tkDbResults);
-  const setTkDbResults = useTakeoffsStore(s => s.setTkDbResults);
-
-  const project = useProjectStore(s => s.project);
-  const scanResults = useScanStore(s => s.scanResults);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const setTakeoffs = useDrawingPipelineStore(s => s.setTakeoffs);
+  const tkTool = useDrawingPipelineStore(s => s.tkTool);
+  const setTkTool = useDrawingPipelineStore(s => s.setTkTool);
+  const setTkActivePoints = useDrawingPipelineStore(s => s.setTkActivePoints);
+  const tkActiveTakeoffId = useDrawingPipelineStore(s => s.tkActiveTakeoffId);
+  const tkSelectedTakeoffId = useDrawingPipelineStore(s => s.tkSelectedTakeoffId);
+  const setTkSelectedTakeoffId = useDrawingPipelineStore(s => s.setTkSelectedTakeoffId);
+  const tkMeasureState = useDrawingPipelineStore(s => s.tkMeasureState);
+  const setTkMeasureState = useDrawingPipelineStore(s => s.setTkMeasureState);
+  const tkShowVars = useDrawingPipelineStore(s => s.tkShowVars);
+  const setTkShowVars = useDrawingPipelineStore(s => s.setTkShowVars);
+  const setTkScopeSuggestions = useDrawingPipelineStore(s => s.setTkScopeSuggestions);
+  const tkPanelWidth = useDrawingPipelineStore(s => s.tkPanelWidth);
+  const setTkPanelWidth = useDrawingPipelineStore(s => s.setTkPanelWidth);
+  const tkPanelTier = useDrawingPipelineStore(s => s.tkPanelTier);
+  const tkPanelOpen = useDrawingPipelineStore(s => s.tkPanelOpen);
+  const setTkPanelOpen = useDrawingPipelineStore(s => s.setTkPanelOpen);
+  const tkVisibility = useDrawingPipelineStore(s => s.tkVisibility);
+  const setTkVisibility = useDrawingPipelineStore(s => s.setTkVisibility);
+  const tkNewInput = useDrawingPipelineStore(s => s.tkNewInput);
+  const scanResults = useDrawingPipelineStore(s => s.scanResults);
 
   const activeModule = useModuleStore(s => s.activeModule);
   const setActiveModule = useModuleStore(s => s.setActiveModule);
@@ -154,15 +137,12 @@ export default function TakeoffLeftPanel({
   // ─── Local state (only used within this panel) ─────────────────
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [costEditId, setCostEditId] = useState(null);
-  const [aiLookup, setAiLookup] = useState(null);
   const [actionMenuId, setActionMenuId] = useState(null);
   const [actionConfirm, setActionConfirm] = useState(null);
   const [actionMenuPos, setActionMenuPos] = useState(null);
-  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [isDraggingPanel, setIsDraggingPanel] = useState(false);
   const [showAutoTakeoff, setShowAutoTakeoff] = useState(false);
 
-  const plusMenuRef = useRef(null);
   const actionMenuRef = useRef(null);
 
   const isLargeScreen = typeof window !== "undefined" && window.innerWidth >= 1200;
@@ -171,21 +151,6 @@ export default function TakeoffLeftPanel({
   const selectedDrawing = useMemo(() => drawings.find(d => d.id === selectedDrawingId), [drawings, selectedDrawingId]);
 
   const toggleGroupCollapse = group => setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
-
-  // Clear AI lookup when input changes (was in parent DB search effect)
-  useEffect(() => {
-    setAiLookup(null);
-  }, [tkNewInput]);
-
-  // Close plus menu on outside click
-  useEffect(() => {
-    if (!plusMenuOpen) return;
-    const handler = e => {
-      if (plusMenuOpen && plusMenuRef.current && !plusMenuRef.current.contains(e.target)) setPlusMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [plusMenuOpen]);
 
   // Close action menu on outside click
   useEffect(() => {
@@ -219,8 +184,8 @@ export default function TakeoffLeftPanel({
         }
         setTkPanelWidth(w);
         const tierName = w <= 420 ? "compact" : w <= 700 ? "standard" : "full";
-        if (tierName !== useTakeoffsStore.getState().tkPanelTier) {
-          useTakeoffsStore.getState().setTkPanelTier(tierName);
+        if (tierName !== useDrawingPipelineStore.getState().tkPanelTier) {
+          useDrawingPipelineStore.getState().setTkPanelTier(tierName);
         }
       };
       const onUp = () => {
@@ -229,9 +194,9 @@ export default function TakeoffLeftPanel({
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         setIsDraggingPanel(false);
-        const finalW = useTakeoffsStore.getState().tkPanelWidth;
+        const finalW = useDrawingPipelineStore.getState().tkPanelWidth;
         sessionStorage.setItem("bldg-tkPanelWidth", String(finalW));
-        sessionStorage.setItem("bldg-tkPanelTier", useTakeoffsStore.getState().tkPanelTier);
+        sessionStorage.setItem("bldg-tkPanelTier", useDrawingPipelineStore.getState().tkPanelTier);
       };
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
@@ -240,42 +205,6 @@ export default function TakeoffLeftPanel({
     },
     [tkPanelWidth, setTkPanelWidth, maxPanelWidth, isLargeScreen],
   );
-
-  // AI item lookup (NOVA) -- manages local aiLookup state
-  const lookupItemWithNova = async inputText => {
-    if (!inputText?.trim()) return;
-    const key = inputText.toLowerCase().trim().replace(/\s+/g, " ");
-
-    // 1. Check session cache -- instant hit
-    const cached = _novaCache.get(key);
-    if (cached?.result) {
-      setAiLookup({ result: cached.result });
-      return;
-    }
-
-    // 2. Fresh API call
-    setAiLookup("loading");
-    const userMsg = buildNovaUserMsg(inputText, project);
-    try {
-      const text = await callAnthropic({
-        max_tokens: 1200,
-        messages: [{ role: "user", content: userMsg }],
-        system: NOVA_SYSTEM_PROMPT,
-        temperature: 0.3,
-      });
-      const { result, error } = parseNovaResponse(text);
-      if (result) {
-        _novaCache.set(key, { result, timestamp: Date.now() });
-        _novaCacheEvict();
-        setAiLookup({ result });
-      } else {
-        setAiLookup({ error: error || "NOVA couldn't identify this item" });
-      }
-    } catch (err) {
-      console.error("[NOVA Lookup] Error:", err);
-      setAiLookup({ error: err.message || "AI lookup failed" });
-    }
-  };
 
   // Don't render if panel is closed or in estimate mode
   if (!tkPanelOpen || tkPanelTier === "estimate") return null;
@@ -286,8 +215,8 @@ export default function TakeoffLeftPanel({
       <div
         onClick={() => {
           setTkPanelOpen(false);
-          const sel = useTakeoffsStore.getState().tkSelectedTakeoffId;
-          const ms = useTakeoffsStore.getState().tkMeasureState;
+          const sel = useDrawingPipelineStore.getState().tkSelectedTakeoffId;
+          const ms = useDrawingPipelineStore.getState().tkMeasureState;
           if (sel && ms === "idle") engageMeasuring(sel);
         }}
         style={{
@@ -583,7 +512,7 @@ export default function TakeoffLeftPanel({
                   <DiscoveryPanel
                     context="takeoffs"
                     onNavigateToSheet={drawingId => {
-                      useDrawingsStore.getState().setSelectedDrawingId(drawingId);
+                      useDrawingPipelineStore.getState().setSelectedDrawingId(drawingId);
                     }}
                   />
                 </Suspense>
@@ -632,591 +561,15 @@ export default function TakeoffLeftPanel({
                       borderRight: tkPanelTier === "full" ? `1px solid ${C.border}` : "none",
                     }}
                   >
-                    {/* Search bar */}
-                    <div
-                      style={{
-                        padding: "6px 10px",
-                        borderBottom: `1px solid ${C.border}`,
-                        display: "flex",
-                        gap: 6,
-                        alignItems: "center",
-                        position: "relative",
-                      }}
-                    >
-                      <div style={{ position: "relative", flex: 1 }}>
-                        <input
-                          value={tkNewInput}
-                          onChange={e => setTkNewInput(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === "Enter" && tkNewInput.trim()) {
-                              if (aiLookup?.result?.type === "single") {
-                                addTakeoffFromAI(aiLookup.result);
-                              } else if (aiLookup?.result?.type === "multi") {
-                                insertAIGroupIntoTakeoffs(aiLookup.result);
-                              } else if (tkDbResults.length > 0 && tkDbResults[0]._type === "item") {
-                                addTakeoffFromDb(tkDbResults[0]);
-                              } else if (tkDbResults.length > 0 && tkDbResults[0]._type === "assembly") {
-                                insertAssemblyIntoTakeoffs(tkDbResults[0]);
-                              } else {
-                                addTakeoffFreeform(tkNewInput);
-                              }
-                            }
-                          }}
-                          placeholder="Search or type item · Enter to add · Tab navigate"
-                          style={inp(C, { paddingLeft: 28, fontSize: 11, padding: "7px 10px 7px 28px" })}
-                        />
-                        <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}>
-                          <Ic d={I.search} size={12} color={C.textDim} />
-                        </div>
-                      </div>
-                      <select
-                        value={tkNewUnit}
-                        onChange={e => setTkNewUnit(e.target.value)}
-                        title="Measurement type"
-                        style={inp(C, {
-                          width: 56,
-                          padding: "5px 2px",
-                          fontSize: 9,
-                          fontWeight: 600,
-                          textAlign: "center",
-                          flexShrink: 0,
-                          color: ["EA", "SET", "PAIR"].includes(tkNewUnit)
-                            ? C.green
-                            : ["LF", "VLF"].includes(tkNewUnit)
-                              ? C.blue
-                              : C.accent,
-                          background: C.bg2,
-                        })}
-                      >
-                        <optgroup label="Count">
-                          <option value="EA">EA</option>
-                        </optgroup>
-                        <optgroup label="Linear">
-                          <option value="LF">LF</option>
-                        </optgroup>
-                        <optgroup label="Area">
-                          <option value="SF">SF</option>
-                          <option value="SY">SY</option>
-                        </optgroup>
-                        <optgroup label="Volume">
-                          <option value="CY">CY</option>
-                          <option value="CF">CF</option>
-                        </optgroup>
-                        <optgroup label="Other">
-                          <option value="LS">LS</option>
-                          <option value="HR">HR</option>
-                        </optgroup>
-                      </select>
-                      <div ref={plusMenuRef} style={{ position: "relative", flexShrink: 0 }}>
-                        <button
-                          className="accent-btn"
-                          onClick={() => {
-                            if (tkNewInput.trim()) setPlusMenuOpen(v => !v);
-                          }}
-                          disabled={!tkNewInput.trim()}
-                          title="Add item"
-                          style={bt(C, {
-                            background: tkNewInput.trim() ? C.accent : C.bg3,
-                            color: tkNewInput.trim() ? "#fff" : C.textDim,
-                            padding: "5px 8px",
-                          })}
-                        >
-                          <Ic d={I.plus} size={12} color={tkNewInput.trim() ? "#fff" : C.textDim} sw={2.5} />
-                        </button>
-                        {plusMenuOpen && tkNewInput.trim() && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              right: 0,
-                              top: "calc(100% + 4px)",
-                              zIndex: 60,
-                              background: C.bg1,
-                              border: `1px solid ${C.border}`,
-                              borderRadius: 8,
-                              boxShadow: "0 4px 20px rgba(0,0,0,0.30)",
-                              minWidth: 210,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <div
-                              className="nav-item"
-                              onClick={() => {
-                                addTakeoffFreeform(tkNewInput);
-                                setPlusMenuOpen(false);
-                              }}
-                              style={{
-                                padding: "8px 12px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                cursor: "pointer",
-                                borderBottom: `1px solid ${C.border}`,
-                              }}
-                            >
-                              <Ic d={I.plus} size={11} color={C.textDim} sw={2} />
-                              <div>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>Add as freeform</div>
-                                <div style={{ fontSize: 9, color: C.textDim }}>No pricing -- measure only</div>
-                              </div>
-                            </div>
-                            <div
-                              className="nav-item"
-                              onClick={() => {
-                                lookupItemWithNova(tkNewInput);
-                                setPlusMenuOpen(false);
-                              }}
-                              style={{
-                                padding: "8px 12px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                cursor: "pointer",
-                              }}
-                            >
-                              <Ic d={I.ai} size={11} color={C.accent} />
-                              <div>
-                                <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>
-                                  Ask NOVA to price
-                                </div>
-                                <div style={{ fontSize: 9, color: C.textDim }}>Get code, description & pricing</div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      {/* DB + Assembly search dropdown */}
-                      {tkNewInput.trim() && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            left: 10,
-                            right: 10,
-                            top: "100%",
-                            zIndex: 50,
-                            background: C.bg1,
-                            border: `1px solid ${C.border}`,
-                            borderRadius: "0 0 6px 6px",
-                            boxShadow: "0 4px 16px rgba(0,0,0,0.30)",
-                            maxHeight: 380,
-                            overflowY: "auto",
-                          }}
-                        >
-                          {tkDbResults.some(r => r._type === "assembly") && (
-                            <>
-                              <div
-                                style={{
-                                  padding: "4px 8px",
-                                  fontSize: 8,
-                                  fontWeight: 600,
-                                  color: C.textDim,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.8,
-                                  borderBottom: `1px solid ${C.border}`,
-                                  background: C.bg2,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                }}
-                              >
-                                <Ic d={I.assembly} size={10} color={C.accent} /> Assemblies
-                              </div>
-                              {tkDbResults
-                                .filter(r => r._type === "assembly")
-                                .map(asm => {
-                                  const totalPer = asm.elements.reduce(
-                                    (s, el) => s + (nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor),
-                                    0,
-                                  );
-                                  return (
-                                    <div
-                                      key={asm.id}
-                                      className="nav-item"
-                                      onClick={() => insertAssemblyIntoTakeoffs(asm)}
-                                      style={{
-                                        padding: "6px 10px",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 8,
-                                        borderBottom: `1px solid ${C.bg}`,
-                                        cursor: "pointer",
-                                      }}
-                                    >
-                                      <Ic d={I.assembly} size={12} color={C.accent} />
-                                      <span
-                                        style={{
-                                          flex: 1,
-                                          fontSize: 11,
-                                          fontWeight: 600,
-                                          color: C.text,
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap",
-                                        }}
-                                      >
-                                        {asm.name}
-                                      </span>
-                                      <span
-                                        style={{
-                                          fontSize: 8,
-                                          color: C.textMuted,
-                                          background: C.bg2,
-                                          padding: "1px 6px",
-                                          borderRadius: 8,
-                                        }}
-                                      >
-                                        {asm.elements.length} items
-                                      </span>
-                                      <span
-                                        style={{
-                                          fontFamily: T.font.sans,
-                                          fontSize: 9,
-                                          color: C.accent,
-                                          fontWeight: 600,
-                                        }}
-                                      >
-                                        {fmt2(totalPer)}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                            </>
-                          )}
-                          {tkDbResults.some(r => r._type === "item") && (
-                            <>
-                              <div
-                                style={{
-                                  padding: "4px 8px",
-                                  fontSize: 8,
-                                  fontWeight: 600,
-                                  color: C.textDim,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.8,
-                                  borderBottom: `1px solid ${C.border}`,
-                                  background: C.bg2,
-                                }}
-                              >
-                                Database Items
-                              </div>
-                              {tkDbResults
-                                .filter(r => r._type === "item")
-                                .map(el => (
-                                  <div
-                                    key={el.id}
-                                    className="nav-item"
-                                    onClick={() => addTakeoffFromDb(el)}
-                                    style={{
-                                      padding: "6px 10px",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 8,
-                                      borderBottom: `1px solid ${C.bg}`,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontFamily: T.font.sans,
-                                        fontSize: 9,
-                                        color: C.purple,
-                                        fontWeight: 600,
-                                        minWidth: 60,
-                                      }}
-                                    >
-                                      {el.code}
-                                    </span>
-                                    <span
-                                      style={{
-                                        flex: 1,
-                                        fontSize: 11,
-                                        color: C.text,
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
-                                      {el.name}
-                                    </span>
-                                    <span style={{ fontSize: 9, color: C.textDim }}>/{el.unit}</span>
-                                    <span
-                                      style={{
-                                        fontFamily: T.font.sans,
-                                        fontSize: 9,
-                                        color: C.accent,
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      {fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}
-                                    </span>
-                                  </div>
-                                ))}
-                            </>
-                          )}
-                          {/* NOVA AI Results Section */}
-                          {aiLookup === "loading" && (
-                            <div
-                              style={{
-                                padding: "10px 10px",
-                                borderTop: `1px solid ${C.border}`,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                background: `${C.accent}06`,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  width: 14,
-                                  height: 14,
-                                  border: `2px solid ${C.border}`,
-                                  borderTopColor: C.accent,
-                                  borderRadius: "50%",
-                                  animation: "spin 0.8s linear infinite",
-                                  display: "inline-block",
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <span style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>
-                                NOVA is thinking...
-                              </span>
-                            </div>
-                          )}
-                          {aiLookup?.result?.type === "single" && (
-                            <div style={{ borderTop: `1px solid ${C.border}` }}>
-                              <div
-                                style={{
-                                  padding: "4px 8px",
-                                  fontSize: 8,
-                                  fontWeight: 600,
-                                  color: C.accent,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.8,
-                                  borderBottom: `1px solid ${C.border}`,
-                                  background: `${C.accent}08`,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                }}
-                              >
-                                <Ic d={I.ai} size={10} color={C.accent} /> NOVA Suggestion
-                              </div>
-                              <div
-                                className="nav-item"
-                                onClick={() => addTakeoffFromAI(aiLookup.result)}
-                                style={{
-                                  padding: "6px 10px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontFamily: T.font.sans,
-                                    fontSize: 9,
-                                    color: C.purple,
-                                    fontWeight: 600,
-                                    minWidth: 60,
-                                  }}
-                                >
-                                  {aiLookup.result.code}
-                                </span>
-                                <span
-                                  style={{
-                                    flex: 1,
-                                    fontSize: 11,
-                                    color: C.text,
-                                    fontWeight: 500,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {aiLookup.result.description}
-                                </span>
-                                <span style={{ fontSize: 9, color: C.textDim }}>/{aiLookup.result.unit}</span>
-                                <span
-                                  style={{
-                                    fontFamily: T.font.sans,
-                                    fontSize: 9,
-                                    color: C.green,
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {fmt2(
-                                    nn(aiLookup.result.material) +
-                                      nn(aiLookup.result.labor) +
-                                      nn(aiLookup.result.equipment) +
-                                      nn(aiLookup.result.subcontractor),
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          {aiLookup?.result?.type === "multi" && (
-                            <div style={{ borderTop: `1px solid ${C.border}` }}>
-                              <div
-                                style={{
-                                  padding: "4px 8px",
-                                  fontSize: 8,
-                                  fontWeight: 600,
-                                  color: C.accent,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.8,
-                                  borderBottom: `1px solid ${C.border}`,
-                                  background: `${C.accent}08`,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                  <Ic d={I.ai} size={10} color={C.accent} /> NOVA: {aiLookup.result.groupName} (
-                                  {aiLookup.result.items.length} parts)
-                                </span>
-                              </div>
-                              {aiLookup.result.items.map((item, idx) => (
-                                <div
-                                  key={idx}
-                                  className="nav-item"
-                                  onClick={() => addTakeoffFromAI(item)}
-                                  style={{
-                                    padding: "4px 10px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                    cursor: "pointer",
-                                    borderBottom:
-                                      idx < aiLookup.result.items.length - 1 ? `1px solid ${C.bg2}` : "none",
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      fontFamily: T.font.sans,
-                                      fontSize: 8,
-                                      color: C.purple,
-                                      fontWeight: 600,
-                                      minWidth: 55,
-                                    }}
-                                  >
-                                    {item.code}
-                                  </span>
-                                  <span
-                                    style={{
-                                      flex: 1,
-                                      fontSize: 10,
-                                      color: C.text,
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {item.description}
-                                  </span>
-                                  <span style={{ fontSize: 8, color: C.textDim }}>/{item.unit}</span>
-                                  <span
-                                    style={{
-                                      fontFamily: T.font.sans,
-                                      fontSize: 8,
-                                      color: C.green,
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    {fmt2(
-                                      nn(item.material) +
-                                        nn(item.labor) +
-                                        nn(item.equipment) +
-                                        nn(item.subcontractor),
-                                    )}
-                                  </span>
-                                </div>
-                              ))}
-                              <div
-                                style={{
-                                  display: "flex",
-                                  gap: 4,
-                                  padding: "4px 10px",
-                                  borderTop: `1px solid ${C.border}`,
-                                }}
-                              >
-                                <div
-                                  className="nav-item"
-                                  onClick={() => insertAIGroupIntoTakeoffs(aiLookup.result)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "5px 8px",
-                                    textAlign: "center",
-                                    cursor: "pointer",
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    color: "#fff",
-                                    background: C.accent,
-                                    borderRadius: 4,
-                                  }}
-                                >
-                                  Add All as Group
-                                </div>
-                                <div
-                                  className="nav-item"
-                                  onClick={() => addTakeoffFromAIAsSingle(aiLookup.result)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "5px 8px",
-                                    textAlign: "center",
-                                    cursor: "pointer",
-                                    fontSize: 10,
-                                    fontWeight: 500,
-                                    color: C.textDim,
-                                    background: C.bg3,
-                                    borderRadius: 4,
-                                  }}
-                                >
-                                  Add as single line
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          {aiLookup?.error && (
-                            <div
-                              style={{
-                                padding: "6px 10px",
-                                borderTop: `1px solid ${C.border}`,
-                                background: `rgba(231,76,60,0.06)`,
-                              }}
-                            >
-                              <div style={{ fontSize: 10, color: "#E74C3C", marginBottom: 4 }}>{aiLookup.error}</div>
-                              <span
-                                className="nav-item"
-                                onClick={() => lookupItemWithNova(tkNewInput)}
-                                style={{ fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 600 }}
-                              >
-                                Retry
-                              </span>
-                            </div>
-                          )}
-                          {/* Footer: Freeform option */}
-                          <div style={{ borderTop: `1px solid ${C.border}` }}>
-                            <div
-                              className="nav-item"
-                              onClick={() => addTakeoffFreeform(tkNewInput)}
-                              style={{
-                                padding: "5px 10px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                cursor: "pointer",
-                                color: C.textDim,
-                                fontSize: 10,
-                                fontWeight: 500,
-                              }}
-                            >
-                              <Ic d={I.plus} size={10} color={C.textDim} sw={2} /> Add "{tkNewInput}" as freeform (no
-                              pricing)
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    {/* Search bar (extracted) */}
+                    <TakeoffSearchBar
+                      addTakeoffFreeform={addTakeoffFreeform}
+                      addTakeoffFromDb={addTakeoffFromDb}
+                      addTakeoffFromAI={addTakeoffFromAI}
+                      insertAssemblyIntoTakeoffs={insertAssemblyIntoTakeoffs}
+                      insertAIGroupIntoTakeoffs={insertAIGroupIntoTakeoffs}
+                      addTakeoffFromAIAsSingle={addTakeoffFromAIAsSingle}
+                    />
 
                     {/* Module selector -- hidden when filtering to "This Page" */}
                     {pageFilter !== "page" && (
@@ -2065,7 +1418,7 @@ export default function TakeoffLeftPanel({
                                                       onClick={() => {
                                                         if (actionConfirm === "clear") {
                                                           const cnt = (to.measurements || []).length;
-                                                          useTakeoffsStore.getState().clearMeasurements(to.id);
+                                                          useDrawingPipelineStore.getState().clearMeasurements(to.id);
                                                           useUiStore
                                                             .getState()
                                                             .showToast(`Cleared ${cnt} measurements`);
@@ -2425,108 +1778,9 @@ export default function TakeoffLeftPanel({
                       </div>
                     </div>
 
-                    {/* AI Scope Suggestions */}
-                    {tkScopeSuggestions && (
-                      <div
-                        style={{
-                          borderTop: `2px solid ${C.accent}`,
-                          maxHeight: 260,
-                          overflowY: "auto",
-                          background: C.bg,
-                        }}
-                      >
-                        <div
-                          style={{
-                            padding: "6px 10px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            borderBottom: `1px solid ${C.border}`,
-                            position: "sticky",
-                            top: 0,
-                            background: C.bg,
-                            zIndex: 2,
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <Ic d={I.ai} size={12} color={C.accent} />
-                            <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>Scope Suggestions</span>
-                            {tkScopeSuggestions.loading && (
-                              <span style={{ fontSize: 9, color: C.textDim, fontStyle: "italic" }}>Analyzing...</span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => setTkScopeSuggestions(null)}
-                            style={{ width: 16, height: 16, border: "none", background: "transparent", color: C.textDim, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                          >
-                            <Ic d={I.x} size={9} />
-                          </button>
-                        </div>
-                        {tkScopeSuggestions.loading && (
-                          <div style={{ padding: 20, textAlign: "center" }}>
-                            <div style={{ width: 20, height: 20, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 8px" }} />
-                            <div style={{ fontSize: 10, color: C.textDim }}>AI is reviewing your scope for gaps...</div>
-                          </div>
-                        )}
-                        {!tkScopeSuggestions.loading && tkScopeSuggestions.items.length === 0 && (
-                          <div style={{ padding: 16, textAlign: "center", fontSize: 10, color: C.textDim }}>
-                            No suggestions -- your scope looks comprehensive.
-                          </div>
-                        )}
-                        {tkScopeSuggestions.items.map((sg, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              padding: "6px 10px",
-                              borderBottom: `1px solid ${C.bg2}`,
-                              display: "flex",
-                              gap: 8,
-                              alignItems: "flex-start",
-                            }}
-                          >
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>{sg.name}</div>
-                              <div style={{ fontSize: 9, color: C.textMuted, lineHeight: 1.4, marginTop: 1 }}>
-                                {sg.desc}
-                              </div>
-                              {sg.code && (
-                                <span style={{ fontSize: 8, fontFamily: T.font.sans, color: C.purple }}>
-                                  {sg.code}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: "flex", gap: 3, flexShrink: 0, paddingTop: 2 }}>
-                              <button
-                                onClick={() => {
-                                  addTakeoff("", sg.name, sg.unit || "SF", sg.code || "");
-                                  setTkScopeSuggestions({
-                                    ...tkScopeSuggestions,
-                                    items: tkScopeSuggestions.items.filter((_, j) => j !== i),
-                                  });
-                                  showToast(`Added: ${sg.name}`);
-                                }}
-                                title="Add to takeoffs"
-                                style={bt(C, { padding: "3px 8px", fontSize: 8, fontWeight: 600, background: C.accent, color: "#fff", borderRadius: 3 })}
-                              >
-                                + Add
-                              </button>
-                              <button
-                                onClick={() =>
-                                  setTkScopeSuggestions({
-                                    ...tkScopeSuggestions,
-                                    items: tkScopeSuggestions.items.filter((_, j) => j !== i),
-                                  })
-                                }
-                                title="Dismiss"
-                                style={bt(C, { padding: "3px 6px", fontSize: 8, background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, borderRadius: 3 })}
-                              >
-                                x
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {/* AI Scope Suggestions (extracted) */}
+                    <TakeoffScopeSuggestions addTakeoff={addTakeoff} />
+
 
                     {/* Footer */}
                     {takeoffs.length > 0 && (

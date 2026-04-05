@@ -2,8 +2,8 @@
 // Calls the Render-hosted Python service for PDF vector extraction.
 // Returns walls + rooms in PDF points (72 DPI). Client converts to feet via calibration.
 
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useDocumentsStore } from "@/stores/documentsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 
 const VECTOR_API_URL = "https://novaterra-vector-api.onrender.com";
 
@@ -17,13 +17,13 @@ const VECTOR_API_URL = "https://novaterra-vector-api.onrender.com";
  */
 export async function extractVectors(drawingId) {
   // Check cache first
-  const cached = useDrawingsStore.getState().vectorData?.[drawingId];
+  const cached = useDrawingPipelineStore.getState().vectorData?.[drawingId];
   if (cached) {
     console.log(`[vectorExtractor] Cache hit for ${drawingId.slice(0, 8)}: ${cached.walls?.length || 0} walls`);
     return cached;
   }
 
-  const drawing = useDrawingsStore.getState().drawings.find(d => d.id === drawingId);
+  const drawing = useDrawingPipelineStore.getState().drawings.find(d => d.id === drawingId);
   if (!drawing) throw new Error(`Drawing ${drawingId} not found`);
 
   // Get raw PDF data — need the original PDF, not the rendered JPEG
@@ -67,7 +67,7 @@ export async function extractVectors(drawingId) {
 
   // Check documentsStore — the original PDF is stored as a document
   if (!pdfBase64) {
-    const docs = useDocumentsStore.getState().documents || [];
+    const docs = useDocumentManagementStore.getState().documents || [];
     // Try matching by docId, documentId, or filename
     const parentDoc = docs.find(d =>
       (drawing.docId && d.id === drawing.docId) ||
@@ -101,7 +101,7 @@ export async function extractVectors(drawingId) {
 
   // Also check if the parent document has a storagePath
   if (!pdfBase64) {
-    const docs = useDocumentsStore.getState().documents || [];
+    const docs = useDocumentManagementStore.getState().documents || [];
     const parentDoc = docs.find(d =>
       (drawing.docId && d.id === drawing.docId) ||
       (drawing.documentId && d.id === drawing.documentId) ||
@@ -149,7 +149,7 @@ export async function extractVectors(drawingId) {
   console.log(`[vectorExtractor] ${drawingId.slice(0, 8)}: ${result.stats?.merged_walls || 0} walls, ${result.stats?.rooms_detected || 0} rooms (${result.drawing_type})`);
 
   // Cache in store
-  useDrawingsStore.getState().setVectorData(drawingId, result);
+  useDrawingPipelineStore.getState().setVectorData(drawingId, result);
 
   return result;
 }
@@ -186,17 +186,17 @@ export async function analyzePdf(pdfBase64) {
  * Check if a drawing has cached vector data.
  */
 export function hasVectorData(drawingId) {
-  return !!useDrawingsStore.getState().vectorData?.[drawingId];
+  return !!useDrawingPipelineStore.getState().vectorData?.[drawingId];
 }
 
 /**
  * Clear cached vector data for a drawing (force re-extraction).
  */
 export function clearVectorData(drawingId) {
-  const state = useDrawingsStore.getState();
+  const state = useDrawingPipelineStore.getState();
   if (state.vectorData?.[drawingId]) {
     const updated = { ...state.vectorData };
     delete updated[drawingId];
-    useDrawingsStore.setState({ vectorData: updated });
+    useDrawingPipelineStore.setState({ vectorData: updated });
   }
 }

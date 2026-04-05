@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useModuleStore } from "@/stores/moduleStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { callAnthropic, optimizeImageForAI, imageBlock } from "@/utils/ai";
 import { scanAllDrawingsForSchedules } from "@/utils/scheduleParser";
@@ -169,9 +168,9 @@ Return ONLY a JSON array of schedule objects.`,
 
   // ─── 1. AI Drawing Analysis ──────────────────────────────────────
   const runDrawingAnalysis = async () => {
-    const selectedDrawingId = useDrawingsStore.getState().selectedDrawingId;
-    const drawings = useDrawingsStore.getState().drawings;
-    const pdfCanvases = useDrawingsStore.getState().pdfCanvases;
+    const selectedDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+    const drawings = useDrawingPipelineStore.getState().drawings;
+    const pdfCanvases = useDrawingPipelineStore.getState().pdfCanvases;
     const showToast = useUiStore.getState().showToast;
 
     if (!selectedDrawingId) return;
@@ -243,7 +242,7 @@ Return ONLY a JSON array of objects.`,
           measureItems = 0;
         filtered.forEach(item => {
           addTakeoff(group, item.name, item.unit || "EA", item.code || "", { noMeasure: true, aiDetected: true });
-          const newTo = useTakeoffsStore.getState().takeoffs;
+          const newTo = useDrawingPipelineStore.getState().takeoffs;
           const last = newTo[newTo.length - 1];
           if (!last) return;
           if (item.type === "count" && item.quantity) {
@@ -269,15 +268,15 @@ Return ONLY a JSON array of objects.`,
 
   // ─── Accept single / all drawing items ───────────────────────────
   const acceptDrawingItem = item => {
-    const selectedDrawingId = useDrawingsStore.getState().selectedDrawingId;
-    const drawings = useDrawingsStore.getState().drawings;
+    const selectedDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+    const drawings = useDrawingPipelineStore.getState().drawings;
     const showToast = useUiStore.getState().showToast;
 
     const group = drawings.find(d => d.id === selectedDrawingId)?.sheetNumber || "";
-    const colorIdx = useTakeoffsStore.getState().takeoffs.length;
+    const colorIdx = useDrawingPipelineStore.getState().takeoffs.length;
     const color = TO_COLORS[colorIdx % TO_COLORS.length];
     addTakeoff(group, item.name, item.unit, item.code);
-    const newTo = useTakeoffsStore.getState().takeoffs;
+    const newTo = useDrawingPipelineStore.getState().takeoffs;
     const last = newTo[newTo.length - 1];
     if (!last) return;
 
@@ -322,7 +321,7 @@ Return ONLY a JSON array of objects.`,
           color,
         });
       }
-      useTakeoffsStore.getState().setTkSelectedTakeoffId(last.id);
+      useDrawingPipelineStore.getState().setTkSelectedTakeoffId(last.id);
     }
 
     const hint = item.type !== "count" ? " — measure for accurate qty" : "";
@@ -332,18 +331,18 @@ Return ONLY a JSON array of objects.`,
 
   const acceptAllDrawingItems = () => {
     if (!aiDrawingAnalysis?.results) return;
-    const selectedDrawingId = useDrawingsStore.getState().selectedDrawingId;
-    const drawings = useDrawingsStore.getState().drawings;
+    const selectedDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+    const drawings = useDrawingPipelineStore.getState().drawings;
     const showToast = useUiStore.getState().showToast;
 
     const group = drawings.find(d => d.id === selectedDrawingId)?.sheetNumber || "";
     let _countItems = 0,
       measureItems = 0;
     aiDrawingAnalysis.results.forEach(item => {
-      const colorIdx = useTakeoffsStore.getState().takeoffs.length;
+      const colorIdx = useDrawingPipelineStore.getState().takeoffs.length;
       const color = TO_COLORS[colorIdx % TO_COLORS.length];
       addTakeoff(group, item.name, item.unit, item.code);
-      const newTo = useTakeoffsStore.getState().takeoffs;
+      const newTo = useDrawingPipelineStore.getState().takeoffs;
       const last = newTo[newTo.length - 1];
       if (!last) return;
 
@@ -401,9 +400,9 @@ Return ONLY a JSON array of objects.`,
 
   // ─── 2. Wall Schedule Detection ──────────────────────────────────
   const runWallScheduleDetection = async () => {
-    const selectedDrawingId = useDrawingsStore.getState().selectedDrawingId;
-    const drawings = useDrawingsStore.getState().drawings;
-    const pdfCanvases = useDrawingsStore.getState().pdfCanvases;
+    const selectedDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+    const drawings = useDrawingPipelineStore.getState().drawings;
+    const pdfCanvases = useDrawingPipelineStore.getState().pdfCanvases;
     const showToast = useUiStore.getState().showToast;
 
     if (!selectedDrawingId) return;
@@ -624,9 +623,9 @@ IMPORTANT:
 
   // ─── 3. PDF Schedule Scan ────────────────────────────────────────
   const runPdfScheduleScan = useCallback(async () => {
-    const drawings = useDrawingsStore.getState().drawings;
-    const selectedDrawingId = useDrawingsStore.getState().selectedDrawingId;
-    const pdfCanvases = useDrawingsStore.getState().pdfCanvases;
+    const drawings = useDrawingPipelineStore.getState().drawings;
+    const selectedDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+    const pdfCanvases = useDrawingPipelineStore.getState().pdfCanvases;
     const showToast = useUiStore.getState().showToast;
 
     setPdfSchedules({ loading: true, results: null });
@@ -671,8 +670,8 @@ IMPORTANT:
 
   // ─── 4. Geometry Analysis ────────────────────────────────────────
   const runGeometryAnalysis = useCallback(async () => {
-    const selectedDrawingId = useDrawingsStore.getState().selectedDrawingId;
-    const drawings = useDrawingsStore.getState().drawings;
+    const selectedDrawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+    const drawings = useDrawingPipelineStore.getState().drawings;
     const showToast = useUiStore.getState().showToast;
 
     if (!selectedDrawingId) return;

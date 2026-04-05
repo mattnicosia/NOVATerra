@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -30,7 +30,7 @@ const OPENED_SET = new Set(["opened", "downloaded"]);
 const SUBMITTED_SET = new Set(["submitted", "parsed", "awarded", "not_awarded"]);
 
 function ResponseProgressBar({ invites }) {
-  const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
+  const subResponseIntents = useBidManagementStore(s => s.subResponseIntents);
   if (!invites || invites.length === 0) return null;
   const total = invites.length;
   let sentOnly = 0;
@@ -117,7 +117,7 @@ function IntentBadge({ intent, reason }) {
 
 function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal, onRemove }) {
   const C = useTheme();
-  const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
+  const subResponseIntents = useBidManagementStore(s => s.subResponseIntents);
   const intentData = subResponseIntents?.[inv.id];
   const hasProposal = proposal?.parsedData && Object.keys(proposal.parsedData).length > 0;
   const pd = hasProposal ? proposal.parsedData : null;
@@ -258,10 +258,10 @@ export default function BidPackagesPanel({
 }) {
   const C = useTheme();
   const T = C.T;
-  const bidPackages = useBidPackagesStore(s => s.bidPackages);
-  const invitations = useBidPackagesStore(s => s.invitations);
-  const proposals = useBidPackagesStore(s => s.proposals);
-  const getPackageStats = useBidPackagesStore(s => s.getPackageStats);
+  const bidPackages = useBidManagementStore(s => s.bidPackages);
+  const invitations = useBidManagementStore(s => s.invitations);
+  const proposals = useBidManagementStore(s => s.proposals);
+  const getPackageStats = useBidManagementStore(s => s.getPackageStats);
   const items = useItemsStore(s => s.items);
   const [expandedId, setExpandedId] = useState(null);
 
@@ -277,7 +277,7 @@ export default function BidPackagesPanel({
     return reports;
   }, [proposals, items]);
 
-  const removeInvitation = useBidPackagesStore(s => s.removeInvitation);
+  const removeInvitation = useBidManagementStore(s => s.removeInvitation);
   const showToast = useUiStore(s => s.showToast);
 
   const handleRemoveInvitation = async (pkgId, inv) => {
@@ -707,7 +707,7 @@ export default function BidPackagesPanel({
                             else {
                               if (!window.confirm(`Close "${pkg.name}"? This won't delete it but marks it as closed.`))
                                 return;
-                              useBidPackagesStore
+                              useBidManagementStore
                                 .getState()
                                 .updateBidPackage(pkg.id, { status: "closed", closedAt: new Date().toISOString() });
                               showToast("Package closed", "success");

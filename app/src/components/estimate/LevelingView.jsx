@@ -1,8 +1,7 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import Ic from "@/components/shared/Ic";
@@ -623,10 +622,10 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
   const T = C.T;
   const ref = useRef(null);
   const dk = C.isDark !== false;
-  const bidPackages = useBidPackagesStore(s => s.bidPackages);
-  const invitations = useBidPackagesStore(s => s.invitations);
-  const proposals = useBidPackagesStore(s => s.proposals);
-  const linkedSubs = useBidLevelingStore(s => s.linkedSubs);
+  const bidPackages = useBidManagementStore(s => s.bidPackages);
+  const invitations = useBidManagementStore(s => s.invitations);
+  const proposals = useBidManagementStore(s => s.proposals);
+  const linkedSubs = useBidManagementStore(s => s.linkedSubs);
 
   useEffect(() => {
     const handler = e => {
@@ -775,14 +774,14 @@ export default function LevelingView() {
   const getItemTotal = useItemsStore(s => s.getItemTotal);
   const activeCodes = useProjectStore(s => s.getActiveCodes)();
 
-  const subBidSubs = useBidLevelingStore(s => s.subBidSubs);
-  const bidTotals = useBidLevelingStore(s => s.bidTotals);
-  const setBidTotals = useBidLevelingStore(s => s.setBidTotals);
-  const bidCells = useBidLevelingStore(s => s.bidCells);
-  const bidSelections = useBidLevelingStore(s => s.bidSelections);
-  const setBidSelections = useBidLevelingStore(s => s.setBidSelections);
-  const linkedSubs = useBidLevelingStore(s => s.linkedSubs);
-  const subKeyLabels = useBidLevelingStore(s => s.subKeyLabels);
+  const subBidSubs = useBidManagementStore(s => s.subBidSubs);
+  const bidTotals = useBidManagementStore(s => s.bidTotals);
+  const setBidTotals = useBidManagementStore(s => s.setBidTotals);
+  const bidCells = useBidManagementStore(s => s.bidCells);
+  const bidSelections = useBidManagementStore(s => s.bidSelections);
+  const setBidSelections = useBidManagementStore(s => s.setBidSelections);
+  const linkedSubs = useBidManagementStore(s => s.linkedSubs);
+  const subKeyLabels = useBidManagementStore(s => s.subKeyLabels);
 
   const [collapsed, setCollapsed] = useState({});
   const [addSubSk, setAddSubSk] = useState(null);
@@ -793,8 +792,8 @@ export default function LevelingView() {
 
   // ── Import handler: bridge bid packages → leveling grid ──
   const handleImportProposals = useCallback(packageId => {
-    const { generateLevelingData } = useBidPackagesStore.getState();
-    const { importParsedProposals } = useBidLevelingStore.getState();
+    const { generateLevelingData } = useBidManagementStore.getState();
+    const { importParsedProposals } = useBidManagementStore.getState();
     const currentItems = useItemsStore.getState().items;
     const levelingData = generateLevelingData(packageId, currentItems);
     importParsedProposals(levelingData);
@@ -836,13 +835,13 @@ export default function LevelingView() {
 
   const getSubSubs = sk => subBidSubs[sk] || [];
   const addSubBidSub = (sk, name) => {
-    const current = useBidLevelingStore.getState().subBidSubs;
+    const current = useBidManagementStore.getState().subBidSubs;
     const subs = [...(current[sk] || []), { id: `sub_${Date.now()}`, name: name || "" }];
-    useBidLevelingStore.getState().setSubBidSubs({ ...current, [sk]: subs });
+    useBidManagementStore.getState().setSubBidSubs({ ...current, [sk]: subs });
   };
   const updateSubBidSubName = (sk, subId, name) => {
-    const current = useBidLevelingStore.getState().subBidSubs;
-    useBidLevelingStore
+    const current = useBidManagementStore.getState().subBidSubs;
+    useBidManagementStore
       .getState()
       .setSubBidSubs({ ...current, [sk]: (current[sk] || []).map(s => (s.id === subId ? { ...s, name } : s)) });
   };
@@ -858,16 +857,16 @@ export default function LevelingView() {
 
   // ── Save with explicit status ──
   const saveCellWithStatus = useCallback((itemId, subId, status, value) => {
-    const bc = useBidLevelingStore.getState().bidCells;
+    const bc = useBidManagementStore.getState().bidCells;
     const key = `${itemId}_${subId}`;
     if (status === "blank") {
-      useBidLevelingStore.getState().setBidCells({ ...bc, [key]: { status: "blank", value: "" } });
+      useBidManagementStore.getState().setBidCells({ ...bc, [key]: { status: "blank", value: "" } });
     } else if (status === "carried") {
-      useBidLevelingStore.getState().setBidCells({ ...bc, [key]: { status: "carried", value: "" } });
+      useBidManagementStore.getState().setBidCells({ ...bc, [key]: { status: "carried", value: "" } });
     } else {
       // Preserve the requested status even with empty value — user will fill it in via inline edit
       const numVal = nn(value);
-      useBidLevelingStore.getState().setBidCells({
+      useBidManagementStore.getState().setBidCells({
         ...bc,
         [key]: { status, value: numVal ? String(numVal) : "" },
       });
@@ -876,13 +875,13 @@ export default function LevelingView() {
 
   // ── Save from inline edit — preserves existing status ──
   const saveCell = useCallback((itemId, subId, value) => {
-    const bc = useBidLevelingStore.getState().bidCells;
+    const bc = useBidManagementStore.getState().bidCells;
     const key = `${itemId}_${subId}`;
     const existing = bc[key] || { status: "blank", value: "" };
     // Preserve unitrate status if already set; otherwise default to lumpsum
     const status = existing.status === "unitrate" ? "unitrate" : "lumpsum";
     const numVal = nn(value);
-    useBidLevelingStore.getState().setBidCells({
+    useBidManagementStore.getState().setBidCells({
       ...bc,
       [key]: numVal ? { status, value: String(numVal) } : { status: "blank", value: "" },
     });
@@ -891,13 +890,13 @@ export default function LevelingView() {
   // ── Auto-carry: set all items in a subdivision to "carried" for a sub ──
   const autoCarry = useCallback(
     (sk, subId) => {
-      const bc = useBidLevelingStore.getState().bidCells;
+      const bc = useBidManagementStore.getState().bidCells;
       const newCells = { ...bc };
       const subItems = subdivisions.find(s => s.sk === sk)?.items || [];
       subItems.forEach(item => {
         newCells[`${item.id}_${subId}`] = { status: "carried", value: "" };
       });
-      useBidLevelingStore.getState().setBidCells(newCells);
+      useBidManagementStore.getState().setBidCells(newCells);
     },
     [subdivisions],
   );

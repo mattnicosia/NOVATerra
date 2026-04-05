@@ -2,16 +2,15 @@ import { useEffect, useRef } from "react";
 import { storage } from "@/utils/storage";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useMasterDataStore, migrateSubcontractorSchema } from "@/stores/masterDataStore";
 import { useReportsStore } from "@/stores/reportsStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useScanStore } from "@/stores/scanStore";
 import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useTaskStore } from "@/stores/taskStore";
-import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import * as cloudSync from "@/utils/cloudSync";
@@ -483,7 +482,7 @@ export function usePersistenceLoad() {
         try {
           const presets = JSON.parse(bpPresetsRaw.value);
           if (Array.isArray(presets)) {
-            useBidPackagesStore.getState().setBidPackagePresets(presets);
+            useBidManagementStore.getState().setBidPackagePresets(presets);
           }
         } catch (err) {
           console.warn("[usePersistence] Failed to parse bid package presets:", err);
@@ -521,12 +520,12 @@ export function usePersistenceLoad() {
       await useReportsStore.getState().loadTemplatesFromStorage();
 
       // Load scan learning records (global)
-      await useScanStore.getState().loadLearningRecords();
-      await useScanStore.getState().loadParameterCorrections();
+      await useDrawingPipelineStore.getState().loadLearningRecords();
+      await useDrawingPipelineStore.getState().loadParameterCorrections();
 
       // Load cached symbol legends
       try {
-        await useDrawingsStore.getState().loadLegends();
+        await useDrawingPipelineStore.getState().loadLegends();
       } catch { /* legend store non-critical */ }
 
       // Load PDF upload queue (resumes pending extractions)

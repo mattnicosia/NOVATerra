@@ -1,8 +1,7 @@
 // geometryBuilder.js — Converts takeoff measurements into 3D building geometry
 // Takes takeoffs + drawings + module specs → produces element descriptors for Three.js
 
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { nn } from "@/utils/format";
@@ -34,8 +33,8 @@ function scaleCodeToPxPerFoot(code, dpi) {
 }
 
 export function getPxPerFoot(drawingId) {
-  const { drawingScales, drawingDpi } = useDrawingsStore.getState();
-  const { tkCalibrations } = useTakeoffsStore.getState();
+  const { drawingScales, drawingDpi } = useDrawingPipelineStore.getState();
+  const { tkCalibrations } = useDrawingPipelineStore.getState();
   const cal = tkCalibrations[drawingId];
   if (cal?.p1 && cal?.p2 && cal?.realDist) {
     const calPxDist = Math.sqrt((cal.p2.x - cal.p1.x) ** 2 + (cal.p2.y - cal.p1.y) ** 2);
@@ -141,8 +140,8 @@ function _findContainingRoom(px, pz, feetRooms) {
 // roomGeometry: optional map of drawingId → { rooms[], roomLabels[] }
 // from geometryEngine. When provided, elements get roomId/roomLabel tags.
 export function generateElementsFromTakeoffs(floorAssignments, roomGeometry) {
-  const { takeoffs } = useTakeoffsStore.getState();
-  const { drawings } = useDrawingsStore.getState();
+  const { takeoffs } = useDrawingPipelineStore.getState();
+  const { drawings } = useDrawingPipelineStore.getState();
   const items = useItemsStore.getState().items;
   const getItemTotal = useItemsStore.getState().getItemTotal;
 
@@ -459,10 +458,10 @@ export function generateRoomElements(roomGeometry, floorAssignments) {
 
 export function generateEnvelopeFromStores() {
   // Lazy import to avoid circular dependency (modelStore → geometryBuilder → modelStore)
-  const { useModelStore } = require("@/stores/modelStore");
+  const { useDrawingPipelineStore } = require("@/stores/drawingPipelineStore");
   const { useProjectStore } = require("@/stores/projectStore");
 
-  const { outlines, floorHeights } = useModelStore.getState();
+  const { outlines, floorHeights } = useDrawingPipelineStore.getState();
   const { project } = useProjectStore.getState();
 
   // Get the best available outline (first entry)

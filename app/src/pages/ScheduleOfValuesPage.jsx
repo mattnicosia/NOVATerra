@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useBidManagementStore } from "@/stores/bidManagementStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
@@ -34,8 +34,8 @@ export default function ScheduleOfValuesPage() {
   const updateCustomMarkup = useItemsStore(s => s.updateCustomMarkup);
   const getActiveCodes = useProjectStore(s => s.getActiveCodes);
   const activeCodes = getActiveCodes();
-  const bidSelections = useBidLevelingStore(s => s.bidSelections);
-  const subKeyLabels = useBidLevelingStore(s => s.subKeyLabels);
+  const bidSelections = useBidManagementStore(s => s.bidSelections);
+  const subKeyLabels = useBidManagementStore(s => s.subKeyLabels);
 
   // Local SOV state
   const [sovGroupBy, setSovGroupBy] = useState("trade");

@@ -7,7 +7,7 @@
  * 2. Overlay canvas: cursor-dependent content (lightweight, re-renders on cursor move)
  */
 import { useEffect } from "react";
-import { useModelStore } from "@/stores/modelStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 
 export default function useTakeoffCanvasRendering({
   canvasRef,
@@ -141,7 +141,7 @@ export default function useTakeoffCanvasRendering({
     });
 
     // Building outlines
-    const outlines = useModelStore.getState().outlines;
+    const outlines = useDrawingPipelineStore.getState().outlines;
     const outline = outlines[selectedDrawingId];
     const pxPoly = outline?.pixelPolygon;
     if (pxPoly?.length >= 3) {

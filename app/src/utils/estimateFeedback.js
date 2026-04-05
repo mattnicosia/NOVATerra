@@ -10,7 +10,7 @@
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { normalizeCSI } from "@/utils/scopeGapEngine";
 import { validateProposal } from "@/utils/proposalValidation";
@@ -38,7 +38,7 @@ export async function generateLearningFromEstimate(estimateId) {
   }
 
   // ── 2. Deduplication guard ──
-  const existingRecords = useScanStore.getState().learningRecords || [];
+  const existingRecords = useDrawingPipelineStore.getState().learningRecords || [];
   if (existingRecords.some(r => r.source === "completed-estimate" && r.estimateId === estimateId)) {
     console.log(`[NOVA Feedback] Already generated for ${estimateId.slice(0, 8)}, skipping`);
     return null;
@@ -124,7 +124,7 @@ export async function generateLearningFromEstimate(estimateId) {
   };
 
   // ── 8. Store ──
-  await useScanStore.getState().addLearningRecord(record);
+  await useDrawingPipelineStore.getState().addLearningRecord(record);
 
   console.log(
     `[NOVA Feedback] ✓ Learning record from "${estimateName}": ` +

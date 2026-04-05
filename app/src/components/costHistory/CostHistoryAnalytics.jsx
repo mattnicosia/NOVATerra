@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { bt } from "@/utils/styles";
-import { useScanStore } from "@/stores/scanStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { getBuildingTypeLabel } from "@/constants/constructionTypes";
 import {
   getAvailableYears,
@@ -38,8 +38,8 @@ const fmtCost = n => {
 export default function CostHistoryAnalytics({ entries }) {
   const C = useTheme();
   const T = C.T;
-  const _learningRecords = useScanStore(s => s.learningRecords);
-  const calibrationFactors = useScanStore.getState().getCalibrationFactors();
+  const _learningRecords = useDrawingPipelineStore(s => s.learningRecords);
+  const calibrationFactors = useDrawingPipelineStore.getState().getCalibrationFactors();
   const [showTrendDetail, setShowTrendDetail] = useState(false);
   const [markupView, setMarkupView] = useState("holistic");
   const [generalCombined, setGeneralCombined] = useState(true);

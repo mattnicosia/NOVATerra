@@ -1,5 +1,5 @@
 import { useTheme } from "@/hooks/useTheme";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useUndoStore } from "@/stores/undoStore";
 
@@ -20,16 +20,16 @@ export default function TakeoffControlRail({
   const C = useTheme();
   const T = C.T;
 
-  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
-  const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
-  const tkMeasureState = useTakeoffsStore(s => s.tkMeasureState);
-  const tkTool = useTakeoffsStore(s => s.tkTool);
-  const setTkTool = useTakeoffsStore(s => s.setTkTool);
-  const setTkMeasureState = useTakeoffsStore(s => s.setTkMeasureState);
-  const setTkActivePoints = useTakeoffsStore(s => s.setTkActivePoints);
-  const setTkActiveTakeoffId = useTakeoffsStore(s => s.setTkActiveTakeoffId);
-  const tkAutoCount = useTakeoffsStore(s => s.tkAutoCount);
-  const setTkAutoCount = useTakeoffsStore(s => s.setTkAutoCount);
+  const tkPanelTier = useDrawingPipelineStore(s => s.tkPanelTier);
+  const tkPanelOpen = useDrawingPipelineStore(s => s.tkPanelOpen);
+  const tkMeasureState = useDrawingPipelineStore(s => s.tkMeasureState);
+  const tkTool = useDrawingPipelineStore(s => s.tkTool);
+  const setTkTool = useDrawingPipelineStore(s => s.setTkTool);
+  const setTkMeasureState = useDrawingPipelineStore(s => s.setTkMeasureState);
+  const setTkActivePoints = useDrawingPipelineStore(s => s.setTkActivePoints);
+  const setTkActiveTakeoffId = useDrawingPipelineStore(s => s.setTkActiveTakeoffId);
+  const tkAutoCount = useDrawingPipelineStore(s => s.tkAutoCount);
+  const setTkAutoCount = useDrawingPipelineStore(s => s.setTkAutoCount);
 
   const modes = [
     { id: "closed", bars: 0, label: "Drawings" },
@@ -49,7 +49,7 @@ export default function TakeoffControlRail({
   const nextMode = modes[(idx + 1) % modes.length];
 
   const cycleTier = () => {
-    const store = useTakeoffsStore.getState();
+    const store = useDrawingPipelineStore.getState();
     if (nextMode.id === "closed") {
       store.setTkPanelOpen(false);
       store.setTkPanelTier("standard");
@@ -231,7 +231,7 @@ export default function TakeoffControlRail({
         if (tkAutoCount) {
           setTkAutoCount(null);
         } else {
-          const selId = useTakeoffsStore.getState().tkSelectedTakeoffId;
+          const selId = useDrawingPipelineStore.getState().tkSelectedTakeoffId;
           if (selId) setTkAutoCount({ phase: "select", takeoffId: selId });
           else {
             const toast = useUiStore.getState().showToast;

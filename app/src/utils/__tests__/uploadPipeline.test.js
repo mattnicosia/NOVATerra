@@ -4,18 +4,15 @@
 import { describe, it, expect, vi } from "vitest";
 
 // Mock all store imports before importing the module under test
-vi.mock("@/stores/documentsStore", () => ({ useDocumentsStore: { getState: vi.fn(() => ({})) } }));
-vi.mock("@/stores/drawingsStore", () => ({
-  useDrawingsStore: { getState: vi.fn(() => ({ drawings: [], drawingScales: {} })) },
+vi.mock("@/stores/documentManagementStore", () => ({ useDocumentManagementStore: { getState: vi.fn(() => ({})) } }));
+vi.mock("@/stores/drawingPipelineStore", () => ({
+  useDrawingPipelineStore: { getState: vi.fn(() => ({ drawings: [], drawingScales: {}, takeoffs: [] })) },
 }));
-vi.mock("@/stores/specsStore", () => ({ useSpecsStore: { getState: vi.fn(() => ({})) } }));
 vi.mock("@/stores/projectStore", () => ({ useProjectStore: { getState: vi.fn(() => ({})) } }));
 vi.mock("@/stores/estimatesStore", () => ({ useEstimatesStore: { getState: vi.fn(() => ({})) } }));
 vi.mock("@/stores/novaStore", () => ({ useNovaStore: { getState: vi.fn(() => ({})) } }));
-vi.mock("@/stores/modelStore", () => ({ useModelStore: { getState: vi.fn(() => ({})) } }));
 vi.mock("@/stores/uiStore", () => ({ useUiStore: { getState: vi.fn(() => ({})) } }));
 vi.mock("@/stores/groupsStore", () => ({ useGroupsStore: { getState: vi.fn(() => ({ groups: [] })) } }));
-vi.mock("@/stores/takeoffsStore", () => ({ useTakeoffsStore: { getState: vi.fn(() => ({ takeoffs: [] })) } }));
 vi.mock("@/utils/ai", () => ({ callAnthropic: vi.fn(), optimizeImageForAI: vi.fn() }));
 vi.mock("@/utils/pdf", () => ({ loadPdfJs: vi.fn() }));
 vi.mock("@/utils/drawingUtils", () => ({

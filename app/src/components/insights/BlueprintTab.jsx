@@ -13,9 +13,7 @@ import * as THREE from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useModelStore } from "@/stores/modelStore";
+import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { generateElementsFromTakeoffs, getPxPerFoot } from "@/utils/geometryBuilder";
 import { detectWalls } from "@/utils/wallDetector";
 import { detectSpacesForLevel } from "@/utils/pascalSpaceDetection";
@@ -90,8 +88,8 @@ function AsyncFloorPlanPlate({ drawingId, elevation, opacity }) {
   useEffect(() => {
     const ppf = getPxPerFoot(drawingId);
     if (!ppf) return;
-    const { pdfCanvases } = useDrawingsStore.getState();
-    const { drawings } = useDrawingsStore.getState();
+    const { pdfCanvases } = useDrawingPipelineStore.getState();
+    const { drawings } = useDrawingPipelineStore.getState();
     const drawing = drawings.find(d => d.id === drawingId);
     const imgSrc = pdfCanvases[drawingId] || drawing?.data;
     if (!imgSrc) return;
@@ -427,9 +425,9 @@ function _selectFloorPlanDrawings(drawings, floorMap, takeoffs) {
 export default function BlueprintTab() {
   const C = useTheme();
   const T = C.T;
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const drawings = useDrawingsStore(s => s.drawings);
-  const _pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
+  const takeoffs = useDrawingPipelineStore(s => s.takeoffs);
+  const drawings = useDrawingPipelineStore(s => s.drawings);
+  const _pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
 
   const [elements, setElements] = useState([]);
   const [floorPlates, setFloorPlates] = useState([]);
@@ -455,9 +453,9 @@ export default function BlueprintTab() {
     setGenerating(true);
     setTimeout(() => {
       try {
-        const allDrawings = useDrawingsStore.getState().drawings;
-        const allTakeoffs = useTakeoffsStore.getState().takeoffs;
-        const store = useModelStore.getState();
+        const allDrawings = useDrawingPipelineStore.getState().drawings;
+        const allTakeoffs = useDrawingPipelineStore.getState().takeoffs;
+        const store = useDrawingPipelineStore.getState();
         const floorMap = buildFloorMap(allDrawings, store.floorHeight, store.floorHeights, floorOverrides);
 
         // Generate elements from takeoffs
@@ -476,7 +474,7 @@ export default function BlueprintTab() {
         }).filter(fp => fp.ppf);
 
         // Compute dimensions
-        const pdfC = useDrawingsStore.getState().pdfCanvases;
+        const pdfC = useDrawingPipelineStore.getState().pdfCanvases;
         plates.forEach(fp => {
           const drw = allDrawings.find(d => d.id === fp.drawingId);
           const imgSrc = pdfC[fp.drawingId] || drw?.data;
@@ -579,7 +577,7 @@ export default function BlueprintTab() {
     setDetectedRooms([]);
 
     try {
-      const pdfCanvases = useDrawingsStore.getState().pdfCanvases;
+      const pdfCanvases = useDrawingPipelineStore.getState().pdfCanvases;
       const allWalls = [];
 
       // Scan each floor plate's drawing

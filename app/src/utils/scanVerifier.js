@@ -200,7 +200,7 @@ export function verifyScheduleParse(parsedSchedules, ocrMeta = {}, correctionPat
  * @param {Object} romResult — { divisions: { "03": { low, mid, high, perSF: {...} }, ... }, totals: { low, mid, high } }
  * @param {number} projectSF
  * @param {string} jobType — e.g. "commercial-office"
- * @param {Object} calibrationFactors — from useScanStore.getState().getCalibrationFactors()
+ * @param {Object} calibrationFactors — from useDrawingPipelineStore.getState().getCalibrationFactors()
  * @returns {{ pass: boolean, issues: Array, adjustments: Object }}
  */
 export function verifyROM(romResult, projectSF, jobType, calibrationFactors = {}) {
