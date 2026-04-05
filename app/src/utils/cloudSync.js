@@ -8,49 +8,11 @@
  */
 
 import { supabase } from "./supabase";
-import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useOrgStore } from "@/stores/orgStore";
 
-// ---------- helpers ----------
-
-const getUserId = () => useAuthStore.getState().user?.id;
-
-// Returns { org_id } for org mode or null for solo mode.
-// Solo mode: do NOT reference org_id at all (column may not exist yet).
-const getScope = () => {
-  const org = useOrgStore.getState().org;
-  return org ? { org_id: org.id } : null;
-};
-
-// Apply org scope to a query — noop in solo mode
-const applyScope = (query, scope) => {
-  if (scope) return query.eq("org_id", scope.org_id);
-  return query.is("org_id", null); // solo mode: explicitly filter NULL org_id
-};
-
-const isReady = () => {
-  if (!supabase) return false;
-  if (!getUserId()) return false;
-  return true;
-};
-
-const markSynced = () => {
-  useUiStore.getState().setCloudSyncStatus("synced");
-  useUiStore
-    .getState()
-    .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
-  useUiStore.setState({ cloudSyncLastFullAt: new Date().toISOString() });
-};
-
-const markError = msg => {
-  useUiStore.getState().setCloudSyncStatus("error");
-  useUiStore.getState().setCloudSyncError(msg || "Connection failed");
-};
-
-const markSyncing = () => {
-  useUiStore.getState().setCloudSyncStatus("syncing");
-};
+// ---------- helpers (extracted to cloudSync-auth.js + cloudSync-retry.js) ----------
+import { getUserId, getScope, applyScope, isReady, markSynced, markError, markSyncing } from "./cloudSync-auth";
+export { getUserId, getScope, applyScope, isReady, markSynced, markError, markSyncing };
 
 // ---------- Blob sync via Supabase client ----------
 
@@ -494,71 +456,9 @@ const stripMasterBlobs = data => {
   return data;
 };
 
-// ---------- retry helper (exponential backoff + cooldown) ----------
-
-// Per-operation cooldown: each operation (e.g. pushData("settings"), pushEstimate("abc"))
-// tracks its own cooldown independently. A failure in one operation no longer blocks others.
-const _syncErrors = new Map(); // key → timestamp of last exhausted-retry failure
-const SYNC_COOLDOWN = 30000; // 30s cooldown after all retries exhausted
-let _activeSyncs = 0;
-const MAX_CONCURRENT_SYNCS = 3; // limit parallel uploads
-
-// Classify errors: permanent (don't retry) vs transient (do retry)
-const isPermanentError = err => {
-  const msg = (err?.message || "").toLowerCase();
-  const status = err?.status || err?.statusCode || 0;
-  // Auth failures, forbidden, not found — don't retry
-  if (status === 401 || status === 403 || status === 404) return true;
-  // Supabase-specific permanent errors
-  if (msg.includes("jwt expired") || msg.includes("invalid jwt")) return true;
-  if (msg.includes("row-level security") || msg.includes("rls")) return true;
-  if (msg.includes("violates foreign key")) return true;
-  // NOTE: 409/unique constraint violations are NOT permanent — they're handled
-  // by the upsert fallback logic in pushEstimate/pushData
-  return false;
-};
-
-const withRetry = async (label, fn, retries = 2) => {
-  // Per-operation cooldown: only skip THIS operation if it recently failed
-  const lastError = _syncErrors.get(label) || 0;
-  if (Date.now() - lastError < SYNC_COOLDOWN) {
-    console.warn(`[cloudSync] ${label} skipped — cooling down after recent failure`);
-    return;
-  }
-  // Concurrency gate
-  if (_activeSyncs >= MAX_CONCURRENT_SYNCS) {
-    console.warn(`[cloudSync] ${label} skipped — ${_activeSyncs} syncs in flight`);
-    return;
-  }
-  _activeSyncs++;
-  try {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const result = await fn();
-        // Success — clear any previous cooldown for this operation
-        _syncErrors.delete(label);
-        return result;
-      } catch (err) {
-        // Don't retry permanent errors (auth, RLS, constraint violations)
-        if (isPermanentError(err)) {
-          console.error(`[cloudSync] ${label} permanent error — not retrying:`, err.message);
-          _syncErrors.set(label, Date.now());
-          throw err;
-        }
-        if (attempt < retries) {
-          const delay = Math.min(2000 * Math.pow(2, attempt), 16000); // 2s → 4s → 8s (max 16s)
-          console.warn(`[cloudSync] ${label} attempt ${attempt + 1} failed, retrying in ${delay / 1000}s...`);
-          await new Promise(r => setTimeout(r, delay));
-        } else {
-          _syncErrors.set(label, Date.now());
-          throw err;
-        }
-      }
-    }
-  } finally {
-    _activeSyncs--;
-  }
-};
+// ---------- retry helper (extracted to cloudSync-retry.js) ----------
+import { withRetry, isPermanentError } from "./cloudSync-retry";
+export { withRetry, isPermanentError };
 
 // ---------- push operations ----------
 
