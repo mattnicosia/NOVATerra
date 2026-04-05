@@ -130,6 +130,7 @@ export default function AdminUnitRatesPage() {
           locationFactor: norm.combinedFactor,
           quantity: item.quantity || null,
           amount: item.amount || null,
+          notes: item.notes || null,
           source: run.source || "batch_parse",
           status: "pending",
         });
@@ -228,11 +229,14 @@ export default function AdminUnitRatesPage() {
           equipment: 0,
           subcontractor: item.unitPrice,
           trade: "general",
-          source: `Batch: ${item.company}`,
+          source: item.source === "extraction_pipeline"
+            ? `Extracted: ${item.filename || item.company}`
+            : `Batch: ${item.company}`,
           sourceFileName: item.filename,
           pricingBasis: "local",
           batchApproved: true,
           approvedAt: Date.now(),
+          ...(item.notes ? { notes: item.notes } : {}),
         });
         added++;
       }

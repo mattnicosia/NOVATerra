@@ -57,7 +57,13 @@ async function datalabOCR(pdfBase64, filename) {
       headers: { "X-Api-Key": datalabKey },
     });
 
-    if (!pollRes.ok) continue;
+    if (!pollRes.ok) {
+      if (pollRes.status >= 400 && pollRes.status < 500) {
+        const errText = await pollRes.text();
+        throw new Error(`Datalab poll failed (${pollRes.status}): ${errText}`);
+      }
+      continue;
+    }
 
     const pollData = await pollRes.json();
     if (pollData.status === "complete") {
@@ -216,7 +222,7 @@ export default async function handler(req, res) {
     // Update status
     await supabaseAdmin
       .from("ingestion_runs")
-      .update({ parse_status: "classifying", updated_at: new Date().toISOString() })
+      .update({ parse_status: "classifying", markdown_content: markdownText, updated_at: new Date().toISOString() })
       .eq("id", runId);
 
     // ── Step 3: Haiku classification ──
@@ -250,8 +256,31 @@ export default async function handler(req, res) {
       })
       .eq("id", runId);
 
-    // ── Step 4: Sonnet extraction ──
+    // ── Step 3b: Skip expensive extraction for non-bid documents ──
     const docType = classification.documentType || effectiveFolderType;
+    const worthFullParse = ["gc_proposal", "sub_proposal", "vendor_quote"].includes(docType);
+
+    if (!worthFullParse) {
+      await supabaseAdmin
+        .from("ingestion_runs")
+        .update({
+          parse_status: "classified",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
+
+      console.log(`[extract-proposal] Skipping extraction for type="${docType}" (run=${runId})`);
+
+      return res.status(200).json({
+        status: "classified",
+        classification,
+        parsedData: null,
+        runId,
+        lineItemCount: 0,
+      });
+    }
+
+    // ── Step 4: Sonnet extraction ──
 
     const extractRes = await client.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -276,6 +305,7 @@ export default async function handler(req, res) {
       .update({
         parsed_data: parsedData,
         parse_status: "parsed",
+        markdown_content: markdownText,
         total_bid: parsedData.totalBid || classification.totalBid || null,
         company_name: parsedData.subcontractorName || classification.companyName || null,
         line_item_count: lineItemCount,

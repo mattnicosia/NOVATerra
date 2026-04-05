@@ -54,9 +54,17 @@ const useExtractionStore = create((set, get) => ({
   setActiveExtractionId: (id) => set({ activeExtractionId: id }),
 
   clearCompleted: () => {
-    set(state => ({
-      queue: state.queue.filter(e => e.status !== "done" && e.status !== "error"),
-    }));
+    set(state => {
+      const completedIds = new Set(
+        state.queue.filter(e => e.status === "done" || e.status === "error").map(e => e.id)
+      );
+      return {
+        queue: state.queue.filter(e => !completedIds.has(e.id)),
+        results: Object.fromEntries(
+          Object.entries(state.results).filter(([k]) => !completedIds.has(k))
+        ),
+      };
+    });
   },
 }));
 

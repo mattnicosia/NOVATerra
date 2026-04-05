@@ -4,6 +4,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import useExtractionStore from "@/stores/extractionStore";
+import { useUiStore } from "@/stores/uiStore";
 import { extractProposal, extractProposalBatch } from "@/utils/proposalExtractor";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -11,6 +12,7 @@ import { I } from "@/constants/icons";
 function statusLabel(status) {
   switch (status) {
     case "pending": return "Queued";
+    case "uploading": return "Uploading...";
     case "converting": return "Converting PDF...";
     case "classifying": return "Classifying...";
     case "extracting": return "Extracting data...";
@@ -37,9 +39,32 @@ export default function CoreExtraction() {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
 
+  const MAX_FILE_SIZE = 35 * 1024 * 1024; // 35 MB
+
   const handleFiles = useCallback((files) => {
     const pdfs = Array.from(files).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"));
     if (pdfs.length === 0) return;
+
+    // Client-side file size check
+    const oversized = pdfs.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      const names = oversized.map(f => f.name).join(", ");
+      const sizeMB = Math.round(oversized[0].size / 1024 / 1024);
+      useUiStore.getState().showToast(
+        `File${oversized.length > 1 ? "s" : ""} too large (max 35 MB): ${names} (${sizeMB} MB)`,
+        "error"
+      );
+      // Filter out oversized files and continue with the rest
+      const valid = pdfs.filter(f => f.size <= MAX_FILE_SIZE);
+      if (valid.length === 0) return;
+      if (valid.length === 1) {
+        extractProposal(valid[0]);
+      } else {
+        extractProposalBatch(valid);
+      }
+      return;
+    }
+
     if (pdfs.length === 1) {
       extractProposal(pdfs[0]);
     } else {
