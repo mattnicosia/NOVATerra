@@ -40,9 +40,10 @@ export async function saveMasterData() {
     console.warn("[usePersistence] Cloud push failed for master:", err?.message);
   });
 
-  // Dual-write to normalized tables (fire-and-forget)
-  cloudSyncProfiles.pushProfiles(master).catch(() => {});
-  cloudSyncProfiles.pushContacts(master).catch(() => {});
+  // Atomic write to normalized tables (single Postgres transaction)
+  await cloudSyncProfiles.saveAtomically(master).catch(err => {
+    console.error("[persist] atomic profile/contact save failed:", err?.message);
+  });
 }
 
 // Save app settings

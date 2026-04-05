@@ -108,6 +108,7 @@ const AdminNovaPage = lazy(() => import("@/pages/admin/AdminNovaPage"));
 const AdminUnitRatesPage = lazy(() => import("@/pages/admin/AdminUnitRatesPage"));
 const AdminFeedbackPage = lazy(() => import("@/pages/admin/AdminFeedbackPage"));
 const AdminInvitesPage = lazy(() => import("@/pages/admin/AdminInvitesPage"));
+const AdminAIConfigPage = lazy(() => import("@/pages/admin/AdminAIConfigPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -931,6 +932,14 @@ function AppContent() {
                     element={
                       <RouteErrorBoundary pageName="Admin NOVA Intelligence">
                         <AdminNovaPage />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="ai-config"
+                    element={
+                      <RouteErrorBoundary pageName="Admin AI Config">
+                        <AdminAIConfigPage />
                       </RouteErrorBoundary>
                     }
                   />

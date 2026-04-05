@@ -20,7 +20,6 @@ import { uid } from "@/utils/format";
 import { processLogo } from "@/utils/imageUtils";
 
 import LogoPill from "@/components/shared/LogoPill";
-import AutoResponseSettings from "@/components/settings/AutoResponseSettings";
 import EstimatorSettingsPanel from "@/components/settings/EstimatorSettingsPanel";
 
 export default function SettingsPage() {
@@ -39,10 +38,6 @@ export default function SettingsPage() {
 
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragMarkupIdx, setDragMarkupIdx] = useState(null);
-
-  // Dev admin — only Matt sees API configuration
-  const currentUser = useAuthStore(s => s.user);
-  const isDevAdmin = currentUser?.id === "9ca86c2e-09cb-4e6b-b78b-c029e9da68d9";
 
   // Org role
   const isManager = useOrgStore(selectIsManager);
@@ -755,146 +750,6 @@ export default function SettingsPage() {
           </div>
         </Sec>}
 
-        {/* AI Configuration — dev admin only */}
-        {isDevAdmin && <Sec title="AI Configuration">
-          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>
-            Configure the AI features used for spec parsing, auto-labeling, scope suggestions, pricing lookup, and the
-            AI chat assistant.
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-            <div
-              style={{
-                padding: "10px 14px",
-                background: `${C.green}08`,
-                borderRadius: 6,
-                border: `1px solid ${C.green}25`,
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
-              <Ic d={I.check} size={16} color={C.green} />
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>AI is built-in</div>
-                <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
-                  NOVA AI features are included with your account. No API key needed.
-                </div>
-              </div>
-            </div>
-            <div>
-              <label
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: C.textDim,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}
-              >
-                FRED API Key (Market Data)
-              </label>
-              <div style={{ display: "flex", gap: 8, marginTop: 4, alignItems: "center" }}>
-                <input
-                  type="password"
-                  value={appSettings.fredApiKey || ""}
-                  onChange={e => updateSetting("fredApiKey", e.target.value)}
-                  placeholder="Your FRED API key..."
-                  style={inp(C, {
-                    padding: "8px 12px",
-                    fontSize: 12,
-                    fontFamily: T.font.sans,
-                    flex: 1,
-                    maxWidth: 500,
-                  })}
-                />
-              </div>
-              <div style={{ fontSize: 10, color: C.textDim, marginTop: 6 }}>
-                Free API key for live construction market data (lumber, steel, housing starts). Get one at{" "}
-                <a
-                  href="https://fred.stlouisfed.org/docs/api/api_key.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: C.accent, fontWeight: 500, textDecoration: "none" }}
-                >
-                  fred.stlouisfed.org
-                </a>
-              </div>
-            </div>
-            <div style={{ padding: "10px 14px", background: C.bg2, borderRadius: 6, border: `1px solid ${C.border}` }}>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: C.textDim,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  marginBottom: 8,
-                }}
-              >
-                AI-Powered Features
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                {[
-                  {
-                    name: "Spec Book Parsing",
-                    desc: "Upload PDF auto-extract CSI sections",
-                    icon: I.layers,
-                    color: C.purple,
-                  },
-                  {
-                    name: "Smart Label / Auto Label",
-                    desc: "AI reads sheet numbers from title blocks",
-                    icon: I.plans,
-                    color: C.blue,
-                  },
-                  {
-                    name: "Auto-Count (Vision)",
-                    desc: "AI counts repeated elements on drawings",
-                    icon: I.takeoff,
-                    color: C.green,
-                  },
-                  {
-                    name: "AI Pricing Lookup",
-                    desc: "Get material/labor pricing estimates",
-                    icon: I.dollar,
-                    color: C.orange,
-                  },
-                  {
-                    name: "Scope Suggestions",
-                    desc: "AI suggests takeoff items from drawings",
-                    icon: I.ai,
-                    color: C.accent,
-                  },
-                  { name: "AI Chat Assistant", desc: "Context-aware project assistant", icon: I.send, color: C.cyan },
-                ].map(f => (
-                  <div
-                    key={f.name}
-                    style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px", borderRadius: 4 }}
-                  >
-                    <Ic d={f.icon} size={14} color={f.color} />
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: C.text }}>{f.name}</div>
-                      <div style={{ fontSize: 9, color: C.textDim }}>{f.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Sec>}
-
-        {/* Historical Proposals — moved to Cost Database */}
-        <Sec title="Cost History & ROM Calibration">
-          <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.6 }}>
-            Historical proposals and ROM calibration data has moved to the{" "}
-            <strong style={{ color: C.accent }}>Cost Database → Cost History</strong> tab.
-          </div>
-        </Sec>
-
-        {/* Auto-Responses */}
-        <Sec title="Auto-Responses" icon={I.send}>
-          <AutoResponseSettings />
-        </Sec>
 
         {/* Organization */}
         {hasOrg && orgData && (

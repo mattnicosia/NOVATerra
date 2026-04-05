@@ -19,6 +19,7 @@ import ProposalComparisonMatrix from "@/components/estimate/ProposalComparisonMa
 import AwardBidModal from "@/components/estimate/AwardBidModal";
 import InviteSubsModal from "@/components/estimate/InviteSubsModal";
 import EmptyState from "@/components/shared/EmptyState";
+import AutoResponseSettings from "@/components/settings/AutoResponseSettings";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
@@ -48,6 +49,8 @@ export default function BidPackagesPage() {
   const [invitePkg, setInvitePkg] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [autoHover, setAutoHover] = useState(false);
+
+  const [showNetworkSettings, setShowNetworkSettings] = useState(false);
 
   // Auto-generate bid packages
   const [showAutoReview, setShowAutoReview] = useState(false);
@@ -236,6 +239,26 @@ export default function BidPackagesPage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Settings gear */}
+          <button
+            onClick={() => setShowNetworkSettings(v => !v)}
+            title="Network Settings"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              background: showNetworkSettings ? `${C.accent}15` : "transparent",
+              border: showNetworkSettings ? `1px solid ${C.accent}30` : `1px solid transparent`,
+              borderRadius: T.radius.sm,
+              cursor: "pointer",
+              transition: T.transition.fast,
+            }}
+          >
+            <Ic d={I.settings} size={15} color={showNetworkSettings ? C.accent : C.textMuted} />
+          </button>
+
           {/* Auto-Generate — demoted text link */}
           <button
             onClick={handleAutoGenerate}
@@ -292,6 +315,25 @@ export default function BidPackagesPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Network Settings Panel ── */}
+      {showNetworkSettings && (
+        <div
+          style={{
+            padding: "16px 20px",
+            background: C.glassBg || C.bg2,
+            border: `1px solid ${C.glassBorder || C.border}`,
+            borderRadius: T.radius.md,
+            marginBottom: T.space[4],
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Auto-Responses</div>
+          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12, lineHeight: 1.5 }}>
+            Automatic reply templates triggered when subs open invitations or submit proposals.
+          </div>
+          <AutoResponseSettings />
+        </div>
+      )}
 
       {/* ── Sync Indicator ── */}
       {syncing && (

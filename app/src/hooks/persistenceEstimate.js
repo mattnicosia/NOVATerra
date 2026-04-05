@@ -676,11 +676,10 @@ export async function saveEstimate(overrideId) {
   // This prevents a race where auto-save fires → user deletes → push un-deletes.
   const pushId = useEstimatesStore.getState().activeEstimateId;
   if (pushId === id && useEstimatesStore.getState().estimatesIndex.some(e => e.id === id)) {
-    // ATOMIC: Both estimate data AND index must push successfully.
-    // Only clear dirty flag when BOTH succeed. If either fails, mark dirty for retry.
+    // Push estimate data (RPC writes blob + normalized columns atomically).
+    // Index blob no longer pushed — normalized columns on user_estimates are authoritative.
     Promise.all([
       cloudSync.pushEstimate(id, data),
-      cloudSync.pushData("index", idx),
     ])
       .then(() => {
         clearDirtyEstimate(id);

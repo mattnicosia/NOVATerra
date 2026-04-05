@@ -249,7 +249,6 @@ export const useEstimatesStore = create((set, get) => ({
     // a partial local index overwrites the complete cloud index)
     if (!useUiStore.getState().cloudSyncInProgress) {
       cloudSync.pushEstimate(id, data).catch(() => {});
-      cloudSync.pushData("index", idx).catch(() => {});
     }
 
     return id;
@@ -408,7 +407,6 @@ export const useEstimatesStore = create((set, get) => ({
     // STEP 3: Cloud sync — await so deletion completes before user closes app
     try {
       await cloudSync.deleteEstimate(id);
-      await cloudSync.pushData("index", idx);
     } catch (err) {
       console.warn("[deleteEstimate] Cloud sync failed, will retry on next sync:", err.message);
     }
@@ -444,7 +442,6 @@ export const useEstimatesStore = create((set, get) => ({
     // Cloud sync (non-blocking)
     if (!useUiStore.getState().cloudSyncInProgress) {
       cloudSync.pushEstimate(newId, data).catch(() => {});
-      cloudSync.pushData("index", idx).catch(() => {});
     }
 
     return newId;
@@ -556,7 +553,6 @@ export const useEstimatesStore = create((set, get) => ({
     // Cloud sync (non-blocking)
     if (!useUiStore.getState().cloudSyncInProgress) {
       cloudSync.pushEstimate(newId, clonedData).catch(() => {});
-      cloudSync.pushData("index", idx).catch(() => {});
     }
 
     return { id: newId, revisionNumber };
@@ -600,8 +596,8 @@ export const useEstimatesStore = create((set, get) => ({
     } catch {
       /* quota */
     }
-    // Push to cloud (non-blocking)
-    cloudSync.pushData("index", idx).catch(() => {});
+    // Sync normalized columns on user_estimates (authoritative source)
+    cloudSync.syncIndexColumns(id, updates).catch(() => {});
 
     // ── FEEDBACK LOOP: generate learning record when estimate reaches final bid ──
     if (updates.status && ["Submitted", "Won", "Lost"].includes(updates.status)) {
@@ -738,7 +734,6 @@ export const useEstimatesStore = create((set, get) => ({
     // Cloud sync (non-blocking)
     if (!useUiStore.getState().cloudSyncInProgress) {
       cloudSync.pushEstimate(id, data).catch(() => {});
-      cloudSync.pushData("index", idx).catch(() => {});
     }
 
     return id;

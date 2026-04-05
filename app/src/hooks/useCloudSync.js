@@ -276,8 +276,77 @@ async function syncMasterData() {
   await cloudSync.pushData("master", merged);
 
   // Seed normalized tables from JSONB blob (one-time migration)
-  const { seedFromJsonb } = await import("@/utils/cloudSyncProfiles");
-  await seedFromJsonb(merged).catch(() => {});
+  const { pullProfiles, pullContacts } = await import("@/utils/cloudSyncProfiles");
+
+  // Safety net: if normalized tables have data the JSONB merge lost, restore it
+  try {
+    const current = useMasterDataStore.getState().masterData;
+    const normalizedProfiles = await pullProfiles();
+    const normalizedContacts = await pullContacts();
+    let restored = false;
+
+    // Restore companyProfiles if JSONB merge wiped them
+    if (current.companyProfiles.length === 0 && normalizedProfiles.filter(p => !p.is_default).length > 0) {
+      const restoredProfiles = normalizedProfiles.filter(p => !p.is_default).map(p => ({
+        id: p.id, name: p.name, shortName: p.short_name, address: p.address, city: p.city,
+        state: p.state, zip: p.zip, phone: p.phone, email: p.email, website: p.website,
+        licenseNo: p.license_no, ein: p.ein, logo: p.logo, brandColors: p.brand_colors || [],
+        palettes: p.palettes || [], boilerplateExclusions: p.boilerplate_exclusions || [],
+        boilerplateNotes: p.boilerplate_notes || [],
+      }));
+      current.companyProfiles = restoredProfiles;
+      restored = true;
+    }
+
+    // Restore companyInfo if JSONB merge wiped it
+    const defaultProfile = normalizedProfiles.find(p => p.is_default);
+    if (defaultProfile && !current.companyInfo?.name && defaultProfile.name) {
+      current.companyInfo = {
+        ...current.companyInfo,
+        id: defaultProfile.id, name: defaultProfile.name, address: defaultProfile.address,
+        city: defaultProfile.city, state: defaultProfile.state, zip: defaultProfile.zip,
+        phone: defaultProfile.phone, email: defaultProfile.email, website: defaultProfile.website,
+        licenseNo: defaultProfile.license_no, logo: defaultProfile.logo,
+        brandColors: defaultProfile.brand_colors || [], palettes: defaultProfile.palettes || [],
+        boilerplateExclusions: defaultProfile.boilerplate_exclusions || [],
+        boilerplateNotes: defaultProfile.boilerplate_notes || [],
+      };
+      restored = true;
+    }
+
+    // Restore contacts if JSONB merge wiped them
+    const contactTypeMap = { client: "clients", architect: "architects", engineer: "engineers", estimator: "estimators", subcontractor: "subcontractors" };
+    for (const [type, key] of Object.entries(contactTypeMap)) {
+      const normalizedOfType = normalizedContacts.filter(c => c.contact_type === type);
+      if ((current[key] || []).length === 0 && normalizedOfType.length > 0) {
+        current[key] = normalizedOfType.map(c => ({
+          id: c.id, name: c.company_name || c.contact_name, company: c.company_name,
+          contactName: c.contact_name, title: c.title, email: c.email, phone: c.phone,
+          address: c.address, city: c.city, state: c.state, zip: c.zip, notes: c.notes,
+          companyProfileId: c.metadata?.companyProfileId || "",
+          ...(type === "subcontractor" ? {
+            trades: c.metadata?.trades || [], markets: c.metadata?.markets || [],
+            certifications: c.metadata?.certifications || [],
+            insuranceExpiry: c.metadata?.insuranceExpiry || "",
+            bondingCapacity: c.metadata?.bondingCapacity || "",
+            emr: c.metadata?.emr || "", yearsInBusiness: c.metadata?.yearsInBusiness || "",
+            preferred: c.metadata?.preferred || false, website: c.metadata?.website || "",
+            licenseNo: c.metadata?.licenseNo || "",
+          } : {}),
+          ...(type === "estimator" ? { initials: c.metadata?.initials || "" } : {}),
+        }));
+        restored = true;
+      }
+    }
+
+    if (restored) {
+      nova.sync.conflict("Normalized table recovery", { restored: true });
+      applyMasterData(current);
+      await storage.set(idbKey("bldg-master"), JSON.stringify(current));
+    }
+  } catch (err) {
+    console.warn("[cloudSync] Normalized table recovery failed:", err?.message);
+  }
 }
 
 /**
@@ -319,19 +388,34 @@ function mergeMasterData(local, cloud, cloudNewer = false) {
   for (const p of winnerProposals) proposalMap.set(p.id, p);
   merged.historicalProposals = Array.from(proposalMap.values());
 
-  // companyInfo: prefer winner, but if winner has no name and loser does, use loser
-  if (!winner.companyInfo?.name && loser.companyInfo?.name) {
-    merged.companyInfo = { ...loser.companyInfo };
+  // companyInfo: deep merge — never let empty fields overwrite populated ones
+  const winnerInfo = winner.companyInfo || {};
+  const loserInfo = loser.companyInfo || {};
+  const mergedInfo = { ...loserInfo };
+  for (const [k, v] of Object.entries(winnerInfo)) {
+    // Winner field wins if it has a value, OR if loser also has no value
+    if (v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)) {
+      mergedInfo[k] = v;
+    }
+    // If winner field is empty but loser has data, keep loser's value (already in mergedInfo)
   }
+  merged.companyInfo = mergedInfo;
 
   return merged;
 }
 
 function applyMasterData(data) {
-  useMasterDataStore.getState().setMasterData({
-    ...useMasterDataStore.getState().masterData,
-    ...data,
-  });
+  const current = useMasterDataStore.getState().masterData;
+  const safe = { ...current };
+  for (const [k, v] of Object.entries(data)) {
+    const cur = current[k];
+    // Never let an empty array overwrite a populated one
+    if (Array.isArray(cur) && cur.length > 0 && Array.isArray(v) && v.length === 0) continue;
+    // Never let an empty/null companyInfo overwrite a populated one
+    if (k === "companyInfo" && cur?.name && (!v || !v.name)) continue;
+    safe[k] = v;
+  }
+  useMasterDataStore.getState().setMasterData(safe);
 }
 
 // ─── Estimates Sync ────────────────────────────────────────────────
@@ -680,10 +764,9 @@ async function syncEstimates() {
     /* quota exceeded */
   }
 
-  // Push final index to cloud
+  // Log completion (index blob no longer pushed — normalized columns are authoritative)
   const pushIndex = useEstimatesStore.getState().estimatesIndex;
   if (toAdd.length > 0 || pushed || afterLen < beforeLen) {
-    await cloudSync.pushData("index", pushIndex);
     console.log(`[cloudSync] Estimates: synced, ${pushIndex.length} total estimates`);
   }
 }

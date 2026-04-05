@@ -11,6 +11,7 @@ const NAV = [
   { to: "/admin/invites", label: "Invites", icon: I.send },
   { to: "/admin/unit-rates", label: "Unit Rates", icon: I.database },
   { to: "/admin/embeddings", label: "Embeddings", icon: I.intelligence },
+  { to: "/admin/ai-config", label: "AI Config", icon: I.ai },
 ];
 
 export default function AdminLayout() {

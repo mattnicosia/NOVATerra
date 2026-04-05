@@ -560,29 +560,37 @@ export function usePersistenceLoad() {
           }
           const deletedSet = new Set(deletedIds);
 
-          // Pull estimates index (try current scope, then fallback to last-known org)
-          let cloudIndex = await cloudSync.pullData("index");
+          // Pull estimates index — PRIMARY: query user_estimates normalized columns.
+          // This is the authoritative source. No index blob involved.
+          let cloudIndex = await cloudSync.pullEstimatesIndex();
+          if (cloudIndex && cloudIndex.length > 0) {
+            console.log(`[usePersistence] Loaded ${cloudIndex.length} estimates from normalized columns`);
+          }
 
-          // ─── ORG-SCOPE RECOVERY ───
-          // If pullData returned nothing, try last-known org, then scope-blind pull.
+          // FALLBACK: if normalized columns returned nothing, try legacy index blob.
+          // This handles the transition period where old estimates may not have columns yet.
           if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
-            // Try 1: last-known org ID from localStorage
-            const lastOrgId = localStorage.getItem("bldg-last-org-id");
-            if (lastOrgId) {
-              console.log(`[usePersistence] Cloud pull empty — trying last-known org "${lastOrgId.slice(0, 8)}..."`);
-              const orgIndex = await cloudSync.pullDataWithOrgId("index", lastOrgId);
-              if (orgIndex && Array.isArray(orgIndex) && orgIndex.length > 0) {
-                console.log(`[usePersistence] FOUND ${orgIndex.length} estimates in org-scoped cloud — recovering`);
-                cloudIndex = orgIndex;
-              }
-            }
-            // Try 2: SCOPE-BLIND pull — searches ALL orgs for this user
+            console.log("[usePersistence] Normalized columns empty — falling back to legacy index blob");
+            cloudIndex = await cloudSync.pullData("index");
+
+            // ─── ORG-SCOPE RECOVERY (legacy path) ───
             if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
-              console.log("[usePersistence] Cloud pull still empty — trying scope-blind recovery (all orgs)...");
-              const anyIndex = await cloudSync.pullDataAnyScope("index");
-              if (anyIndex && Array.isArray(anyIndex) && anyIndex.length > 0) {
-                console.log(`[usePersistence] SCOPE-BLIND RECOVERY: found ${anyIndex.length} estimates`);
-                cloudIndex = anyIndex;
+              const lastOrgId = localStorage.getItem("bldg-last-org-id");
+              if (lastOrgId) {
+                console.log(`[usePersistence] Cloud pull empty — trying last-known org "${lastOrgId.slice(0, 8)}..."`);
+                const orgIndex = await cloudSync.pullDataWithOrgId("index", lastOrgId);
+                if (orgIndex && Array.isArray(orgIndex) && orgIndex.length > 0) {
+                  console.log(`[usePersistence] FOUND ${orgIndex.length} estimates in org-scoped cloud — recovering`);
+                  cloudIndex = orgIndex;
+                }
+              }
+              if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
+                console.log("[usePersistence] Cloud pull still empty — trying scope-blind recovery (all orgs)...");
+                const anyIndex = await cloudSync.pullDataAnyScope("index");
+                if (anyIndex && Array.isArray(anyIndex) && anyIndex.length > 0) {
+                  console.log(`[usePersistence] SCOPE-BLIND RECOVERY: found ${anyIndex.length} estimates`);
+                  cloudIndex = anyIndex;
+                }
               }
             }
           }

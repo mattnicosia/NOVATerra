@@ -30,8 +30,8 @@ import { downloadBlob, hydrateBlobs, stripAndUploadBlobs, stripMasterBlobs, uplo
 export { downloadBlob, hydrateBlobs, stripAndUploadBlobs, stripMasterBlobs, uploadBlob, dataUrlToBlob, compressImage };
 
 // ---------- Re-exports: push operations ----------
-import { pushData, pushEstimate, deleteEstimate } from "./cloudSync-push";
-export { pushData, pushEstimate, deleteEstimate };
+import { pushData, pushEstimate, deleteEstimate, syncIndexColumns } from "./cloudSync-push";
+export { pushData, pushEstimate, deleteEstimate, syncIndexColumns };
 
 // ---------- Re-exports: pull operations ----------
 import {
@@ -46,6 +46,7 @@ import {
   pullAllEstimatesSoloFallback,
   pullEstimate,
   pullAllEstimates,
+  pullEstimatesIndex,
 } from "./cloudSync-pull";
 export {
   pullData,
@@ -59,10 +60,11 @@ export {
   pullAllEstimatesSoloFallback,
   pullEstimate,
   pullAllEstimates,
+  pullEstimatesIndex,
 };
 
 // ---------- Re-exports: normalized profile/contact sync ----------
-export { pushProfiles, pullProfiles, pushContacts, pullContacts, seedFromJsonb } from "./cloudSyncProfiles";
+export { saveAtomically, pullProfiles, pullContacts } from "./cloudSyncProfiles";
 
 // ---------- Realtime sync helpers ----------
 // These are used by useRealtimeSync to apply incoming changes from other devices.
@@ -168,9 +170,16 @@ async function _applyDataToStore(key, data) {
   try {
     if (key === "master") {
       const { useMasterDataStore } = await import("@/stores/masterDataStore");
-      if (data.companyProfiles) useMasterDataStore.getState().setCompanyProfiles(data.companyProfiles);
-      if (data.contacts) useMasterDataStore.getState().setContacts(data.contacts);
-      if (data.companyInfo) useMasterDataStore.getState().setCompanyInfo(data.companyInfo);
+      // Safe merge: never let empty Realtime data overwrite richer local state
+      const current = useMasterDataStore.getState().masterData;
+      const safe = { ...current };
+      for (const [k, v] of Object.entries(data)) {
+        const cur = current[k];
+        if (Array.isArray(cur) && cur.length > 0 && Array.isArray(v) && v.length === 0) continue;
+        if (k === "companyInfo" && cur?.name && (!v || !v.name)) continue;
+        safe[k] = v;
+      }
+      useMasterDataStore.getState().setMasterData(safe);
     } else if (key === "settings") {
       useUiStore.getState().setAppSettings(data);
     } else if (key === "assemblies") {

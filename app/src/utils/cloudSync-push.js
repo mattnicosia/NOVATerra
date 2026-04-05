@@ -118,20 +118,26 @@ export const pushEstimate = async (estimateId, data) => {
       // push was the root cause of zombie resurrection — an in-flight auto-save
       // would un-delete rows that deleteEstimate() had just soft-deleted.
       // Only deleteEstimate() should touch the deleted_at column.
-      const row = {
-        user_id: userId,
-        estimate_id: estimateId,
-        data: cleanData,
-        updated_at: new Date().toISOString(),
-        ...(scope || {}),
-        ...(assignedTo ? { assigned_to: assignedTo } : {}),
-        visibility,
-      };
+      const project = cleanData?.project || {};
 
-      // Simple UPSERT — global unique index on (user_id, estimate_id)
-      const { error } = await supabase
-        .from("user_estimates")
-        .upsert(row, { onConflict: "user_id,estimate_id" });
+      // Atomic write: blob + normalized columns in a single Postgres transaction
+      const { error } = await supabase.rpc("save_estimate", {
+        p_user_id: userId,
+        p_org_id: scope?.org_id || null,
+        p_estimate_id: estimateId,
+        p_data: cleanData,
+        p_project_name: project.name || "",
+        p_status: project.status || "Draft",
+        p_client: project.client || "",
+        p_bid_due: project.bidDue || null,
+        p_grand_total: project.grandTotal ? parseFloat(project.grandTotal) || null : null,
+        p_building_type: project.buildingType || "",
+        p_work_type: project.workType || "",
+        p_project_sf: project.projectSF || "",
+        p_estimate_number: project.estimateNumber || "",
+        p_visibility: visibility,
+        p_assigned_to: assignedTo || null,
+      });
       if (error) throw error;
     });
     markSynced();
@@ -166,5 +172,48 @@ export const deleteEstimate = async estimateId => {
   } catch (err) {
     console.warn(`[cloudSync] deleteEstimate("${estimateId}") failed:`, err.message || err);
     markError();
+  }
+};
+
+/**
+ * Sync an index entry's metadata to normalized columns on user_estimates.
+ * Lightweight column-only update — does NOT touch the JSONB blob.
+ * Called by updateIndexEntry() to keep normalized columns in sync.
+ */
+export const syncIndexColumns = async (estimateId, updates) => {
+  if (!isReady()) return;
+  // Map index field names to column names
+  const columnMap = {
+    name: "project_name",
+    status: "status",
+    client: "client",
+    bidDue: "bid_due",
+    grandTotal: "grand_total",
+    buildingType: "building_type",
+    workType: "work_type",
+    projectSF: "project_sf",
+    estimateNumber: "estimate_number",
+    visibility: "visibility",
+    assignedTo: "assigned_to",
+  };
+  const row = { last_modified: new Date().toISOString() };
+  for (const [jsKey, colName] of Object.entries(columnMap)) {
+    if (jsKey in updates) {
+      let val = updates[jsKey];
+      if (jsKey === "grandTotal" && val !== null && val !== undefined) val = parseFloat(val) || null;
+      row[colName] = val ?? null;
+    }
+  }
+  if (Object.keys(row).length <= 1) return; // only last_modified, no real changes
+
+  try {
+    const { error } = await supabase
+      .from("user_estimates")
+      .update(row)
+      .eq("estimate_id", estimateId)
+      .eq("user_id", getUserId());
+    if (error) console.warn(`[cloudSync] syncIndexColumns("${estimateId}") failed:`, error.message);
+  } catch (err) {
+    console.warn(`[cloudSync] syncIndexColumns("${estimateId}") error:`, err.message);
   }
 };

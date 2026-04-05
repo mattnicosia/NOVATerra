@@ -114,52 +114,74 @@ function contactToRow(contact, contactType, userId, orgId) {
   return row;
 }
 
-// ── Push operations ────────────────────────────────────────
+// ── Atomic write (single Postgres transaction via RPC) ────
 
 /**
- * Upsert company profiles to normalized table.
- * Maps companyInfo (default profile) + companyProfiles[] (additional profiles).
+ * Save profiles and contacts atomically via a Postgres function.
+ * Both tables are written in a single transaction — if either fails,
+ * the entire operation rolls back. No dual-write problem.
  */
-export async function pushProfiles(masterData) {
+export async function saveAtomically(masterData) {
   if (!isReady()) return;
   const userId = getUserId();
   const scope = getScope();
   const orgId = scope?.org_id || null;
 
-  const rows = [];
-
-  // Default profile from companyInfo
-  const defaultRow = companyInfoToRow(masterData.companyInfo, userId, orgId);
-  if (defaultRow && defaultRow.name) rows.push(defaultRow);
-
-  // Additional profiles
+  // Build profiles array (default + additional)
+  const profiles = [];
+  const defaultInfo = masterData.companyInfo;
+  if (defaultInfo?.name) {
+    profiles.push({
+      id: defaultInfo.id || `default-${userId}`,
+      is_default: true,
+      name: defaultInfo.name || "",
+      short_name: defaultInfo.shortName || null,
+      address: defaultInfo.address || "",
+      city: defaultInfo.city || "",
+      state: defaultInfo.state || "",
+      zip: defaultInfo.zip || "",
+      phone: defaultInfo.phone || "",
+      email: defaultInfo.email || "",
+      website: defaultInfo.website || "",
+      license_no: defaultInfo.licenseNo || "",
+      ein: defaultInfo.ein || "",
+      logo: defaultInfo.logo || null,
+      brand_colors: defaultInfo.brandColors || [],
+      palettes: defaultInfo.palettes || [],
+      boilerplate_exclusions: defaultInfo.boilerplateExclusions || [],
+      boilerplate_notes: defaultInfo.boilerplateNotes || [],
+      boilerplate_qualifications: defaultInfo.boilerplateQualifications || [],
+      default_terms: defaultInfo.defaultTerms || null,
+    });
+  }
   for (const p of masterData.companyProfiles || []) {
-    const row = profileToRow(p, userId, orgId);
-    if (row) rows.push(row);
+    if (!p?.id) continue;
+    profiles.push({
+      id: p.id,
+      is_default: false,
+      name: p.name || "",
+      short_name: p.shortName || null,
+      address: p.address || "",
+      city: p.city || "",
+      state: p.state || "",
+      zip: p.zip || "",
+      phone: p.phone || "",
+      email: p.email || "",
+      website: p.website || "",
+      license_no: p.licenseNo || "",
+      ein: p.ein || "",
+      logo: p.logo || null,
+      brand_colors: p.brandColors || [],
+      palettes: p.palettes || [],
+      boilerplate_exclusions: p.boilerplateExclusions || [],
+      boilerplate_notes: p.boilerplateNotes || [],
+      boilerplate_qualifications: p.boilerplateQualifications || [],
+      default_terms: p.defaultTerms || null,
+    });
   }
 
-  if (rows.length === 0) return;
-
-  const { error } = await supabase
-    .from("company_profiles")
-    .upsert(rows, { onConflict: "id" });
-
-  if (error) {
-    console.warn("[cloudSyncProfiles] pushProfiles failed:", error.message);
-  }
-}
-
-/**
- * Push contacts to normalized table.
- * Replace strategy: delete all for this user+org+type, then insert fresh.
- * This avoids orphaned rows without needing per-contact delete hooks.
- */
-export async function pushContacts(masterData) {
-  if (!isReady()) return;
-  const userId = getUserId();
-  const scope = getScope();
-  const orgId = scope?.org_id || null;
-
+  // Build contacts array with contact_type
+  const contacts = [];
   const typeMap = {
     clients: "client",
     architects: "architect",
@@ -167,40 +189,22 @@ export async function pushContacts(masterData) {
     estimators: "estimator",
     subcontractors: "subcontractor",
   };
-
-  for (const [key, contactType] of Object.entries(typeMap)) {
-    const items = masterData[key] || [];
-    const rows = items.map(c => contactToRow(c, contactType, userId, orgId)).filter(Boolean);
-
-    // Delete existing for this type, then insert fresh
-    let deleteQuery = supabase
-      .from("contacts")
-      .delete()
-      .eq("user_id", userId)
-      .eq("contact_type", contactType);
-
-    if (orgId) {
-      deleteQuery = deleteQuery.eq("org_id", orgId);
-    } else {
-      deleteQuery = deleteQuery.is("org_id", null);
+  for (const [key, type] of Object.entries(typeMap)) {
+    for (const c of masterData[key] || []) {
+      const row = contactToRow(c, type, userId, orgId);
+      if (row) contacts.push(row);
     }
+  }
 
-    const { error: delErr } = await deleteQuery;
-    if (delErr) {
-      console.warn(`[cloudSyncProfiles] delete ${contactType} failed:`, delErr.message);
-      continue; // Skip insert if delete failed
-    }
-
-    if (rows.length > 0) {
-      // Batch insert in chunks of 50
-      for (let i = 0; i < rows.length; i += 50) {
-        const chunk = rows.slice(i, i + 50);
-        const { error: insErr } = await supabase.from("contacts").insert(chunk);
-        if (insErr) {
-          console.warn(`[cloudSyncProfiles] insert ${contactType} failed:`, insErr.message);
-        }
-      }
-    }
+  const { error } = await supabase.rpc("save_profiles_and_contacts", {
+    p_user_id: userId,
+    p_org_id: orgId,
+    p_profiles: profiles,
+    p_contacts: contacts,
+  });
+  if (error) {
+    console.error("[cloudSyncProfiles] atomic save failed:", error.message);
+    throw error;
   }
 }
 
@@ -248,55 +252,3 @@ export async function pullContacts() {
   return data || [];
 }
 
-// ── One-time migration seed ────────────────────────────────
-
-/**
- * Seed normalized tables from the existing JSONB blob.
- * Runs once per user, guarded by localStorage flag.
- */
-export async function seedFromJsonb(masterData) {
-  if (!isReady()) return;
-  const userId = getUserId();
-  const flag = `profiles-seeded-${userId}`;
-
-  if (localStorage.getItem(flag)) return; // Already seeded
-
-  // Check if normalized tables already have data
-  const profiles = await pullProfiles();
-  if (profiles.length > 0) {
-    localStorage.setItem(flag, "1");
-    return; // Already populated (maybe another device seeded)
-  }
-
-  // Check if JSONB has anything worth seeding
-  const hasProfiles =
-    masterData.companyInfo?.name ||
-    (masterData.companyProfiles || []).length > 0;
-  const hasContacts =
-    (masterData.clients || []).length > 0 ||
-    (masterData.architects || []).length > 0 ||
-    (masterData.engineers || []).length > 0 ||
-    (masterData.subcontractors || []).length > 0;
-
-  if (!hasProfiles && !hasContacts) {
-    localStorage.setItem(flag, "1");
-    return; // Nothing to seed
-  }
-
-  console.log("[cloudSyncProfiles] Seeding normalized tables from JSONB blob...");
-
-  if (hasProfiles) {
-    await pushProfiles(masterData).catch(err => {
-      console.warn("[cloudSyncProfiles] Seed profiles failed:", err?.message);
-    });
-  }
-
-  if (hasContacts) {
-    await pushContacts(masterData).catch(err => {
-      console.warn("[cloudSyncProfiles] Seed contacts failed:", err?.message);
-    });
-  }
-
-  localStorage.setItem(flag, "1");
-  console.log("[cloudSyncProfiles] Seed complete.");
-}

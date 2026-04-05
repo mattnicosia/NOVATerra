@@ -409,3 +409,57 @@ export const pullAllEstimates = async () => {
     return [];
   }
 };
+
+/**
+ * Pull the estimates index from normalized columns on user_estimates.
+ * Returns an array shaped like the legacy index entries but sourced
+ * from the authoritative table, not the JSONB blob.
+ * This replaces pullData("index") as the primary index source.
+ */
+export const pullEstimatesIndex = async () => {
+  if (!isReady()) return null;
+  try {
+    const scope = getScope();
+    let query = supabase
+      .from("user_estimates")
+      .select("estimate_id, user_id, org_id, project_name, status, client, bid_due, grand_total, building_type, work_type, project_sf, estimate_number, visibility, assigned_to, last_modified, deleted_at")
+      .is("deleted_at", null);
+
+    if (scope?.org_id) {
+      query = query.eq("org_id", scope.org_id);
+    } else {
+      query = query.eq("user_id", getUserId()).is("org_id", null);
+    }
+
+    query = query.order("last_modified", { ascending: false });
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+
+    // Map DB columns back to the index entry shape expected by 49+ consumers
+    return data.map(row => ({
+      id: row.estimate_id,
+      name: row.project_name || "",
+      status: row.status || "Bidding",
+      client: row.client || "",
+      bidDue: row.bid_due || "",
+      grandTotal: row.grand_total || 0,
+      buildingType: row.building_type || "",
+      workType: row.work_type || "",
+      projectSF: row.project_sf || "",
+      estimateNumber: row.estimate_number || "",
+      visibility: row.visibility || "private",
+      assignedTo: row.assigned_to || [],
+      lastModified: row.last_modified || new Date().toISOString(),
+      // Fields not in normalized columns get populated later from JSONB blob during estimate load
+      estimator: "", coEstimators: [], jobType: "", architect: "", zipCode: "",
+      divisionTotals: {}, outcomeMetadata: {}, startDate: "", estimatedHours: 0,
+      elementCount: 0, companyProfileId: "", ownerId: row.user_id, orgId: row.org_id,
+      correspondenceCount: 0, correspondencePendingCount: 0,
+    }));
+  } catch (err) {
+    console.warn("[cloudSync] pullEstimatesIndex() failed:", err.message || err);
+    return null;
+  }
+};
