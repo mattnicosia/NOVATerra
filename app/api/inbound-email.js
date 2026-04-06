@@ -1,7 +1,5 @@
 import { Webhook } from "svix";
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
-import { parseRfpEmail } from "./lib/parseEmail.js";
-import { matchEmail } from "./lib/emailMatcher.js";
 import { cors } from "./lib/cors.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -178,11 +176,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── Insert pending RFP row ──
+    // ── Insert pending RFP row (queued for async processing) ──
     const { error: insertErr } = await supabaseAdmin.from("pending_rfps").insert({
       id: rfpId,
       user_id: userId,
-      status: "pending",
+      status: "queued",
       sender_email: senderEmail,
       sender_name: senderName,
       sender_domain: senderDomain,
@@ -192,6 +190,8 @@ export default async function handler(req, res) {
       message_id: messageId,
       in_reply_to: inReplyTo,
       references_header: referencesHeader,
+      queue_priority: 0,
+      retry_count: 0,
     });
 
     if (insertErr) {
@@ -199,77 +199,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Failed to store RFP" });
     }
 
-    // ── Parse with AI ──
-    const parsedData = await parseRfpEmail({
-      subject,
-      senderEmail,
-      senderName,
-      text,
-      html,
-    });
-
-    // Update the row with parsed data
-    const hasError = parsedData.error;
-    if (hasError) console.error("[inbound] Parse error:", parsedData.error);
-
-    // ── Email matching — check if this email relates to an existing project ──
-    let emailMatch = null;
-    if (!hasError) {
-      try {
-        emailMatch = await matchEmail(
-          { parsedData, senderEmail, subject, userId, inReplyTo, referencesHeader },
-          supabaseAdmin,
-        );
-        if (emailMatch) {
-          console.log(
-            `[inbound] Email matched: classification=${emailMatch.classification} parent=${emailMatch.parentRfpId} estimate=${emailMatch.estimateId} confidence=${emailMatch.confidence}`,
-          );
-        }
-      } catch (matchErr) {
-        console.error("[inbound] Email matching error (non-critical):", matchErr.message);
-        // Non-critical — continue as new RFP
-      }
-    }
-
-    // Determine classification: AI classification > match classification > 'initial_rfp'
-    const classification = parsedData?.classification || emailMatch?.classification || "initial_rfp";
-    const isAddendum = emailMatch?.isAddendum || classification === "addendum";
-
-    await supabaseAdmin
-      .from("pending_rfps")
-      .update({
-        parsed_data: hasError ? null : parsedData,
-        parse_error: hasError ? parsedData.error : null,
-        status: hasError ? "error" : "parsed",
-        // Classification + threading
-        classification,
-        type: isAddendum ? "addendum" : emailMatch ? "related" : "original",
-        parent_rfp_id: emailMatch?.parentRfpId || null,
-        parent_estimate_id: emailMatch?.estimateId || null,
-        linked_estimate_id: emailMatch?.estimateId || null,
-        addendum_number: emailMatch?.addendumNumber || null,
-        match_confidence: emailMatch?.confidence || null,
-      })
-      .eq("id", rfpId);
-
-    const typeLabel = isAddendum
-      ? `addendum #${emailMatch?.addendumNumber}`
-      : emailMatch
-        ? `related (${classification})`
-        : "new";
+    // Parsing, email matching, and draft estimate creation happen async
+    // via /api/cron/process-rfps (queue processor)
     console.log(
-      `[inbound] OK rfpId=${rfpId} type=${typeLabel} parsed=${!hasError} attachments=${attachmentMeta.length}`,
+      `[inbound] OK rfpId=${rfpId} status=queued attachments=${attachmentMeta.length}`,
     );
     return res.status(200).json({
-      status: "ok",
+      status: "queued",
       rfpId,
-      parsed: !hasError,
-      parseError: hasError ? parsedData.error : null,
       attachments: attachmentMeta.length,
-      classification,
-      type: isAddendum ? "addendum" : emailMatch ? "related" : "original",
-      addendumNumber: emailMatch?.addendumNumber || null,
-      linkedEstimateId: emailMatch?.estimateId || null,
     });
   } catch (err) {
     console.error("[inbound] Webhook error:", err);

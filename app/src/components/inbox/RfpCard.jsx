@@ -30,6 +30,8 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
   const isImported = rfp.status === "imported";
   const isDismissed = rfp.status === "dismissed";
   const isPending = rfp.status === "pending";
+  const isQueued = rfp.status === "queued";
+  const isProcessing = rfp.status === "processing";
   const isAddendum = rfp.type === "addendum";
   const isRelated = rfp.type === "related"; // Non-addendum follow-up email
   const classification = rfp.classification || (isAddendum ? "addendum" : "initial_rfp");
@@ -54,9 +56,11 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
           ? "#ef4444"
           : isImported
             ? "#22c55e"
-            : isPending
+            : isPending || isQueued
               ? "#f59e0b"
-              : null;
+              : isProcessing
+                ? C.accent
+                : null;
 
   // Classification labels for display
   const classLabels = {
@@ -81,6 +85,16 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
     badgeLabel = classLabels[classification];
     badgeBg = `${clsColor}20`;
     badgeColor = clsColor;
+  } else if (isProcessing) {
+    const step = rfp.processing_step;
+    const stepLabels = { parsing: "Parsing", matching: "Matching", creating_draft: "Creating Draft", uploading: "Uploading" };
+    badgeLabel = stepLabels[step] || "Processing";
+    badgeBg = `${C.accent}20`;
+    badgeColor = C.accent;
+  } else if (isQueued) {
+    badgeLabel = "Queued";
+    badgeBg = "#f59e0b20";
+    badgeColor = "#f59e0b";
   } else if (isUnread) {
     badgeLabel = isPending ? "Processing" : "New";
     badgeBg = isPending ? "#f59e0b20" : `${C.accent}20`;
@@ -187,9 +201,17 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
                   {confidence}% confidence
                 </span>
               )}
+              {isProcessing && rfp.processing_progress > 0 && (
+                <div style={{ flex: 1, maxWidth: 120, height: 3, borderRadius: 2, background: `${C.textDim}15`, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", borderRadius: 2, background: C.accent,
+                    width: `${rfp.processing_progress}%`, transition: "width 0.3s ease",
+                  }} />
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
-              {hovered && onToggleRead && (rfp.status === "parsed" || rfp.status === "pending") && (
+              {hovered && onToggleRead && ["queued", "processing", "parsed", "pending"].includes(rfp.status) && (
                 <button
                   title={isUnread ? "Mark as read" : "Mark as unread"}
                   onClick={e => {

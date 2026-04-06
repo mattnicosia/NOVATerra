@@ -7,7 +7,7 @@
       "maxDuration": 60
     },
     "api/inbound-email.js": {
-      "maxDuration": 60
+      "maxDuration": 15
     },
     "api/import-rfp.js": {
       "maxDuration": 30
@@ -128,8 +128,17 @@
     },
     "api/generate-rendering.js": {
       "maxDuration": 120
+    },
+    "api/cron/process-rfps.js": {
+      "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/process-rfps",
+      "schedule": "* * * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }

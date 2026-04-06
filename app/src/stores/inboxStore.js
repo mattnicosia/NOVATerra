@@ -96,7 +96,7 @@ export const useInboxStore = create((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const resp = await fetch(`${API_BASE}/api/pending-rfps?status=pending,parsed,imported,dismissed,error`, {
+      const resp = await fetch(`${API_BASE}/api/pending-rfps?status=queued,processing,pending,parsed,imported,dismissed,error`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!resp.ok) throw new Error("Failed to fetch RFPs");
@@ -106,7 +106,7 @@ export const useInboxStore = create((set, get) => ({
       set({
         rfps,
         loading: false,
-        unreadCount: rfps.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id))
+        unreadCount: rfps.filter(r => ["queued", "processing", "parsed", "pending"].includes(r.status) && !readIds.includes(r.id))
           .length,
       });
     } catch (err) {

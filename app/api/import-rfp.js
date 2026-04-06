@@ -18,7 +18,7 @@ function normalizeContact(contact) {
 
 // Build a complete estimate data object from parsed RFP data
 // Matches the shape in estimatesStore.js createEstimate() lines 33-70
-function buildEstimateFromRfp(parsedData) {
+export function buildEstimateFromRfp(parsedData) {
   const pd = parsedData || {};
   const br = pd.bidRequirements || {};
 

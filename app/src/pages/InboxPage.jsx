@@ -126,9 +126,9 @@ export default function InboxPage() {
   const displayedRfps = useMemo(() => {
     let list = companyFiltered;
     if (filter === "unread") {
-      list = list.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id));
+      list = list.filter(r => (["queued", "processing", "parsed", "pending"].includes(r.status)) && !readIds.includes(r.id));
     } else if (filter === "read") {
-      list = list.filter(r => (r.status === "parsed" || r.status === "pending") && readIds.includes(r.id));
+      list = list.filter(r => (["queued", "processing", "parsed", "pending"].includes(r.status)) && readIds.includes(r.id));
     } else if (filter === "threaded") {
       list = list.filter(r => r.status !== "dismissed");
     } else if (filter === "imported") {
@@ -203,7 +203,7 @@ export default function InboxPage() {
             const cid = r.company_profile_id || "";
             return cid === (activeCompanyId || "") || cid === "";
           });
-    return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id))
+    return companyFiltered.filter(r => (["queued", "processing", "parsed", "pending"].includes(r.status)) && !readIds.includes(r.id))
       .length;
   }, [rfps, readIds, activeCompanyId]);
 
