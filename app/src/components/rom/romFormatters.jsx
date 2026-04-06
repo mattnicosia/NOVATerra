@@ -79,3 +79,46 @@ export function ConfidenceDot({ confidence }) {
     />
   );
 }
+
+import { useState } from "react";
+
+export function ConfidenceBadge({ sampleCount, confidence, sources, C }) {
+  const [hover, setHover] = useState(false);
+  const colors = {
+    strong:   { bg: `${C.green}15`, text: C.green },
+    moderate: { bg: `${C.accent}12`, text: C.accent },
+    baseline: { bg: `${C.textDim}10`, text: C.textDim },
+  };
+  const c = colors[confidence] || colors.baseline;
+  const label = sampleCount > 0 ? `${sampleCount} sample${sampleCount !== 1 ? "s" : ""}` : "baseline";
+
+  return (
+    <span
+      style={{ position: "relative", display: "inline-block" }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <span style={{
+        fontSize: 7, fontWeight: 600, padding: "1px 4px", borderRadius: 3,
+        marginLeft: 6, background: c.bg, color: c.text, cursor: "default",
+      }}>
+        {label}
+      </span>
+      {hover && sources && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, marginTop: 4, zIndex: 100,
+          padding: "8px 12px", borderRadius: 6,
+          background: C.bg2 || C.bg1, border: `1px solid ${C.border}`,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          whiteSpace: "nowrap", fontSize: 10, color: C.text,
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 4, color: c.text }}>{confidence}</div>
+          {(sources.benchmark || 0) > 0 && <div>Benchmark: {sources.benchmark} proposals</div>}
+          {(sources.tpi || 0) > 0 && <div>Trade Pricing Index: {sources.tpi} data points</div>}
+          {(sources.calibration || 0) > 0 && <div>Calibration: {sources.calibration} projects</div>}
+          {sampleCount === 0 && <div style={{ color: C.textDim }}>No project-specific data</div>}
+        </div>
+      )}
+    </span>
+  );
+}

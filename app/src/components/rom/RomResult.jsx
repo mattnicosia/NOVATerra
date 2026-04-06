@@ -9,10 +9,8 @@ import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import { BUILDING_TYPE_LABELS, DEFAULT_MARKUPS, DEFAULT_SOFT_COSTS, fmt, fmtSF, fmtNum } from "./romFormatters";
 import RomProjectSummary from "./RomProjectSummary";
 import RomNarrative from "./RomNarrative";
-import RomScopeDetail from "./RomScopeDetail";
-import RomTradeScopes from "./RomTradeScopes";
-import RomDivisionTable from "./RomDivisionTable";
-import RomSoftCosts from "./RomSoftCosts";
+import RomUnifiedTable from "./RomUnifiedTable";
+import ScopeFromDrawingsPanel from "./ScopeFromDrawingsPanel";
 import RomAssumptions from "./RomAssumptions";
 
 export default function RomResult({ rom, email }) {
@@ -26,9 +24,6 @@ export default function RomResult({ rom, email }) {
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0, divCode: "" });
   const [showSubdivisions, setShowSubdivisions] = useState(true);
   const [showNarrative, setShowNarrative] = useState(true);
-  const [showScopeItems, setShowScopeItems] = useState(true);
-  const [showTradeScopes, setShowTradeScopes] = useState(true);
-  const [expandedTrade, setExpandedTrade] = useState(null);
   const [excludedItems, setExcludedItems] = useState(new Set());
   const toggleItem = (code) => setExcludedItems(prev => {
     const next = new Set(prev);
@@ -290,18 +285,7 @@ export default function RomResult({ rom, email }) {
         narrative={generateNarrative()}
       />
 
-      <RomScopeDetail
-        C={C} T={T} showScopeItems={showScopeItems} setShowScopeItems={setShowScopeItems}
-        jobType={jobType} projectSF={projectSF} rom={rom} divisions={divisions}
-        excludedItems={excludedItems} toggleItem={toggleItem}
-      />
-
-      <RomTradeScopes
-        C={C} T={T} showTradeScopes={showTradeScopes} setShowTradeScopes={setShowTradeScopes}
-        expandedTrade={expandedTrade} setExpandedTrade={setExpandedTrade}
-        jobType={jobType} projectSF={projectSF} rom={rom} divisions={divisions}
-        excludedItems={excludedItems} toggleItem={toggleItem}
-      />
+      <ScopeFromDrawingsPanel C={C} T={T} />
 
       {/* Controls Bar */}
       <div style={{
@@ -360,7 +344,7 @@ export default function RomResult({ rom, email }) {
         </button>
       </div>
 
-      <RomDivisionTable
+      <RomUnifiedTable
         C={C} T={T}
         divEntries={divEntries} selectedRange={selectedRange}
         expandedDivs={expandedDivs} toggleDiv={toggleDiv}
@@ -378,12 +362,7 @@ export default function RomResult({ rom, email }) {
         editingMarkup={editingMarkup} setEditingMarkup={setEditingMarkup}
         editingMarkupValue={editingMarkupValue} setEditingMarkupValue={setEditingMarkupValue}
         updateMarkup={updateMarkup} addMarkup={addMarkup} removeMarkup={removeMarkup}
-        commitMarkupEdit={commitMarkupEdit}
-        totalMarkupPct={totalMarkupPct}
-      />
-
-      <RomSoftCosts
-        C={C} T={T} selectedRange={selectedRange}
+        commitMarkupEdit={commitMarkupEdit} totalMarkupPct={totalMarkupPct}
         softCosts={softCosts} softCostsExpanded={softCostsExpanded} setSoftCostsExpanded={setSoftCostsExpanded}
         editingSoftCost={editingSoftCost} setEditingSoftCost={setEditingSoftCost}
         editingSoftCostValue={editingSoftCostValue} setEditingSoftCostValue={setEditingSoftCostValue}
@@ -392,8 +371,10 @@ export default function RomResult({ rom, email }) {
         toggleAllSoftCosts={toggleAllSoftCosts}
         totalSoftCostPct={totalSoftCostPct} hasSoftCosts={hasSoftCosts}
         softCostTotals={softCostTotals}
-        grandTotals={grandTotals} projectSF={projectSF}
         totalProjectCost={totalProjectCost} totalProjectPerSF={totalProjectPerSF}
+        projectSF={projectSF}
+        jobType={jobType} rom={rom} divisions={divisions}
+        excludedItems={excludedItems} toggleItem={toggleItem}
       />
 
       <RomAssumptions C={C} T={T} jobType={jobType} hasSoftCosts={hasSoftCosts} />

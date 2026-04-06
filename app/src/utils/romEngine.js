@@ -547,6 +547,17 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     const totalSamples = baseSamples + tpiSamples + calCount;
     const confLevel = totalSamples >= 8 ? "strong" : totalSamples >= 3 ? "moderate" : "baseline";
 
+    // ── Range tightening: pull benchmark-only ranges toward 25th-75th percentile ──
+    // TPI path already uses real p25/p75 so only tighten non-TPI divisions.
+    // Confidence-adaptive: stronger data = tighter (more credible) range.
+    const hasTPI = tpi?.lump_sum_per_sf?.sampleCount >= 3;
+    if (!hasTPI && mid > 0) {
+      const tighten = confLevel === "strong" ? 0.40
+                    : confLevel === "moderate" ? 0.30 : 0.15;
+      low = low + (mid - low) * tighten;
+      high = high - (high - mid) * tighten;
+    }
+
     divisions[div] = {
       label: range.label,
       name: range.label,
@@ -557,6 +568,7 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
           : { low: 0, mid: 0, high: 0 },
       sampleCount: totalSamples,
       confidence: confLevel,
+      sampleSources: { benchmark: baseSamples, tpi: tpiSamples, calibration: calCount },
     };
 
     totalLow += sf * low;
