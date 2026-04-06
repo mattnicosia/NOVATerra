@@ -962,6 +962,31 @@ function AppContent() {
           </Suspense>
         </div>
       </div>
+      {updateAvailable && (
+        <div
+          onClick={() => window.location.reload()}
+          style={{
+            position: "fixed",
+            bottom: 60,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#1a73e8",
+            color: "#fff",
+            padding: "8px 20px",
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            zIndex: 99999,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          New version available — click to refresh
+        </div>
+      )}
       <Toast />
       <SyncStatusBar />
       <Suspense fallback={null}><SpotlightOverlay /></Suspense>
@@ -1258,6 +1283,7 @@ export default function App() {
   const init = useAuthStore(s => s.init);
   const appRole = useAuthStore(s => s.appRole);
   const sessionKicked = useUiStore(s => s.sessionKicked);
+  const updateAvailable = useUiStore(s => s.updateAvailable);
 
   // Onboarding: first sign-in only (persisted in localStorage)
   const [_onboardingComplete, setOnboardingComplete] = useState(

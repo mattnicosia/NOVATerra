@@ -3,10 +3,11 @@
  *
  * Periodically fetches index.html and compares the main script hash
  * against what's currently loaded. If they differ, a new deployment
- * landed and the user should refresh to get the latest code.
+ * landed and the user is prompted (not forced) to refresh.
  *
- * This prevents the "Steve is seeing old icons" problem where a user
- * keeps a tab open across multiple deployments.
+ * IMPORTANT: Never auto-refresh — it causes data loss if the user has
+ * unsaved edits in the auto-save debounce window. Instead, show a
+ * persistent banner the user can click when ready.
  */
 
 import { useEffect, useRef } from "react";
@@ -54,14 +55,8 @@ export function useVersionCheck() {
         if (remoteHash && remoteHash !== currentHash) {
           prompted.current = true;
           console.log(`[version] New deploy detected: ${currentHash} → ${remoteHash}`);
-          useUiStore.getState().showToast(
-            "New version available — refreshing...",
-            "info",
-          );
-          // Auto-refresh after a short delay so the toast is visible
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+          // Set a persistent flag in uiStore — the UI renders a refresh banner
+          useUiStore.getState().setUpdateAvailable(true);
         }
       } catch {
         // Network error — skip this check

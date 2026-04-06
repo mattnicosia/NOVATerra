@@ -191,6 +191,8 @@ export const useUiStore = create((set, _get) => ({
   setOtherSessions: v => set({ otherSessions: v }),
   sessionKicked: false,
   setSessionKicked: v => set({ sessionKicked: v }),
+  updateAvailable: false,
+  setUpdateAvailable: v => set({ updateAvailable: v }),
 
   setFilteredSuggestions: v => set({ filteredSuggestions: v }),
   clearFilteredSuggestions: () => set({ filteredSuggestions: null }),
