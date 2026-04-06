@@ -17,7 +17,10 @@ export function initClock(nodeId) {
 
 /** Get a new HLC timestamp for a local operation. */
 export function tick() {
-  if (!_clock) throw new Error('CRDT clock not initialized — call initClock(userId) first');
+  if (!_clock) {
+    console.warn('[crdt] Clock not initialized — using fallback timestamp');
+    return `${Date.now().toString().padStart(13, '0')}-0000-00000000`;
+  }
   return _clock.tick();
 }
 

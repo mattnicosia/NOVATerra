@@ -79,6 +79,30 @@ class RootErrorBoundary extends Component {
         >
           Try Again
         </button>
+        <button
+          onClick={() => {
+            // Nuclear reset: clear caches and reload
+            try {
+              localStorage.removeItem("bldg-session-token");
+              sessionStorage.clear();
+              if (window.caches) caches.keys().then(names => names.forEach(n => caches.delete(n)));
+            } catch {}
+            window.location.href = "/";
+          }}
+          style={{
+            padding: "10px 24px",
+            borderRadius: 8,
+            border: "1px solid rgba(255,100,100,0.3)",
+            background: "rgba(255,100,100,0.1)",
+            color: "#ff8888",
+            cursor: "pointer",
+            fontSize: 13,
+            fontFamily: "Switzer, sans-serif",
+            marginTop: 12,
+          }}
+        >
+          Hard Reset & Reload
+        </button>
       </div>
     );
   }
