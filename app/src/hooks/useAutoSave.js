@@ -15,6 +15,8 @@ import {
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+
+const CRDT_ENABLED = import.meta.env.VITE_ENABLE_CRDT === "true";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
@@ -77,13 +79,15 @@ export function useAutoSave() {
       const { activeEstimateId, draftId } = useEstimatesStore.getState();
       if (!activeEstimateId) return;
       if (draftId && activeEstimateId === draftId) return;
-      if (useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
+      // In CRDT mode, all org users can save concurrently (no lock guard).
+      // In legacy mode, only the lock holder can save.
+      if (!CRDT_ENABLED && useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
 
       if (estTimer) clearTimeout(estTimer);
       estTimer = setTimeout(() => {
         const currentId = useEstimatesStore.getState().activeEstimateId;
         if (!currentId) return;
-        if (useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
+        if (!CRDT_ENABLED && useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
         saveEstimate().catch(err => {
           console.error("[autoSave] Estimate save failed:", err);
           useUiStore.getState().showToast("Auto-save failed — retrying...", "error");

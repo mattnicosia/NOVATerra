@@ -6,9 +6,12 @@ import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 
+const CRDT_ENABLED = import.meta.env.VITE_ENABLE_CRDT === "true";
+
 const HEARTBEAT_MS = 60_000; // 60s heartbeat
 const LOCK_TTL_MS = 180_000; // 3 min TTL
 const PRESENCE_HEARTBEAT_MS = 120_000; // 2 min presence ping
+const CURSOR_THROTTLE_MS = 50; // cursor position broadcast throttle
 
 function getUserInfo() {
   const user = useAuthStore.getState().user;
@@ -65,6 +68,120 @@ function syncCorrespondenceToIndex() {
 }
 
 export const useCollaborationStore = create((set, get) => ({
+
+  // ═══════════════════════════════════════════════════════════
+  // CRDT PRESENCE (Supabase Realtime Presence API)
+  // Active when VITE_ENABLE_CRDT=true. Replaces polling-based
+  // presence with real-time channel presence (~100ms latency).
+  // ═══════════════════════════════════════════════════════════
+
+  _collabChannel: null,
+  _cursorThrottle: null,
+
+  /** Join the collaborative channel for an estimate (CRDT mode). */
+  joinChannel: async (estimateId) => {
+    if (!supabase) return;
+    const { userId, userName, userColor } = getUserInfo();
+    if (!userId) return;
+
+    // Clean up previous channel
+    const prev = get()._collabChannel;
+    if (prev) {
+      try { supabase.removeChannel(prev); } catch { /* ok */ }
+    }
+
+    set({ _currentEstimateId: estimateId });
+
+    const channel = supabase.channel(`collab-${estimateId}`, {
+      config: { presence: { key: userId } },
+    });
+
+    // Sync presence state on every change
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState();
+      const viewers = [];
+      for (const [key, presences] of Object.entries(state)) {
+        // Each key can have multiple presences (multiple tabs), take latest
+        const latest = presences[presences.length - 1];
+        if (latest) {
+          viewers.push({
+            user_id: latest.userId || key,
+            user_name: latest.userName || "Unknown",
+            user_color: latest.userColor || "#60A5FA",
+            activity: latest.activity || null,
+            cursor: latest.cursor || null,
+            selection: latest.selection || null,
+            typing: latest.typing || false,
+          });
+        }
+      }
+      set({ viewers });
+    });
+
+    await channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({
+          userId,
+          userName,
+          userColor,
+          cursor: null,
+          selection: null,
+          activity: null,
+          typing: false,
+        });
+        console.log(`[collab] CRDT presence joined: collab-${estimateId}`);
+      }
+    });
+
+    set({ _collabChannel: channel });
+  },
+
+  /** Leave the collaborative channel (CRDT mode). */
+  leaveChannel: async () => {
+    const channel = get()._collabChannel;
+    if (channel) {
+      try {
+        await channel.untrack();
+        supabase?.removeChannel(channel);
+      } catch { /* non-critical */ }
+    }
+    set({ _collabChannel: null, viewers: [], _currentEstimateId: null });
+  },
+
+  /** Update presence metadata (CRDT mode). */
+  updatePresence: async (patch) => {
+    const channel = get()._collabChannel;
+    if (!channel) return;
+    const { userId, userName, userColor } = getUserInfo();
+    try {
+      await channel.track({
+        userId,
+        userName,
+        userColor,
+        cursor: null,
+        selection: null,
+        activity: null,
+        typing: false,
+        ...patch,
+      });
+    } catch { /* non-critical */ }
+  },
+
+  /** Update cursor position (CRDT mode, throttled). */
+  updateCursor: (x, y, sheetId) => {
+    const prev = get()._cursorThrottle;
+    if (prev && Date.now() - prev < CURSOR_THROTTLE_MS) return;
+    set({ _cursorThrottle: Date.now() });
+    get().updatePresence({ cursor: { x, y, sheetId } });
+  },
+
+  /** Update typing indicator (CRDT mode). */
+  setTyping: (typing) => {
+    get().updatePresence({ typing });
+  },
+
+  /** Get the collaborative channel (for useCollaborativeSync to attach broadcast listeners). */
+  getCollabChannel: () => get()._collabChannel,
 
   // ═══════════════════════════════════════════════════════════
   // LOCKS & PRESENCE DOMAIN (original collaborationStore)
@@ -445,6 +562,14 @@ export const useCollaborationStore = create((set, get) => ({
   // ── Cleanup ───────────────────────────────────────────
 
   cleanup: async () => {
+    if (CRDT_ENABLED) {
+      // CRDT mode: clean up presence channel
+      await get().leaveChannel();
+      set({ viewers: [], _currentEstimateId: null });
+      return;
+    }
+
+    // Legacy lock mode cleanup
     const { _lockChannel, _presenceChannel, _currentEstimateId, isLockHolder } = get();
 
     get()._stopHeartbeat();

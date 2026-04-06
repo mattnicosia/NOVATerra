@@ -544,6 +544,10 @@ button:active,
     opacity: 0.3;
   }
 }
+@keyframes typingDot {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
 @keyframes rippleOut {
   from {
     transform: translate(-50%, -50%) scale(0);

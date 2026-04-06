@@ -7,6 +7,8 @@ import { useTakeoffSync } from "@/hooks/useTakeoffSync";
 import { useCloudSync } from "@/hooks/useCloudSync";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useSessionAwareness } from "@/hooks/useSessionAwareness";
+import { useCollaborativeSync } from "@/hooks/useCollaborativeSync";
+import { initClock, resetClock } from "@/lib/crdtClock";
 import { useEmbeddingSync } from "@/hooks/useEmbeddingSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAutoSnapshot } from "@/hooks/useAutoSnapshot";
@@ -533,6 +535,7 @@ function AppContent() {
   useCloudSync();
   useRealtimeSync();
   useSessionAwareness();
+  useCollaborativeSync();
   useEmbeddingSync();
   useKeyboardShortcuts();
   useAutoResponseTimers();
@@ -1269,6 +1272,15 @@ export default function App() {
   useEffect(() => {
     init();
   }, [init]);
+
+  // Initialize CRDT clock when user authenticates
+  useEffect(() => {
+    if (user?.id) {
+      initClock(user.id);
+    } else {
+      resetClock();
+    }
+  }, [user?.id]);
 
   // Detect ?invite=TOKEN query param and store for auto-acceptance after sign-in/signup
   useEffect(() => {
