@@ -291,6 +291,25 @@ export default function TakeoffRow({
               )}
             </div>
           )}
+          {/* Estimator attribution badge */}
+          {to.createdByName && (
+            <div style={{ display: "flex", alignItems: "center", gap: 3, paddingLeft: 4, marginTop: 1 }}>
+              <div
+                title={`Created by ${to.createdByName}${to.lastModifiedByName && to.lastModifiedByName !== to.createdByName ? ` · Last modified by ${to.lastModifiedByName}` : ""}`}
+                style={{
+                  width: 12, height: 12, borderRadius: "50%",
+                  background: to.createdByColor || C.textDim,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 6, fontWeight: 700, color: "#fff", flexShrink: 0,
+                }}
+              >
+                {(to.createdByName || "?")[0].toUpperCase()}
+              </div>
+              <span style={{ fontSize: 7, color: C.textDim, fontFamily: T.font.sans }}>
+                {to.createdByName}
+              </span>
+            </div>
+          )}
         </div>
         {/* Qty */}
         <div style={{ width: 55 }} onClick={e => e.stopPropagation()}>

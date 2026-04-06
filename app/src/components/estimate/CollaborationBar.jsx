@@ -146,13 +146,27 @@ export default function CollaborationBar() {
       </div>
 
       {/* Activity indicators */}
-      {viewers.filter(v => v.user_id !== user?.id && v.activity?.type === "editing").slice(0, 2).map(v => (
-        <div key={v.user_id} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 8, color: C.textDim }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: v.user_color || C.accent }} />
-          <span style={{ fontWeight: 600, color: v.user_color || C.accent }}>{(v.user_name || "?").split(" ")[0]}</span>
-          <span>— editing {v.activity?.label || "an item"}</span>
-        </div>
-      ))}
+      {viewers.filter(v => v.user_id !== user?.id && v.activity).slice(0, 3).map(v => {
+        const act = v.activity;
+        const actLabel = act?.type === "takeoff" ? `on ${act.label || "takeoff"}`
+          : act?.type === "drawing" ? `on ${act.label || "sheet"}`
+          : act?.type === "item" ? `editing ${act.label || "item"}`
+          : act?.type === "editing" ? `editing ${act.label || "an item"}`
+          : null;
+        if (!actLabel) return null;
+        return (
+          <div key={v.user_id} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 8, color: C.textDim }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: v.user_color || C.accent,
+              boxShadow: `0 0 0 2px ${(v.user_color || C.accent)}40`,
+              animation: "pulse 2s infinite",
+            }} />
+            <span style={{ fontWeight: 600, color: v.user_color || C.accent }}>{(v.user_name || "?").split(" ")[0]}</span>
+            <span>— {actLabel}</span>
+          </div>
+        );
+      })}
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />

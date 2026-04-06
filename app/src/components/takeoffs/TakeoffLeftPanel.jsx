@@ -23,6 +23,7 @@ import AutoTakeoffModal from "@/components/takeoffs/AutoTakeoffModal";
 import TakeoffPanelTabBar from "@/components/takeoffs/TakeoffPanelTabBar";
 import TakeoffRow from "@/components/takeoffs/TakeoffRow";
 import { TO_COLORS } from "@/utils/takeoffHelpers";
+import { detectDuplicates, isDismissed, dismissDuplicate } from "@/utils/duplicateDetector";
 
 const EstimatePanelView = lazy(() => import("@/components/estimate/EstimatePanelView"));
 const DiscoveryPanel = lazy(() => import("@/components/discovery/DiscoveryPanel"));
@@ -142,6 +143,19 @@ export default function TakeoffLeftPanel({
   const [actionMenuPos, setActionMenuPos] = useState(null);
   const [isDraggingPanel, setIsDraggingPanel] = useState(false);
   const [showAutoTakeoff, setShowAutoTakeoff] = useState(false);
+  const [dupesExpanded, setDupesExpanded] = useState(false);
+
+  // Duplicate takeoff detection
+  const duplicates = useMemo(() => {
+    const raw = detectDuplicates(filteredTakeoffs);
+    return raw.filter(d => !isDismissed(d));
+  }, [filteredTakeoffs]);
+
+  const onDismissDuplicate = useCallback((d) => {
+    dismissDuplicate(d);
+    // Force re-render by toggling a dummy state
+    setDupesExpanded(prev => prev);
+  }, []);
 
   const actionMenuRef = useRef(null);
 
@@ -406,6 +420,45 @@ export default function TakeoffLeftPanel({
                                 {scanResults.schedules.reduce((n, s) => n + (s.entries?.length || 0), 0)} items detected
                               </span>
                             </button>
+                          )}
+                          {/* Duplicate takeoff warning */}
+                          {duplicates.length > 0 && (
+                            <div style={{
+                              padding: "8px 12px", marginBottom: 8, borderRadius: T.radius.md,
+                              background: C.isDark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.06)",
+                              border: `1px solid rgba(245,158,11,0.2)`,
+                            }}>
+                              <div style={{
+                                display: "flex", justifyContent: "space-between", alignItems: "center",
+                                cursor: "pointer",
+                              }} onClick={() => setDupesExpanded(!dupesExpanded)}>
+                                <span style={{ fontSize: 10, fontWeight: 600, color: "#F59E0B" }}>
+                                  {"\u26A0"} {duplicates.length} potential duplicate{duplicates.length !== 1 ? "s" : ""}
+                                </span>
+                                <span style={{ fontSize: 8, color: C.textDim }}>{dupesExpanded ? "Hide" : "Show"}</span>
+                              </div>
+                              {dupesExpanded && duplicates.map((d, i) => (
+                                <div key={i} style={{
+                                  fontSize: 9, color: C.textMuted, marginTop: 6, padding: "4px 0",
+                                  borderTop: i > 0 ? `1px solid rgba(245,158,11,0.1)` : "none",
+                                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                                }}>
+                                  <span>
+                                    <span style={{ fontWeight: 600, color: d.severity === "high" ? "#EF4444" : "#F59E0B" }}>
+                                      {d.severity === "high" ? "High" : "Med"}
+                                    </span>
+                                    {" "}{d.reason}
+                                  </span>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); onDismissDuplicate(d); }}
+                                    style={{
+                                      background: "none", border: "none", cursor: "pointer",
+                                      color: C.textDim, fontSize: 8, padding: "2px 6px",
+                                    }}
+                                  >Dismiss</button>
+                                </div>
+                              ))}
+                            </div>
                           )}
                           {Object.entries(takeoffGroups).map(([group, tos]) => {
                             const isGroupCollapsed = !!collapsedGroups[group];

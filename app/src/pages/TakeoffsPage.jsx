@@ -13,6 +13,7 @@ import useTakeoffPredictions from "@/hooks/useTakeoffPredictions";
 import useTakeoffCanvasRendering from "@/hooks/useTakeoffCanvasRendering";
 import useTakeoffActions from "@/hooks/useTakeoffActions";
 import useTakeoffEffects from "@/hooks/useTakeoffEffects";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { nn } from "@/utils/format";
 import { useModuleStore } from "@/stores/moduleStore";
 import { MODULES } from "@/constants/modules";
@@ -86,6 +87,29 @@ export default function TakeoffsPage() {
     buildSheetIndex();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawings.length]);
+
+  // ── Collaboration: broadcast activity on takeoff select + drawing change ──
+  useEffect(() => {
+    if (!tkSelectedTakeoffId) return;
+    const tk = takeoffs.find(t => t.id === tkSelectedTakeoffId);
+    if (tk) {
+      useCollaborationStore.getState().updateActivity({
+        type: "takeoff",
+        takeoffId: tk.id,
+        label: tk.description || tk.code || "takeoff",
+      });
+    }
+  }, [tkSelectedTakeoffId, takeoffs]);
+
+  useEffect(() => {
+    if (!selectedDrawingId) return;
+    const drawing = drawings.find(d => d.id === selectedDrawingId);
+    useCollaborationStore.getState().updateActivity({
+      type: "drawing",
+      sheetId: selectedDrawingId,
+      label: drawing?.label || drawing?.name || "sheet",
+    });
+  }, [selectedDrawingId, drawings]);
 
   // Detail overlay & reference detection
   const [detailOverlayId, setDetailOverlayId] = useState(null);

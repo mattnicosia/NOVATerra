@@ -4,6 +4,8 @@ import { storage } from "@/utils/storage";
 import { idbKey } from "@/utils/idbKey";
 import { useUiStore } from "@/stores/uiStore";
 import { useUndoStore } from "@/stores/undoStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useOrgStore } from "@/stores/orgStore";
 
 // ── Debounce tracker for takeoff field edits ──
 let _lastTkEdit = { id: null, field: null, origValue: null, timer: null };
@@ -752,6 +754,13 @@ export const useDrawingPipelineStore = create((set, get) => ({
 
   addTakeoff: (group, desc, unit, code, bidContext) => {
     const newId = uid();
+    // Attribution: snapshot current user info for collaboration tracking
+    const _user = useAuthStore?.getState?.()?.user;
+    const _member = useOrgStore?.getState?.()?.membership;
+    const _userId = _user?.id || null;
+    const _userName = _member?.display_name || _user?.user_metadata?.full_name || _user?.email?.split("@")[0] || null;
+    const _userColor = _member?.color || "#60A5FA";
+
     const newTakeoff = {
       id: newId,
       description: desc || "New Takeoff",
@@ -768,6 +777,14 @@ export const useDrawingPipelineStore = create((set, get) => ({
       formula: "",
       measurements: [],
       bidContext: bidContext || "base",
+      // Collaboration attribution
+      createdBy: _userId,
+      createdByName: _userName,
+      createdByColor: _userColor,
+      createdAt: new Date().toISOString(),
+      lastModifiedBy: _userId,
+      lastModifiedByName: _userName,
+      lastModifiedAt: new Date().toISOString(),
     };
     set(s => ({ takeoffs: [...s.takeoffs, newTakeoff] }));
     useUndoStore.getState().push({
@@ -811,8 +828,17 @@ export const useDrawingPipelineStore = create((set, get) => ({
       _lastTkEdit = { id: null, field: null, origValue: null, timer: null };
     }, 1500);
 
+    // Update field + attribution
+    const _user = useAuthStore?.getState?.()?.user;
+    const _member = useOrgStore?.getState?.()?.membership;
     set(s => ({
-      takeoffs: s.takeoffs.map(t => (t.id === id ? { ...t, [field]: value } : t)),
+      takeoffs: s.takeoffs.map(t => (t.id === id ? {
+        ...t,
+        [field]: value,
+        lastModifiedBy: _user?.id || t.lastModifiedBy,
+        lastModifiedByName: _member?.display_name || _user?.email?.split("@")[0] || t.lastModifiedByName,
+        lastModifiedAt: new Date().toISOString(),
+      } : t)),
     }));
   },
 
