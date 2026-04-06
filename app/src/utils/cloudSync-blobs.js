@@ -198,6 +198,8 @@ const BLOB_DOWNLOAD_RETRIES = 3; // retry up to 3 times with exponential backoff
 
 const downloadBlobOnce = async storagePath => {
   if (!storagePath || !supabase) return null;
+  // Ensure session is fresh — stale JWTs cause 400 from Storage API
+  try { await supabase.auth.getSession(); } catch { /* non-critical */ }
   const downloadPromise = supabase.storage.from(BLOB_BUCKET).download(storagePath);
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(

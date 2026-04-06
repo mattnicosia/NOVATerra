@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
-import { runFullScan } from "@/utils/scanRunner";
+
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, card } from "@/utils/styles";
@@ -253,8 +253,9 @@ export default function NovaVisionCard({
             </div>
           </div>
           <button
-            onClick={() => {
+            onClick={async () => {
               setRescanning(true);
+              const { runFullScan } = await import("@/utils/scanRunner");
               runFullScan({
                 onComplete: () => {
                   setRescanning(false);

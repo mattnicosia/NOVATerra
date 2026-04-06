@@ -106,7 +106,7 @@ export default function MapRadarWidget() {
 
   // Initialize map
   useEffect(() => {
-    if (!scriptLoaded || !mapContainerRef.current || mapRef.current) return;
+    if (!scriptLoaded || !mapContainerRef.current || mapRef.current || !MAPBOX_TOKEN) return;
     window.mapboxgl.accessToken = MAPBOX_TOKEN;
     const map = new window.mapboxgl.Map({
       container: mapContainerRef.current,
@@ -219,6 +219,11 @@ export default function MapRadarWidget() {
     >
       {/* Map container */}
       <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
+      {!MAPBOX_TOKEN && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 11, fontFamily: "Switzer, sans-serif", textAlign: "center", padding: 20 }}>
+          Map unavailable — Mapbox token not configured
+        </div>
+      )}
 
       {/* Expand/Collapse button */}
       <button

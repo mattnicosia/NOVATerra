@@ -172,6 +172,15 @@ export default function PlanRoomPage() {
     });
     setShowScanModal(false);
     showToast(`Added ${count} items to estimate`);
+    // NOVA learning feedback — show correction count if any
+    try {
+      const store = useNovaStore.getState();
+      const corrCount = store.corrections?.length || 0;
+      const patternCount = store.globalPatterns?.length || 0;
+      if (corrCount > 0) {
+        setTimeout(() => showToast(`NOVA learned from ${corrCount} corrections · ${patternCount} patterns tracked`), 800);
+      }
+    } catch { /* non-critical */ }
   };
 
   const handleApplyNotes = selectedNotes => {

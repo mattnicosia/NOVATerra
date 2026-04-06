@@ -9,6 +9,7 @@ import { I } from "@/constants/icons";
 // styles utils available if needed: inp, nInp, bt
 import { nn, fmt, pct } from "@/utils/format";
 import { TRADE_MAP } from "@/constants/tradeGroupings";
+import { useLevelingBids } from "@/hooks/useLevelingBids";
 
 /* ─── Cell status definitions ─── */
 const CELL_STATUSES = [
@@ -777,11 +778,6 @@ export default function LevelingView() {
   const subBidSubs = useBidManagementStore(s => s.subBidSubs);
   const bidTotals = useBidManagementStore(s => s.bidTotals);
   const setBidTotals = useBidManagementStore(s => s.setBidTotals);
-  const bidCells = useBidManagementStore(s => s.bidCells);
-  const bidSelections = useBidManagementStore(s => s.bidSelections);
-  const setBidSelections = useBidManagementStore(s => s.setBidSelections);
-  const linkedSubs = useBidManagementStore(s => s.linkedSubs);
-  const subKeyLabels = useBidManagementStore(s => s.subKeyLabels);
 
   const [collapsed, setCollapsed] = useState({});
   const [addSubSk, setAddSubSk] = useState(null);
@@ -846,104 +842,13 @@ export default function LevelingView() {
       .setSubBidSubs({ ...current, [sk]: (current[sk] || []).map(s => (s.id === subId ? { ...s, name } : s)) });
   };
 
-  const getCell = (itemId, subId) => bidCells[`${itemId}_${subId}`] || { status: "blank", value: "" };
-  const getCellComputedValue = (item, cell) => {
-    if (cell.status === "blank") return 0;
-    if (cell.status === "lumpsum" || cell.status === "amount") return nn(cell.value);
-    if (cell.status === "unitrate") return nn(cell.value) * nn(item.quantity);
-    if (cell.status === "carried") return getItemTotal(item);
-    return 0;
-  };
-
-  // ── Save with explicit status ──
-  const saveCellWithStatus = useCallback((itemId, subId, status, value) => {
-    const bc = useBidManagementStore.getState().bidCells;
-    const key = `${itemId}_${subId}`;
-    if (status === "blank") {
-      useBidManagementStore.getState().setBidCells({ ...bc, [key]: { status: "blank", value: "" } });
-    } else if (status === "carried") {
-      useBidManagementStore.getState().setBidCells({ ...bc, [key]: { status: "carried", value: "" } });
-    } else {
-      // Preserve the requested status even with empty value — user will fill it in via inline edit
-      const numVal = nn(value);
-      useBidManagementStore.getState().setBidCells({
-        ...bc,
-        [key]: { status, value: numVal ? String(numVal) : "" },
-      });
-    }
-  }, []);
-
-  // ── Save from inline edit — preserves existing status ──
-  const saveCell = useCallback((itemId, subId, value) => {
-    const bc = useBidManagementStore.getState().bidCells;
-    const key = `${itemId}_${subId}`;
-    const existing = bc[key] || { status: "blank", value: "" };
-    // Preserve unitrate status if already set; otherwise default to lumpsum
-    const status = existing.status === "unitrate" ? "unitrate" : "lumpsum";
-    const numVal = nn(value);
-    useBidManagementStore.getState().setBidCells({
-      ...bc,
-      [key]: numVal ? { status, value: String(numVal) } : { status: "blank", value: "" },
-    });
-  }, []);
-
-  // ── Auto-carry: set all items in a subdivision to "carried" for a sub ──
-  const autoCarry = useCallback(
-    (sk, subId) => {
-      const bc = useBidManagementStore.getState().bidCells;
-      const newCells = { ...bc };
-      const subItems = subdivisions.find(s => s.sk === sk)?.items || [];
-      subItems.forEach(item => {
-        newCells[`${item.id}_${subId}`] = { status: "carried", value: "" };
-      });
-      useBidManagementStore.getState().setBidCells(newCells);
-    },
-    [subdivisions],
-  );
-
-  const getSkSubTotal = (sk, subId) => {
-    const skItems = subdivisions.find(s => s.sk === sk)?.items || [];
-    let cellTotal = 0;
-    let hasCells = false;
-    skItems.forEach(item => {
-      const cell = getCell(item.id, subId);
-      if (cell.status !== "blank") {
-        cellTotal += getCellComputedValue(item, cell);
-        hasCells = true;
-      }
-    });
-    if (hasCells) return cellTotal;
-    return nn(bidTotals[subId]);
-  };
-
-  const getBidSelection = sk => bidSelections[sk] || { source: "", customValue: "" };
-  const setBidSelection = (sk, updates) => {
-    setBidSelections({ ...bidSelections, [sk]: { ...getBidSelection(sk), ...updates } });
-  };
-  const getSelectedBidValue = sk => {
-    const sel = getBidSelection(sk);
-    if (!sel.source) return 0;
-    if (sel.source === "internal") return subdivisions.find(s => s.sk === sk)?.total || 0;
-    if (sel.source === "custom") return nn(sel.customValue);
-    if (sel.source.startsWith("linked_")) {
-      const ls = linkedSubs.find(l => `linked_${l.id}` === sel.source);
-      return ls ? nn(ls.totalBid) : 0;
-    }
-    return getSkSubTotal(sk, sel.source);
-  };
-
-  const getSubLabel = sk => {
-    const dc = sk.split(".")[0];
-    const subName = activeCodes[dc]?.subs?.[sk] || "";
-    return subKeyLabels[sk] || `${sk} ${subName}`;
-  };
-
-  const totalBidValue = useMemo(
-    () => subdivisions.reduce((sum, sub) => sum + getSelectedBidValue(sub.sk), 0),
-    // getSelectedBidValue deps already listed explicitly
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [subdivisions, bidSelections, bidCells, bidTotals, subBidSubs, linkedSubs],
-  );
+  // ── Bid cell operations, selection logic, computed totals (extracted) ──
+  const {
+    bidCells, bidSelections, linkedSubs, subKeyLabels,
+    getCell, getCellComputedValue, saveCellWithStatus, saveCell, autoCarry,
+    getSkSubTotal, getBidSelection, setBidSelection, getSelectedBidValue,
+    getSubLabel, totalBidValue,
+  } = useLevelingBids({ items, getItemTotal, subdivisions, activeCodes });
 
   const internalGrandTotal = useMemo(() => subdivisions.reduce((sum, s) => sum + s.total, 0), [subdivisions]);
 

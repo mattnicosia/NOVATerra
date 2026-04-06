@@ -2,10 +2,11 @@
  * NovaInsightsWidget — AI learning progress and accuracy metrics.
  * Shows how NOVA is getting smarter from user corrections.
  */
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import { useFirmMemoryStore } from "@/nova/learning/firmMemory";
+import { getEvaluationSummary } from "@/stores/novaStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
@@ -37,6 +38,14 @@ export default function NovaInsightsWidget() {
 
     return { total: corrections.length, byType, accepted, rejected, acceptRate, topPatterns, firmCount, patternCount: globalPatterns.length };
   }, [corrections, globalPatterns]);
+
+  // AI accuracy metrics from evaluation log
+  const [evalStats, setEvalStats] = useState(null);
+  useEffect(() => {
+    getEvaluationSummary(30).then(s => {
+      if (s && (s.total_calls || s.totalCalls)) setEvalStats(s);
+    }).catch(() => {});
+  }, []);
 
   const metricRow = (label, value, color) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: `2px 0` }}>
@@ -102,6 +111,27 @@ export default function NovaInsightsWidget() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* AI accuracy metrics */}
+          {evalStats && (
+            <div style={{ marginTop: 4, borderTop: `1px solid ${C.border}10`, paddingTop: 4 }}>
+              <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                AI accuracy (30 days)
+              </span>
+              {metricRow("AI calls", evalStats.total_calls || evalStats.totalCalls || 0)}
+              {(evalStats.avg_accuracy || evalStats.avgAccuracy) != null && (() => {
+                const acc = Math.round((evalStats.avg_accuracy || evalStats.avgAccuracy) * 100);
+                return metricRow("Avg accuracy", `${acc}%`, acc >= 80 ? C.green : acc >= 60 ? C.orange : (C.red || "#EF4444"));
+              })()}
+              {(evalStats.avg_latency_ms || evalStats.avgLatencyMs) != null &&
+                metricRow("Avg latency", `${Math.round(evalStats.avg_latency_ms || evalStats.avgLatencyMs)}ms`)
+              }
+              {(evalStats.correction_context_rate || evalStats.correctionContextRate) != null && (() => {
+                const rate = Math.round((evalStats.correction_context_rate || evalStats.correctionContextRate) * 100);
+                return metricRow("Context-augmented", `${rate}%`, C.accent);
+              })()}
             </div>
           )}
         </>

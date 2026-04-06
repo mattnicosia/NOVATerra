@@ -57,7 +57,7 @@ export default async function handler(req, res) {
   try { parsed = await readRawBody(req); }
   catch (err) { return res.status(400).json({ error: err.message }); }
 
-  const { model, max_tokens, messages, system, temperature } = parsed;
+  const { model, max_tokens, messages, system, temperature, stream } = parsed;
   if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "messages required" });
 
   // Force Haiku model only — prevent abuse of expensive models
@@ -67,8 +67,9 @@ export default async function handler(req, res) {
   const body = { model: safeModel, max_tokens: Math.min(max_tokens || 1000, 2000), messages };
   if (system) body.system = system;
   if (temperature !== undefined) body.temperature = temperature;
+  if (stream) body.stream = true;
 
-  console.log(`[rom-ai] ip=${ip} model=${safeModel} msgs=${messages.length}`);
+  console.log(`[rom-ai] ip=${ip} model=${safeModel} msgs=${messages.length} stream=${!!stream}`);
 
   try {
     const resp = await fetch(ANTHROPIC_API_URL, {
@@ -81,6 +82,38 @@ export default async function handler(req, res) {
       body: JSON.stringify(body),
     });
 
+    // ─── Streaming: pipe SSE directly to client ───
+    if (stream) {
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        const msg = errBody?.error?.message || resp.statusText;
+        console.error(`[rom-ai] Anthropic stream error ${resp.status}:`, msg);
+        return res.status(resp.status === 401 ? 502 : resp.status).json({ error: msg });
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          res.write(chunk);
+        }
+      } catch (streamErr) {
+        console.warn("[rom-ai] Stream error:", streamErr.message);
+      } finally {
+        res.end();
+      }
+      return;
+    }
+
+    // ─── Non-streaming: forward JSON response ───
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
       console.error(`[rom-ai] Anthropic error ${resp.status}:`, data?.error?.message);

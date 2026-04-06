@@ -8,6 +8,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useItemsStore } from "@/stores/itemsStore";
+import { useScenarioDrag } from "@/hooks/useScenarioDrag";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useDocumentManagementStore } from "@/stores/documentManagementStore";
@@ -134,8 +135,9 @@ export default function ScenariosPanel() {
   const [editingName, setEditingName] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [dragId, setDragId] = useState(null);
-  const [dragOver, setDragOver] = useState(null);
+  // ── Drag-drop reparenting (extracted) ──
+  const { dragId, dragOver, handleDragStart, handleDragOverNode, handleDragLeave, handleDropOnNode, handleDragEnd } =
+    useScenarioDrag({ groups, updateGroup, setCollapsed, showToast });
 
   // Template menu
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -382,54 +384,6 @@ Prioritize by likelihood the architect/owner will request these.`,
     const parentName = groups.find(g => g.id === targetId)?.name || "Base Bid";
     showToast(`Moved items to ${parentName} and deleted scenario`);
     setDeleteConfirm(null);
-  };
-
-  // ── Drag-drop: reparent scenarios ───────────────────────────────────
-  const handleDragStart = (e, nodeId) => {
-    if (nodeId === "base") {
-      e.preventDefault();
-      return;
-    }
-    setDragId(nodeId);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("scenario-id", nodeId);
-  };
-
-  const handleDragOverNode = (e, nodeId) => {
-    e.preventDefault();
-    if (dragId && dragId !== nodeId) setDragOver(nodeId);
-  };
-
-  const handleDragLeave = () => setDragOver(null);
-
-  const handleDropOnNode = (e, targetId) => {
-    e.preventDefault();
-    setDragOver(null);
-    if (!dragId || dragId === targetId) {
-      setDragId(null);
-      return;
-    }
-    const isDescendant = (parentId, checkId) => {
-      const children = groups.filter(g => g.parentId === parentId);
-      for (const c of children) {
-        if (c.id === checkId) return true;
-        if (isDescendant(c.id, checkId)) return true;
-      }
-      return false;
-    };
-    if (isDescendant(dragId, targetId)) {
-      setDragId(null);
-      return;
-    }
-    updateGroup(dragId, "parentId", targetId === "__root__" ? null : targetId);
-    setCollapsed(p => ({ ...p, [targetId]: false }));
-    setDragId(null);
-    showToast("Moved scenario");
-  };
-
-  const handleDragEnd = () => {
-    setDragId(null);
-    setDragOver(null);
   };
 
   // ── Type indicator ──────────────────────────────────────────────────
