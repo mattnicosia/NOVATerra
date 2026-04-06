@@ -35,9 +35,9 @@ export const pushData = async (key, data) => {
       cloudQuery = scope?.org_id ? cloudQuery.eq("org_id", scope.org_id) : cloudQuery.is("org_id", null);
       const { data: existing } = await cloudQuery.maybeSingle();
       const cloudLen = Array.isArray(existing?.data) ? existing.data.length : 0;
-      // Allow shrinkage up to 50% (orphan cleanup can remove many entries at once).
-      // Only block if local is less than half of cloud — that's genuine data loss.
-      if (cloudLen > 2 && data.length < Math.ceil(cloudLen / 2)) {
+      // Allow shrinkage up to 30% (orphan cleanup can remove some entries at once).
+      // Block if local is less than 70% of cloud — that's genuine data loss.
+      if (cloudLen > 2 && data.length < Math.ceil(cloudLen * 0.7)) {
         console.error(
           `[cloudSync] DATA LOSS PREVENTION: Refusing to push index with ${data.length} entries ` +
             `(cloud has ${cloudLen}). This looks like data loss. Aborting push.`,
@@ -52,7 +52,9 @@ export const pushData = async (key, data) => {
         let deletedIds = new Set();
         try {
           const userId2 = getUserId();
-          const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId2}`);
+          const { useOrgStore } = await import("@/stores/orgStore");
+          const orgId2 = useOrgStore.getState().org?.id || "solo";
+          const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId2}-${orgId2}`);
           if (lsRaw) deletedIds = new Set(JSON.parse(lsRaw));
         } catch {
           /* ignore */

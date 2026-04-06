@@ -12,6 +12,7 @@ import * as cloudSync from "@/utils/cloudSync";
 import { migrateIndexEntry } from "@/utils/costHistoryMigration";
 import { idbKey } from "@/utils/idbKey";
 import { useAuthStore } from "@/stores/authStore";
+import { useOrgStore } from "@/stores/orgStore";
 
 // ─── MANUAL CLOUD RECOVERY ─────────────────────────────────────────
 // Explicit recovery function callable from UI. Bypasses all automatic
@@ -111,7 +112,8 @@ export async function recoverFromCloud() {
   // 4. Filter out deleted estimates
   let deletedIds = [];
   try {
-    const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId}`);
+    const orgId = useOrgStore.getState().org?.id || "solo";
+    const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId}-${orgId}`);
     if (lsRaw) deletedIds = JSON.parse(lsRaw);
   } catch {
     /* ignore */

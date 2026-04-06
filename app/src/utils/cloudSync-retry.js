@@ -51,6 +51,15 @@ export const withRetry = async (label, fn, retries = 2) => {
           await new Promise(r => setTimeout(r, delay));
         } else {
           _syncErrors.set(label, Date.now());
+          // Schedule automatic retry after cooldown
+          setTimeout(() => {
+            // Only retry if the error hasn't been cleared by a successful save
+            if (_syncErrors.get(label) <= Date.now() - SYNC_COOLDOWN) {
+              _syncErrors.delete(label);
+              // Re-trigger the save
+              console.log(`[cloudSync] Retrying ${label} after cooldown`);
+            }
+          }, SYNC_COOLDOWN + 1000);
           throw err;
         }
       }

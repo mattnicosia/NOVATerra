@@ -229,7 +229,8 @@ export function usePersistenceLoad() {
             let delIds = delRaw ? JSON.parse(delRaw.value) : [];
             // Merge localStorage backup (survives IDB clears)
             const userId = useAuthStore.getState().user?.id;
-            const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+            const orgId = useOrgStore.getState().org?.id || "solo";
+            const lsKey = `bldg-deleted-ids-${userId || "anon"}-${orgId}`;
             const lsRaw = localStorage.getItem(lsKey);
             if (lsRaw) {
               const lsIds = JSON.parse(lsRaw);
@@ -283,7 +284,8 @@ export function usePersistenceLoad() {
               const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
               deletedIds = delRaw ? JSON.parse(delRaw.value) : [];
               const userId = useAuthStore.getState().user?.id;
-              const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId || "anon"}`);
+              const orgId2 = useOrgStore.getState().org?.id || "solo";
+              const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId || "anon"}-${orgId2}`);
               if (lsRaw) { for (const id of JSON.parse(lsRaw)) { if (!deletedIds.includes(id)) deletedIds.push(id); } }
             } catch { /* ignore */ }
             const deletedSet = new Set(deletedIds);
@@ -547,7 +549,8 @@ export function usePersistenceLoad() {
           // Merge localStorage backup (survives IndexedDB clears)
           try {
             const userId = useAuthStore.getState().user?.id;
-            const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+            const orgId3 = useOrgStore.getState().org?.id || "solo";
+            const lsKey = `bldg-deleted-ids-${userId || "anon"}-${orgId3}`;
             const lsRaw = localStorage.getItem(lsKey);
             if (lsRaw) {
               const lsIds = JSON.parse(lsRaw);
@@ -828,7 +831,8 @@ export function usePersistenceLoad() {
           /* ignore */
         }
         try {
-          const lsKey = `bldg-deleted-ids-${currentUserId}`;
+          const orgId4 = useOrgStore.getState().org?.id || "solo";
+          const lsKey = `bldg-deleted-ids-${currentUserId}-${orgId4}`;
           const lsRaw = localStorage.getItem(lsKey);
           if (lsRaw) {
             for (const id of JSON.parse(lsRaw)) {

@@ -731,7 +731,8 @@ async function syncEstimates() {
       const merged = [...new Set([...currentDeleted, ...orphanIds])];
       await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(merged));
       const userId = useAuthStore.getState().user?.id;
-      if (userId) localStorage.setItem(`bldg-deleted-ids-${userId}`, JSON.stringify(merged));
+      const orgId = useOrgStore.getState().org?.id || "solo";
+      if (userId) localStorage.setItem(`bldg-deleted-ids-${userId}-${orgId}`, JSON.stringify(merged));
       console.log(`[cloudSync] Added ${orphanIds.length} orphan(s) to deleted-IDs list`);
     } catch {
       /* storage write failed */

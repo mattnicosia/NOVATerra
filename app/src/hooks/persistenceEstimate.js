@@ -377,6 +377,9 @@ export async function saveEstimate(overrideId) {
   const id = overrideId || useEstimatesStore.getState().activeEstimateId;
   if (!id) return;
 
+  // Capture org context at entry — used to detect org-switch during async save
+  const saveOrgId = useOrgStore.getState().org?.id || null;
+
   // Guard: skip save if in org mode and not the lock holder
   const orgId = useOrgStore.getState().org?.id;
   if (orgId) {
@@ -488,6 +491,13 @@ export async function saveEstimate(overrideId) {
   // Stamp save time for cross-device sync freshness comparison
   data._savedAt = new Date().toISOString();
 
+  // Guard: abort if org context changed during async save (prevents cross-org writes)
+  const currentOrgId = useOrgStore.getState().org?.id || null;
+  if (currentOrgId !== saveOrgId) {
+    console.error("[saveEstimate] Org context changed during save — aborting to prevent cross-org write");
+    return;
+  }
+
   const estOk = await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
   if (!estOk) {
     useUiStore.getState().showToast("Save failed — check storage space", "error");
@@ -582,6 +592,29 @@ export async function saveEstimate(overrideId) {
 
     // Only re-add if it genuinely wasn't in the index (e.g., draft-to-real transition)
     // AND it's still the active estimate (not deleted)
+    // AND it's not in the deleted-IDs set (prevents zombie resurrection)
+    let isInDeletedSet = false;
+    try {
+      const delRaw2 = await storage.get(idbKey("bldg-deleted-ids"));
+      const delIds2 = delRaw2 ? JSON.parse(delRaw2.value) : [];
+      try {
+        const userId2 = useAuthStore.getState().user?.id;
+        const lsKey2 = `bldg-deleted-ids-${userId2 || "anon"}`;
+        const lsRaw2 = localStorage.getItem(lsKey2);
+        if (lsRaw2) {
+          for (const d of JSON.parse(lsRaw2)) {
+            if (!delIds2.includes(d)) delIds2.push(d);
+          }
+        }
+      } catch { /* ignore */ }
+      isInDeletedSet = delIds2.includes(id);
+    } catch { /* proceed cautiously */ }
+
+    if (isInDeletedSet) {
+      console.warn("[saveEstimate] Estimate is in deleted-IDs set — refusing to re-add to index for", id);
+      return;
+    }
+
     const stillActive = useEstimatesStore.getState().activeEstimateId === id;
     if (stillActive) {
       const newEntry = { id, ...entryFields };

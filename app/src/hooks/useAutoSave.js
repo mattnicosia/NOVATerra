@@ -141,7 +141,7 @@ export function useAutoSave() {
           // If there was a pending save, flush the outgoing estimate immediately.
           // At this point stores still contain the outgoing estimate's data
           // (loading the new estimate is async), so we can safely save it.
-          if (hadPending && prev.activeEstimateId) {
+          if (prev.activeEstimateId) {
             saveEstimate(prev.activeEstimateId).catch(err => {
               console.error("[autoSave] Flush on estimate switch failed:", err);
             });
