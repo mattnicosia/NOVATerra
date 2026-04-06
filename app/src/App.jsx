@@ -16,6 +16,7 @@ import * as nova from "@/utils/novaLogger";
 import useAutoResponseTimers from "@/hooks/useAutoResponseTimers";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useAutoDiscovery } from "@/hooks/useAutoDiscovery";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 import AutoResponseBanner from "@/components/shared/AutoResponseBanner";
 const DraftApprovalPanel = lazy(() => import("@/components/shared/DraftApprovalPanel"));
 
@@ -541,6 +542,7 @@ function AppContent() {
   useAutoResponseTimers();
   useActivityTracker();
   useAutoDiscovery();
+  useVersionCheck();
 
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
   // Cap persistence wait at 3s — never stall on slow cloud sync
