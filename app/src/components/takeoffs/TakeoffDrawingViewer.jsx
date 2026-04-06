@@ -636,6 +636,7 @@ export default function TakeoffDrawingViewer({
               justifyContent: "center",
               background: C.isDark ? "#1a1d24" : "#e5e7eb",
               position: "relative",
+              cursor: "default",
             }}
           >
             {!selectedDrawing ? (
@@ -798,6 +799,7 @@ export default function TakeoffDrawingViewer({
                     width: "100%",
                     height: "100%",
                     pointerEvents: "auto",
+                    cursor: (tkMeasureState === "measuring" || tkActiveTakeoffId) ? "crosshair" : "default",
                   }}
                 />
                 {/* Prediction ghost overlay canvas — animated ghost markers */}
