@@ -305,8 +305,12 @@ export function usePersistenceLoad() {
             // We can't know for sure they were deleted vs never pushed, so keep them.
             if (merged) {
               const fullIndex = [...localIndex, ...newEntries];
-              useEstimatesStore.getState().setEstimatesIndex(fullIndex);
-              await storage.set(idbKey("bldg-index"), JSON.stringify(fullIndex));
+              // Dedup by ID before persisting — prevents duplicate dashboard entries
+              const dedupMap = new Map();
+              for (const e of fullIndex) { if (e?.id) dedupMap.set(e.id, e); }
+              const dedupedIndex = [...dedupMap.values()];
+              useEstimatesStore.getState().setEstimatesIndex(dedupedIndex);
+              await storage.set(idbKey("bldg-index"), JSON.stringify(dedupedIndex));
               console.log(`[usePersistence] Cloud merge: added ${newEntries.length} estimate(s) from cloud`);
               // Also pull the actual data blobs for new entries
               for (const entry of newEntries) {
@@ -601,8 +605,12 @@ export function usePersistenceLoad() {
           if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
             // Filter out locally-deleted estimates before restoring
             const filteredIndex = deletedSet.size > 0 ? cloudIndex.filter(e => !deletedSet.has(e.id)) : cloudIndex;
-            useEstimatesStore.getState().setEstimatesIndex(filteredIndex);
-            await storage.set(idbKey("bldg-index"), JSON.stringify(filteredIndex));
+            // Dedup by ID before persisting — prevents duplicate dashboard entries
+            const dedupMap2 = new Map();
+            for (const e of filteredIndex) { if (e?.id) dedupMap2.set(e.id, e); }
+            const dedupedCloud = [...dedupMap2.values()];
+            useEstimatesStore.getState().setEstimatesIndex(dedupedCloud);
+            await storage.set(idbKey("bldg-index"), JSON.stringify(dedupedCloud));
             // Immediately mirror to localStorage — most resilient backup
             try {
               if (currentUserId && filteredIndex.length > 0) {
