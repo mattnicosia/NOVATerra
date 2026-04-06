@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
    Expandable: widget size ↔ fullscreen
    ──────────────────────────────────────────────────────── */
 
-const MAPBOX_TOKEN = "pk.eyJ1IjoibWF0dG5pY29zaWEiLCJhIjoiY21uNDJsM2NnMWthZjJ0cTJkdWZmeWplMiJ9.lEoeGN-_aDlAD_a7mOgy5g";
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css";
 const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js";
 

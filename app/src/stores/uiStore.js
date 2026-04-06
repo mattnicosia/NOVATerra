@@ -28,7 +28,7 @@ export const useUiStore = create((set, _get) => ({
   persistenceLoaded: false,
   cloudSettingsLoaded: false,
   sidebarOpen: true,
-  toast: null,
+  toasts: [],
   showNotesPanel: false,
 
   // App settings — selectedPalette reads from localStorage for instant boot (no FOUC)
@@ -139,8 +139,11 @@ export const useUiStore = create((set, _get) => ({
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
 
   showToast: (msg, type = "success") => {
-    set({ toast: { msg, type } });
-    setTimeout(() => set({ toast: null }), 3100);
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    set(s => ({ toasts: [...s.toasts.slice(-2), { id, msg, type }] }));
+    setTimeout(() => {
+      set(s => ({ toasts: s.toasts.filter(t => t.id !== id) }));
+    }, 3100);
   },
 
   setRevisionReport: v => set({ revisionReport: v }),

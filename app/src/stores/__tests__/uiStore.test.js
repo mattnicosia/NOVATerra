@@ -25,7 +25,7 @@ describe("uiStore — initial state", () => {
     const s = useUiStore.getState();
     expect(s.persistenceLoaded).toBe(false);
     expect(s.sidebarOpen).toBe(true);
-    expect(s.toast).toBeNull();
+    expect(s.toasts).toEqual([]);
     expect(s.showNotesPanel).toBe(false);
     expect(s.aiChatOpen).toBe(false);
     expect(s.aiChatMessages).toEqual([]);
@@ -233,23 +233,37 @@ describe("uiStore — showToast", () => {
     vi.useRealTimers();
   });
 
-  it("sets toast with msg and type, defaults to success", () => {
+  it("adds toast with msg and type, defaults to success", () => {
     useUiStore.getState().showToast("Saved!");
-    expect(useUiStore.getState().toast).toEqual({ msg: "Saved!", type: "success" });
+    const toasts = useUiStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toMatchObject({ msg: "Saved!", type: "success" });
   });
 
   it("accepts a custom type", () => {
     useUiStore.getState().showToast("Error occurred", "error");
-    expect(useUiStore.getState().toast).toEqual({ msg: "Error occurred", type: "error" });
+    const toasts = useUiStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toMatchObject({ msg: "Error occurred", type: "error" });
   });
 
-  it("clears toast after 3100ms", () => {
+  it("queues multiple toasts (max 3 visible)", () => {
+    useUiStore.getState().showToast("First");
+    useUiStore.getState().showToast("Second");
+    useUiStore.getState().showToast("Third");
+    expect(useUiStore.getState().toasts).toHaveLength(3);
+    useUiStore.getState().showToast("Fourth");
+    expect(useUiStore.getState().toasts).toHaveLength(3); // capped at 3
+    expect(useUiStore.getState().toasts[2]).toMatchObject({ msg: "Fourth" });
+  });
+
+  it("auto-dismisses each toast after 3100ms", () => {
     useUiStore.getState().showToast("temp");
-    expect(useUiStore.getState().toast).not.toBeNull();
+    expect(useUiStore.getState().toasts).toHaveLength(1);
     vi.advanceTimersByTime(3000);
-    expect(useUiStore.getState().toast).not.toBeNull(); // still visible
+    expect(useUiStore.getState().toasts).toHaveLength(1); // still visible
     vi.advanceTimersByTime(200);
-    expect(useUiStore.getState().toast).toBeNull(); // gone after 3100ms
+    expect(useUiStore.getState().toasts).toHaveLength(0); // gone after 3100ms
   });
 });
 

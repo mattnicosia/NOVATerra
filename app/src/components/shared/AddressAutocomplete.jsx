@@ -8,7 +8,7 @@ import { useTheme } from "@/hooks/useTheme";
    Uses Mapbox Search API (free tier: 100K req/month)
    ──────────────────────────────────────────────────────── */
 
-const MAPBOX_TOKEN = "pk.eyJ1IjoibWF0dG5pY29zaWEiLCJhIjoiY21uNDJsM2NnMWthZjJ0cTJkdWZmeWplMiJ9.lEoeGN-_aDlAD_a7mOgy5g";
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
 export default function AddressAutocomplete({ value = "", onChange, onGeocode, style }) {
   const C = useTheme();

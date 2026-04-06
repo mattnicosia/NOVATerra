@@ -113,6 +113,11 @@ export const storage = {
       return true;
     } catch (e) {
       console.error("Storage set error:", e);
+      // Detect quota exceeded
+      if (e?.name === "QuotaExceededError" || e?.message?.includes("quota")) {
+        const { useUiStore } = await import("@/stores/uiStore");
+        useUiStore.getState().showToast("Storage full — clear old estimates to free space", "warning");
+      }
       return false;
     }
   },
@@ -169,11 +174,11 @@ export const storage = {
     try {
       if (navigator.storage?.estimate) {
         const { usage, quota } = await navigator.storage.estimate();
-        return { usage, quota, pctUsed: Math.round((usage / quota) * 100) };
+        return { usage: usage || 0, quota: quota || 0, pctUsed: quota ? Math.round((usage / quota) * 100) : 0 };
       }
-      return null;
+      return { usage: 0, quota: 0, pctUsed: 0 };
     } catch {
-      return null;
+      return { usage: 0, quota: 0, pctUsed: 0 };
     }
   },
 };

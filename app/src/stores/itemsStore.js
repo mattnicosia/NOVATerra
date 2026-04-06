@@ -557,19 +557,19 @@ export const useItemsStore = create((set, get) => ({
       const pct = nn(markup[mo.key]);
       if (pct === 0) return;
       const base = mo.compound ? running : direct;
-      running += (base * pct) / 100;
+      running += Math.round((base * pct) / 100 * 100) / 100;
     });
 
     let grand = running;
 
     // Tax and bond on post-markup
-    grand *= 1 + nn(markup.tax) / 100;
-    grand *= 1 + nn(markup.bond) / 100;
+    grand = Math.round(grand * (1 + nn(markup.tax) / 100) * 100) / 100;
+    grand = Math.round(grand * (1 + nn(markup.bond) / 100) * 100) / 100;
 
     // Custom markups
     customMarkups.forEach(cm => {
-      if (cm.type === "pct") grand *= 1 + nn(cm.value) / 100;
-      else grand += nn(cm.value);
+      if (cm.type === "pct") grand = Math.round(grand * (1 + nn(cm.value) / 100) * 100) / 100;
+      else grand = Math.round((grand + nn(cm.value)) * 100) / 100;
     });
 
     return { material, labor, equipment, sub, direct, grand };
@@ -607,15 +607,15 @@ export const useItemsStore = create((set, get) => ({
       const pct = nn(markup[mo.key]);
       if (pct === 0) return;
       const base = mo.compound ? running : direct;
-      running += (base * pct) / 100;
+      running += Math.round((base * pct) / 100 * 100) / 100;
     });
 
     let grand = running;
-    grand *= 1 + nn(markup.tax) / 100;
-    grand *= 1 + nn(markup.bond) / 100;
+    grand = Math.round(grand * (1 + nn(markup.tax) / 100) * 100) / 100;
+    grand = Math.round(grand * (1 + nn(markup.bond) / 100) * 100) / 100;
     customMarkups.forEach(cm => {
-      if (cm.type === "pct") grand *= 1 + nn(cm.value) / 100;
-      else grand += nn(cm.value);
+      if (cm.type === "pct") grand = Math.round(grand * (1 + nn(cm.value) / 100) * 100) / 100;
+      else grand = Math.round((grand + nn(cm.value)) * 100) / 100;
     });
 
     return { material, labor, equipment, sub, direct, grand, count };

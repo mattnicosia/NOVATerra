@@ -1075,7 +1075,8 @@ function GuidedWizardPath({ onResult, onBack }) {
 
   function finalize(finalAnswers) {
     try {
-      const sf = parseFloat(finalAnswers.size) || 2500;
+      const rawSF = parseFloat(finalAnswers.size);
+      const sf = (rawSF > 0) ? rawSF : 2500;
       const buildType = finalAnswers.category || "commercial-office";
       const work = finalAnswers.work || "new-construction";
       const floorCount = finalAnswers.floors || 1;
@@ -1589,7 +1590,25 @@ function RomPageInner() {
             <div id="rom-deliverable">
               {/* PDF Cover Page (only visible in PDF and when branding is set) */}
               <RomCoverPage />
-              <RomResult rom={romResult} email={email} />
+              {romResult.sfMissing ? (
+                <div style={{
+                  padding: "32px 24px", borderRadius: 12, textAlign: "center",
+                  background: "rgba(251,113,133,0.08)", border: "1px solid rgba(251,113,133,0.2)",
+                }}>
+                  <div style={{ fontSize: 18, fontWeight: 600, color: "#FB7185", marginBottom: 8, ...ff }}>Square footage required</div>
+                  <div style={{ fontSize: 14, color: "rgba(238,237,245,0.5)", ...ff }}>
+                    We need a valid square footage to generate an accurate estimate. Please try again with your project size.
+                  </div>
+                  <button onClick={handleReset} style={{
+                    marginTop: 16, padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(251,113,133,0.3)",
+                    background: "transparent", color: "#FB7185", cursor: "pointer", fontSize: 13, fontWeight: 500, ...ff,
+                  }}>
+                    Start Over
+                  </button>
+                </div>
+              ) : (
+                <RomResult rom={romResult} email={email} />
+              )}
             </div>
 
             {/* Actions — funnel to platform */}
