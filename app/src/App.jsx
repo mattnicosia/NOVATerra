@@ -514,6 +514,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const isDashboard = location.pathname === "/";
+  const updateAvailable = useUiStore(s => s.updateAvailable);
 
   // ── First org login redirect: send invited users to settings/company profile ──
   const orgReady = useOrgStore(s => s.orgReady);
@@ -1283,7 +1284,6 @@ export default function App() {
   const init = useAuthStore(s => s.init);
   const appRole = useAuthStore(s => s.appRole);
   const sessionKicked = useUiStore(s => s.sessionKicked);
-  const updateAvailable = useUiStore(s => s.updateAvailable);
 
   // Onboarding: first sign-in only (persisted in localStorage)
   const [_onboardingComplete, setOnboardingComplete] = useState(
