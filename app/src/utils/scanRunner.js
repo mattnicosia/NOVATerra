@@ -115,15 +115,12 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
   const { setScanResults, setScanProgress, setScanError, clearScan, createAbortController } = useDrawingPipelineStore.getState();
   const showToast = useUiStore.getState().showToast;
 
-  // Create abort controller if no external signal provided
-  const abortSignal = signal || createAbortController();
+  clearScan();
+  // Create abort controller AFTER clearScan so it isn't orphaned
+  const abortSignal = signal || useDrawingPipelineStore.getState().createAbortController();
   const checkAbort = () => {
     if (abortSignal.aborted) throw new Error("__SCAN_STOPPED__");
   };
-
-  clearScan();
-  // Re-create controller after clearScan reset it
-  if (!signal) useDrawingPipelineStore.getState().createAbortController();
 
   useNovaStore.getState().startTask("scan", `Scanning ${currentDrawings.length} drawings...`);
   setScanProgress({

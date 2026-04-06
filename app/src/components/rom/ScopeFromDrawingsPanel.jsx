@@ -7,8 +7,11 @@ import { card } from "@/utils/styles";
 const PHASES = [
   { key: "ocr", label: "OCR Pre-pass" },
   { key: "detect", label: "Schedule Detection" },
+  { key: "notes", label: "Drawing Notes" },
+  { key: "titleblock", label: "Title Block" },
   { key: "parse", label: "Schedule Parsing" },
   { key: "count", label: "Counting Marks" },
+  { key: "params", label: "Parameter Detection" },
   { key: "rom", label: "ROM Generation" },
   { key: "scope", label: "Scope Outline" },
 ];
@@ -177,6 +180,11 @@ export default function ScopeFromDrawingsPanel({ C, T }) {
           Generate Scope from Plans
         </button>
       </div>
+      {scanError && (
+        <div style={{ fontSize: 10, color: C.red || "#ef4444", marginTop: 6, fontFamily: T.font.sans }}>
+          {scanError}
+        </div>
+      )}
     </div>
   );
 }

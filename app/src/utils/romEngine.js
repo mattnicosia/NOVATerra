@@ -551,7 +551,7 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     // TPI path already uses real p25/p75 so only tighten non-TPI divisions.
     // Confidence-adaptive: stronger data = tighter (more credible) range.
     const hasTPI = tpi?.lump_sum_per_sf?.sampleCount >= 3;
-    if (!hasTPI && mid > 0) {
+    if (!hasTPI && mid > 0 && low <= mid && mid <= high) {
       const tighten = confLevel === "strong" ? 0.40
                     : confLevel === "moderate" ? 0.30 : 0.15;
       low = low + (mid - low) * tighten;

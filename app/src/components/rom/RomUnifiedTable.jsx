@@ -149,16 +149,16 @@ export default function RomUnifiedTable({
                       )}
                     </td>
                     <td style={{ ...cellBase, ...rightAlign, ...colHighlight("low"), fontFeatureSettings: "'tnum'" }}>
-                      {fmtSF(div.perSF.low * getDivisionMultiplier(divNum))}
+                      {fmtSF((div.perSF?.low || 0) * getDivisionMultiplier(divNum))}
                     </td>
                     <td style={{ ...cellBase, ...rightAlign, ...colHighlight("mid"), fontFeatureSettings: "'tnum'" }}>
-                      {fmtSF(div.perSF.mid * getDivisionMultiplier(divNum))}
+                      {fmtSF((div.perSF?.mid || 0) * getDivisionMultiplier(divNum))}
                     </td>
                     <td style={{ ...cellBase, ...rightAlign, ...colHighlight("high"), fontFeatureSettings: "'tnum'" }}>
-                      {fmtSF(div.perSF.high * getDivisionMultiplier(divNum))}
+                      {fmtSF((div.perSF?.high || 0) * getDivisionMultiplier(divNum))}
                     </td>
                     <td style={{ ...cellBase, ...rightAlign, color: C.text, fontWeight: T.fontWeight.semibold, fontFeatureSettings: "'tnum'" }}>
-                      {fmt(div.total[selectedRange] * getDivisionMultiplier(divNum))}
+                      {fmt((div.total?.[selectedRange] || 0) * getDivisionMultiplier(divNum))}
                     </td>
                     <td style={{ ...cellBase, textAlign: "center", padding: "6px 8px", whiteSpace: "nowrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }} onClick={e => e.stopPropagation()}>
@@ -580,7 +580,7 @@ export default function RomUnifiedTable({
                     </div>
                     {sc.note && <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{sc.note}</div>}
                   </td>
-                  <td colSpan={2} style={{
+                  <td colSpan={3} style={{
                     ...cellBase, textAlign: "center", color: sc.enabled ? C.text : C.textDim,
                     fontSize: T.fontSize.sm, fontFeatureSettings: "'tnum'", borderBottom: thinBorder,
                   }}>
@@ -600,12 +600,6 @@ export default function RomUnifiedTable({
                         style={{ cursor: "pointer", borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}` }}
                       >{sc.pct}%</span>
                     )}
-                  </td>
-                  <td style={{
-                    ...cellBase, ...rightAlign, color: sc.enabled ? C.textMuted : C.textDim,
-                    fontFeatureSettings: "'tnum'", fontSize: T.fontSize.sm, borderBottom: thinBorder,
-                  }}>
-                    {sc.enabled ? fmtSF(scPerSF) : "\u2014"}
                   </td>
                   <td style={{
                     ...cellBase, ...rightAlign, color: sc.enabled ? C.text : C.textDim,
