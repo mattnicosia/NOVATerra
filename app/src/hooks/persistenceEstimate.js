@@ -6,6 +6,10 @@
  */
 
 import { storage } from "@/utils/storage";
+
+// ── Save failure backoff: suppress repeated toast spam ──
+let _lastSaveFailToast = 0;
+const SAVE_FAIL_COOLDOWN_MS = 30_000; // only show toast once per 30s
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
@@ -500,7 +504,12 @@ export async function saveEstimate(overrideId) {
 
   const estOk = await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
   if (!estOk) {
-    useUiStore.getState().showToast("Save failed — check storage space", "error");
+    // Throttle toast — only show once per 30s to prevent spam on repeated save attempts
+    const now = Date.now();
+    if (now - _lastSaveFailToast > SAVE_FAIL_COOLDOWN_MS) {
+      _lastSaveFailToast = now;
+      useUiStore.getState().showToast("Save failed — check storage space", "error");
+    }
     return; // Don't update index if estimate didn't save — pending sessions preserved
   }
 

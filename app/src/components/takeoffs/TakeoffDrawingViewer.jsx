@@ -14,6 +14,7 @@ import FloatingSpecsCard from "@/components/takeoffs/FloatingSpecsCard";
 import CrossSheetScanBar from "@/components/takeoffs/CrossSheetScanBar";
 import TakeoffContextMenu from "@/components/takeoffs/TakeoffContextMenu";
 import DrawingEmptyState from "@/components/takeoffs/DrawingEmptyState";
+import RemoteCursors from "@/components/drawings/RemoteCursors";
 import DrawingAnalysisPanel from "@/components/takeoffs/DrawingAnalysisPanel";
 import WallScheduleModal from "@/components/takeoffs/WallScheduleModal";
 import PdfScheduleModal from "@/components/takeoffs/PdfScheduleModal";
@@ -840,6 +841,9 @@ export default function TakeoffDrawingViewer({
                 />
               </div>
             )}
+
+            {/* Remote cursors overlay — shows other users' cursors on the canvas */}
+            <RemoteCursors currentSheetId={selectedDrawingId} />
 
             {/* Reference click popover */}
             <RefClickPopover

@@ -181,30 +181,6 @@ export default function ModuleInstanceBlock({
             {isMeasuring ? "MEASURING" : drivingQty > 0 ? "RE-MEASURE" : "MEASURE"}
           </button>
         )}
-        {drivingToId && drivingQty > 0 && !isMeasuring && (
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              removeTakeoff(drivingToId);
-            }}
-            title="Delete measurement"
-            style={{
-              width: 22,
-              height: 22,
-              border: "none",
-              background: "transparent",
-              color: C.red,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-              opacity: 0.6,
-            }}
-          >
-            <Ic d={I.xCircle} size={12} />
-          </button>
-        )}
         {catInstances.length > 1 && (
           <button
             onClick={e => {
