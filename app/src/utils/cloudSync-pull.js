@@ -6,6 +6,53 @@
 import { supabase } from "./supabase";
 import { getUserId, getScope, isReady } from "./cloudSync-auth";
 
+// ---------- helpers ----------
+
+/**
+ * Merge multiple copies of the same estimate from different org members.
+ * Uses the newest copy as base, then merges array fields (takeoffs, drawings,
+ * items, changeOrders, alternates, documents, specs) by deduplicating on `id`.
+ * This prevents data loss when two users work on the same estimate and each
+ * pushes their own copy with different array entries.
+ */
+function mergeEstimateCopies(rows) {
+  if (!rows || rows.length === 0) return null;
+  if (rows.length === 1) return rows[0]?.data || null;
+
+  // Sort by updated_at DESC — newest first
+  const sorted = [...rows].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+  const base = JSON.parse(JSON.stringify(sorted[0].data)); // deep clone newest
+  if (!base) return null;
+
+  // Array fields to merge by `id` key
+  const MERGE_FIELDS = ["takeoffs", "drawings", "items", "changeOrders", "alternates", "documents", "specs"];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const other = sorted[i].data;
+    if (!other) continue;
+
+    for (const field of MERGE_FIELDS) {
+      const baseArr = base[field];
+      const otherArr = other[field];
+      if (!Array.isArray(otherArr) || otherArr.length === 0) continue;
+      if (!Array.isArray(baseArr)) {
+        base[field] = otherArr;
+        continue;
+      }
+      // Merge: add items from other that don't exist in base (by id)
+      const existingIds = new Set(baseArr.map(item => item?.id).filter(Boolean));
+      for (const item of otherArr) {
+        if (item?.id && !existingIds.has(item.id)) {
+          baseArr.push(item);
+          existingIds.add(item.id);
+        }
+      }
+    }
+  }
+
+  return base;
+}
+
 // ---------- pull operations ----------
 
 /**
@@ -335,20 +382,27 @@ export const pullEstimate = async estimateId => {
   try {
     const scope = getScope();
     const userId = getUserId();
-    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).is("deleted_at", null);
+    let query = supabase.from("user_estimates").select("data, updated_at").eq("estimate_id", estimateId).is("deleted_at", null);
 
     if (scope?.org_id) {
-      // In org mode: don't filter by user_id — RLS allows all org members to read
-      // org-scoped estimates with visibility='org'. This lets Steve see Matt's estimates.
+      // In org mode: fetch ALL copies from org members, merge arrays, pick newest base
       query = query.eq("org_id", scope.org_id);
     } else {
       query = query.eq("user_id", userId).is("org_id", null);
     }
 
-    // Use .limit(1).single() pattern to handle potential duplicates gracefully
-    const { data, error } = await query.limit(1).maybeSingle();
+    const { data: rows, error } = await query;
     if (error) throw error;
-    if (data?.data) return data.data;
+    if (!rows || rows.length === 0) {
+      // No rows found in primary scope — fall through to solo fallback below
+    } else if (rows.length === 1) {
+      // Single copy — return directly (common case)
+      if (rows[0]?.data) return rows[0].data;
+    } else {
+      // Multiple copies from different org members — merge
+      const merged = mergeEstimateCopies(rows);
+      if (merged) return merged;
+    }
 
     // Fallback: if in org mode, also check solo-mode rows (pre-org-migration estimates)
     if (scope?.org_id) {
@@ -393,7 +447,7 @@ export const pullAllEstimates = async () => {
   if (!isReady()) return [];
   try {
     const scope = getScope();
-    let query = supabase.from("user_estimates").select("estimate_id, data, user_id").is("deleted_at", null);
+    let query = supabase.from("user_estimates").select("estimate_id, data, user_id, updated_at").is("deleted_at", null);
 
     if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
@@ -403,7 +457,24 @@ export const pullAllEstimates = async () => {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    if (!data) return [];
+
+    // In org mode, multiple users may have copies of the same estimate.
+    // Group by estimate_id and merge duplicates.
+    if (scope?.org_id) {
+      const groups = {};
+      for (const row of data) {
+        if (!groups[row.estimate_id]) groups[row.estimate_id] = [];
+        groups[row.estimate_id].push(row);
+      }
+      return Object.entries(groups).map(([estimateId, rows]) => {
+        if (rows.length === 1) return rows[0];
+        const merged = mergeEstimateCopies(rows);
+        return { estimate_id: estimateId, data: merged, user_id: rows[0].user_id };
+      });
+    }
+
+    return data;
   } catch (err) {
     console.warn("[cloudSync] pullAllEstimates() failed:", err.message || err);
     return [];
