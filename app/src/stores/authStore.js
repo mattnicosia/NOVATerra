@@ -195,14 +195,10 @@ export const useAuthStore = create((set, get) => ({
       const { data: { session } } = sessionResult;
       if (session?.user) {
         set({ user: session.user, session, loading: false });
-        // Only adopt DB token if this device has no local token yet (first login).
-        // If a local token exists, KEEP it — initAuth must not overwrite it,
-        // otherwise session enforcement can never detect a mismatch.
-        if (!localStorage.getItem("bldg-session-token")) {
-          await adoptSessionToken(session.user.id);
-        } else {
-          console.log("[auth] Keeping existing local token:", localStorage.getItem("bldg-session-token")?.slice(0, 8) + "...");
-        }
+        // Always adopt the DB token on init — a stale local token from a
+        // previous session (days ago) would cause a false-positive kick.
+        // adoptSessionToken only READS from DB, it doesn't write a new one.
+        await adoptSessionToken(session.user.id);
         // Load org membership — awaited so orgReady is set before persistence loads
         await useOrgStore.getState().fetchOrg();
         // Auto-accept pending invite if present (e.g., from email link → signup → redirect)
