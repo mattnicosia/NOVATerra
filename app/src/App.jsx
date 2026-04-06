@@ -507,6 +507,7 @@ function FloatingThemePicker() {
 
 function AppContent() {
   const C = useTheme();
+  const T = C.T;
   const location = useLocation();
   const navigate = useNavigate();
   const isDashboard = location.pathname === "/";

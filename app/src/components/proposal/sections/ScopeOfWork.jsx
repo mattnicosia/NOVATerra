@@ -52,7 +52,7 @@ export default function ScopeOfWork({ data, proposalStyles: PS, sectionNumber })
         messages: [
           {
             role: "user",
-            content: `You are writing a scope of work section for a construction proposal letter. Write a professional, concise paragraph summarizing the following work items for "${tradeLabel}". Use industry-standard construction proposal language suitable for an owner-facing proposal. Do not include pricing or dollar amounts. Be specific about materials and methods where the item descriptions provide that detail.\n\nItems: ${itemList}${extra}`,
+            content: `You are writing a scope of work section for a construction proposal letter. Write a professional, concise paragraph summarizing the following work items for "${tradeLabel}". Use industry-standard construction proposal language suitable for an owner-facing proposal. Do not include pricing or dollar amounts. Be specific about materials and methods where the item descriptions provide that detail. NEVER use em dashes (\u2014) or en dashes (\u2013) - use commas, periods, or hyphens instead.\n\nItems: ${itemList}${extra}`,
           },
         ],
       });

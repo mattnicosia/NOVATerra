@@ -44,7 +44,8 @@ Rules:
 - End with a statement of commitment to quality and schedule
 - Do NOT include "Dear..." or sign-off — just the body paragraph
 - Keep it concise — estimators hate long cover letters
-- Return ONLY the paragraph text, no quotes, no formatting`;
+- Return ONLY the paragraph text, no quotes, no formatting
+- NEVER use em dashes (\u2014) or en dashes (\u2013). Use commas, periods, or hyphens instead`;
 
       const text = await callAnthropic({
         max_tokens: 300,

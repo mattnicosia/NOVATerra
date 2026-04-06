@@ -82,11 +82,13 @@ export const useReportsStore = create((set, get) => ({
     accentId: "navy",
     customAccent: "",
     orientation: "portrait",
+    layout: "default",
     showSectionNumbers: true,
     showPageNumbers: true,
     showAccentBar: true,
     showProjectSummary: true,
     showDraftWatermark: false,
+    costSnapshot: null,
   },
   setProposalDesign: (key, value) =>
     set(s => ({
@@ -96,8 +98,10 @@ export const useReportsStore = create((set, get) => ({
     set({
       proposalDesign: {
         fontId: "inter", accentId: "navy", customAccent: "",
-        orientation: "portrait", showSectionNumbers: true, showPageNumbers: true,
+        orientation: "portrait", layout: "default",
+        showSectionNumbers: true, showPageNumbers: true,
         showAccentBar: true, showProjectSummary: true, showDraftWatermark: false,
+        costSnapshot: null,
       },
     }),
 
@@ -148,6 +152,8 @@ export const useReportsStore = create((set, get) => ({
 
   toggleBuilder: () => set(s => ({ builderOpen: !s.builderOpen })),
 
+  setSectionOrder: (order) => set({ sectionOrder: order }),
+  setSectionVisibility: (vis) => set({ sectionVisibility: vis }),
   resetLayout: () =>
     set({
       sectionOrder: [...DEFAULT_SECTION_ORDER],

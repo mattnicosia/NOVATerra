@@ -20,6 +20,7 @@ import SendProposalModal from '@/components/reports/SendProposalModal';
 import ProposalShareModal from '@/components/proposal/ProposalShareModal';
 import { exportEstimateXlsx } from '@/utils/exportXlsx';
 import { buildProposalStyles, loadProposalFont } from '@/constants/proposalStyles';
+import { PROPOSAL_SECTIONS } from '@/constants/proposalSections';
 
 export default function ReportsPage() {
   const C = useTheme();
@@ -527,13 +528,20 @@ export default function ReportsPage() {
         {reportType === "proposal" && (() => {
           const proposalData = { project, masterData, companyInfo, totals, usedDivisions, divTotals, alternates, exclusions, clarifications, allowanceItems, allowanceGrandTotal, generateAllowanceNote, activeEstimateId, items, T, C };
           const conditionalEmpty = {
+            heroImage: !heroImage,
             alternates: alternates.length === 0,
             exclusions: exclusions.length === 0,
             allowances: allowanceItems.length === 0,
             clarifications: clarifications.length === 0,
           };
-          const visibleSections = sectionOrder
-            .filter(id => sectionVisibility[id])
+          // Ensure new sections appear even if user's persisted order is stale
+          const knownIds = new Set(sectionOrder);
+          const fullOrder = [...sectionOrder];
+          for (const s of PROPOSAL_SECTIONS) {
+            if (!knownIds.has(s.id)) fullOrder.push(s.id);
+          }
+          const visibleSections = fullOrder
+            .filter(id => sectionVisibility[id] !== false)
             .filter(id => !conditionalEmpty[id]);
           let sectionCounter = 0;
           const NUMBERED_SECTIONS = new Set(["scope", "baseBid", "sov", "alternates", "exclusions", "allowances", "clarifications", "qualifications", "acceptance"]);
@@ -557,12 +565,7 @@ export default function ReportsPage() {
                   {proposalDesign.showAccentBar && (
                     <div style={PS.section.accentBar} />
                   )}
-                  {/* Hero image */}
-                  {heroImage && (
-                    <div style={{ marginBottom: 16, borderRadius: 8, overflow: "hidden" }}>
-                      <img src={heroImage} alt="" style={{ width: "100%", height: 280, objectFit: "cover", display: "block" }} />
-                    </div>
-                  )}
+                  {/* Hero image now renders as a reorderable section via HeroImage component */}
                   {visibleSections.map((id, visIdx) => {
                     // Track section number — only increment for sections that display a numbered header
                     const isSpecial = id.startsWith("pageBreak_") || id.startsWith("spacer_") || id.startsWith("doc_");

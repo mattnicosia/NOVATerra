@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useReportsStore } from '@/stores/reportsStore';
-import { PROPOSAL_SECTIONS, getSpecialSectionMeta } from '@/constants/proposalSections';
+import { PROPOSAL_SECTIONS, getSpecialSectionMeta, DEFAULT_SECTION_ORDER, DEFAULT_SECTION_VISIBILITY, MONOGRAPH_SECTION_VISIBILITY } from '@/constants/proposalSections';
+import { PROPOSAL_LAYOUTS, MONOGRAPH_SECTION_ORDER, loadMonographFonts } from '@/constants/proposalStyles';
 import { useDragReorder } from '@/hooks/useDragReorder';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -30,12 +31,36 @@ export default function ProposalBuilder({ conditionalEmpty }) {
   const removeUploadedDocument = useReportsStore(s => s.removeUploadedDocument);
   const uploadedDocuments = useReportsStore(s => s.uploadedDocuments);
 
+  const proposalDesign = useReportsStore(s => s.proposalDesign);
+  const setDesign = useReportsStore(s => s.setProposalDesign);
+  const setSectionOrder = useReportsStore(s => s.setSectionOrder);
+  const setSectionVisibility = useReportsStore(s => s.setSectionVisibility);
+
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [loadModalOpen, setLoadModalOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [activeTab, setActiveTab] = useState("sections"); // "sections" | "design"
 
+  const currentLayout = proposalDesign?.layout || "default";
+
+  const handleLayoutSwitch = (layoutId) => {
+    setDesign("layout", layoutId);
+    if (layoutId === "monograph") {
+      loadMonographFonts();
+      setSectionOrder([...MONOGRAPH_SECTION_ORDER]);
+      setSectionVisibility({ ...MONOGRAPH_SECTION_VISIBILITY });
+    } else {
+      setSectionOrder([...DEFAULT_SECTION_ORDER]);
+      setSectionVisibility({ ...DEFAULT_SECTION_VISIBILITY });
+    }
+  };
+
   const { listRef, onPointerDown, onPointerMove, onPointerUp } = useDragReorder(reorderSection);
+
+  // Ensure new sections appear in sidebar even if persisted order is stale
+  const knownInOrder = new Set(sectionOrder);
+  const missingSections = PROPOSAL_SECTIONS.filter(s => !knownInOrder.has(s.id)).map(s => s.id);
+  const displayOrder = missingSections.length > 0 ? [...sectionOrder, ...missingSections] : sectionOrder;
 
   const standardMeta = Object.fromEntries(PROPOSAL_SECTIONS.map(s => [s.id, s]));
   const getMeta = (id) => {
@@ -94,6 +119,31 @@ export default function ProposalBuilder({ conditionalEmpty }) {
             <Ic d={I.chevron} size={14} color={C.textDim} />
           </button>
         </div>
+        {/* Layout mode toggle — prominent, always visible */}
+        <div style={{ display: "flex", gap: 6, padding: `8px ${T.space[4]}px 10px`, borderBottom: `1px solid ${C.border}` }}>
+          {PROPOSAL_LAYOUTS.map(l => {
+            const active = currentLayout === l.id;
+            return (
+              <button
+                key={l.id}
+                onClick={() => handleLayoutSwitch(l.id)}
+                style={{
+                  flex: 1, padding: "10px 6px", border: "none", cursor: "pointer",
+                  borderRadius: T.radius.sm,
+                  background: active ? C.accent : C.bg2,
+                  color: active ? "#fff" : C.textDim,
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+                  transition: "all 150ms ease",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                }}
+              >
+                <span>{l.label}</span>
+                <span style={{ fontSize: 8, fontWeight: 400, opacity: 0.8 }}>{l.description}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Tab bar */}
         <div style={{ display: "flex", padding: `0 ${T.space[4]}px`, gap: T.space[1] }}>
           {[
@@ -137,7 +187,7 @@ export default function ProposalBuilder({ conditionalEmpty }) {
 
       {/* Draggable section list */}
       <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: `${T.space[2]}px 0` }}>
-        {sectionOrder.map((id, idx) => {
+        {displayOrder.map((id, idx) => {
           const meta = getMeta(id);
           if (!meta) return null;
           const visible = sectionVisibility[id];

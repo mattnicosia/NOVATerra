@@ -127,7 +127,7 @@
       "maxDuration": 15
     },
     "api/generate-rendering.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     }
   },
   "rewrites": [

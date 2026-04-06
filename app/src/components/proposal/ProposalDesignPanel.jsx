@@ -119,7 +119,9 @@ export default function ProposalDesignPanel() {
           projectName: project?.projectName || project?.name || "",
         }),
       });
-      const json = await res.json();
+      const text = await res.text();
+      let json;
+      try { json = JSON.parse(text); } catch { throw new Error(text.slice(0, 200) || "Rendering failed — invalid response"); }
       if (!res.ok) throw new Error(json.error || "Rendering failed");
       setHeroImage(json.image);
     } catch (err) {
@@ -235,6 +237,31 @@ export default function ProposalDesignPanel() {
           >
             Upload Custom Image
           </button>
+        </div>
+      )}
+
+      {/* ── 3D Cost Visualization ── */}
+      <div style={sectionLabel}>Cost Visualization</div>
+      {design.costSnapshot ? (
+        <div style={{ position: "relative", borderRadius: T.radius.sm, overflow: "hidden", marginBottom: 4 }}>
+          <img src={design.costSnapshot} alt="3D cost visualization" style={{ width: "100%", height: 100, objectFit: "cover", display: "block", borderRadius: T.radius.sm }} />
+          <button
+            onClick={() => setDesign("costSnapshot", null)}
+            style={{
+              position: "absolute", top: 4, right: 4,
+              width: 20, height: 20, borderRadius: 10,
+              background: "rgba(0,0,0,0.6)", border: "none",
+              color: "#fff", fontSize: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              lineHeight: 1,
+            }}
+          >
+            x
+          </button>
+        </div>
+      ) : (
+        <div style={{ fontSize: 9, color: C.textDim, marginBottom: 4 }}>
+          Add a 3D cost intensity map to your proposal. Shows building elements colored by cost.
         </div>
       )}
 

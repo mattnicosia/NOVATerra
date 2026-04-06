@@ -9,6 +9,103 @@ import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdiv
 import { computeSubdivisionBreakdown } from "@/utils/confidenceEngine";
 import { generateAllSubdivisions } from "@/utils/subdivisionAI";
 
+// ─── ROM Cache — fingerprint-based deduplication ─────────────────────
+// Same project params → same ROM result. Saves computation + API costs.
+// Two layers: in-memory (instant) + localStorage (survives page reload).
+const _romCache = new Map();
+const ROM_CACHE_MAX = 50;
+const LS_CACHE_KEY = "nova-rom-cache";
+const ROM_CACHE_TTL = 24 * 3600_000; // 24 hours
+
+// Hydrate in-memory cache from localStorage on module load
+try {
+  const stored = localStorage.getItem(LS_CACHE_KEY);
+  if (stored) {
+    const entries = JSON.parse(stored);
+    const now = Date.now();
+    for (const [fp, entry] of Object.entries(entries)) {
+      if (now - entry.ts < ROM_CACHE_TTL) _romCache.set(fp, entry);
+    }
+    if (_romCache.size > 0) console.log(`[romEngine] Restored ${_romCache.size} cached ROM(s) from localStorage`);
+  }
+} catch { /* ignore */ }
+
+/** Persist in-memory cache to localStorage */
+function _persistCache() {
+  try {
+    const obj = {};
+    for (const [fp, entry] of _romCache) obj[fp] = entry;
+    localStorage.setItem(LS_CACHE_KEY, JSON.stringify(obj));
+  } catch { /* ignore — quota exceeded etc */ }
+}
+
+/**
+ * Generate a deterministic fingerprint from ROM input parameters.
+ * Same inputs always produce the same hash string.
+ */
+export function romFingerprint(projectSF, buildingType, workType, buildingParams = {}) {
+  const parts = [
+    Math.round(parseFloat(projectSF) || 0),
+    (buildingType || "commercial-office").toLowerCase(),
+    (workType || "").toLowerCase(),
+    (buildingParams?.laborType || "open-shop").toLowerCase(),
+    (buildingParams?.location || "").toLowerCase().trim(),
+    (buildingParams?.stories || "").toString(),
+    (buildingParams?.quality || "").toString(),
+    (buildingParams?.complexity || "").toString(),
+    (buildingParams?.condition || "").toString(),
+  ];
+  return parts.join("|");
+}
+
+/**
+ * Check ROM cache for a matching fingerprint.
+ * Returns cached result or null.
+ */
+export function getCachedROM(fingerprint) {
+  const entry = _romCache.get(fingerprint);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > ROM_CACHE_TTL) {
+    _romCache.delete(fingerprint);
+    return null;
+  }
+  console.log(`[romEngine] Cache HIT: ${fingerprint.slice(0, 50)}...`);
+  return { ...entry.result, cached: true, cacheKey: fingerprint };
+}
+
+/**
+ * Store a ROM result in the cache (memory + localStorage).
+ */
+export function setCachedROM(fingerprint, result) {
+  // Evict oldest if at capacity
+  if (_romCache.size >= ROM_CACHE_MAX) {
+    const oldest = _romCache.keys().next().value;
+    _romCache.delete(oldest);
+  }
+  _romCache.set(fingerprint, { result, ts: Date.now() });
+  _persistCache();
+}
+
+/**
+ * Get all cached ROM entries (for display/analytics).
+ */
+export function getAllCachedROMs() {
+  const now = Date.now();
+  const results = [];
+  for (const [fp, entry] of _romCache) {
+    if (now - entry.ts < ROM_CACHE_TTL) {
+      results.push({ fingerprint: fp, ...entry.result, cachedAt: new Date(entry.ts).toISOString() });
+    }
+  }
+  return results;
+}
+
+/** Clear all cached ROMs */
+export function clearROMCache() {
+  _romCache.clear();
+  try { localStorage.removeItem(LS_CACHE_KEY); } catch { /* ignore */ }
+}
+
 // ─── Benchmark Sample Counts — how many real proposals calibrate each type ──
 // Source: 85 curated (Montana + Violante + Dropbox) + 75 batch-extracted (160 GC PDFs)
 // Total: 160 proposals — recalibrated April 2026
@@ -380,6 +477,11 @@ export function getBuildingParamMultipliers(buildingParams = {}) {
 // buildingParams can include: { laborType, location, floorCount, ... }
 // Backward compat: (projectSF, jobType, calibrationFactors) still works
 export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOrCalib, maybeCalib, buildingParams) {
+  // Check cache first
+  const fp = romFingerprint(projectSF, buildingTypeOrJobType, workTypeOrCalib, buildingParams);
+  const cached = getCachedROM(fp);
+  if (cached) return cached;
+
   // Detect old 3-arg signature vs new 4-arg
   let buildingType, workType, calibrationFactors;
   if (typeof workTypeOrCalib === "string") {
@@ -462,7 +564,7 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     totalHigh += sf * high;
   });
 
-  return {
+  const result = {
     projectSF: sf,
     sfMissing: sf === 0,
     jobType: buildingType || "commercial-office",
@@ -470,13 +572,11 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     workType: workType || "",
     laborType: params.laborType || "open-shop",
     location: params.location || "",
-    // Multipliers (for display in the deliverable)
     workMultiplier,
     laborMultiplier,
     marketMultiplier,
     combinedMultiplier,
     marketRegion: marketRegion ? { key: marketRegion.key, label: marketRegion.label, multiplier: marketRegion.multiplier } : null,
-    // Divisions + totals
     divisions,
     totals: {
       low: Math.round(totalLow),
@@ -488,18 +588,21 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
       mid: sf > 0 ? Math.round((totalMid / sf) * 100) / 100 : 0,
       high: sf > 0 ? Math.round((totalHigh / sf) * 100) / 100 : 0,
     },
-    // Calibration info
     calibrated: Object.keys(calibrationFactors).length > 0,
     calibrationCount: Object.keys(calibrationFactors).length,
     buildingParamAdjusted: Object.keys(bpMults).length > 0,
     buildingParamMultipliers: bpMults,
-    // Adjustment summary (for the deliverable)
     adjustments: [
       workMultiplier !== 1.0 ? { label: `Work type: ${workType}`, multiplier: workMultiplier } : null,
       laborMultiplier !== 1.0 ? { label: `Labor: ${params.laborType}`, multiplier: laborMultiplier } : null,
       marketMultiplier !== 1.0 ? { label: `Market: ${marketRegion?.label || params.location}`, multiplier: marketMultiplier } : null,
     ].filter(Boolean),
+    fingerprint: fp,
   };
+
+  // Cache for identical future queries
+  setCachedROM(fp, result);
+  return result;
 }
 
 // ─── AI SF Estimation ─────────────────────────────────────────────────
@@ -1348,8 +1451,14 @@ export async function generateSubdivisionROM({
   }
 
   // Step 2: For each division, compute subdivision breakdowns
+  // Only fall back to DEFAULT_SUBDIVISIONS for commercial building types.
+  // Residential projects should NOT get commercial defaults (Lockers, Visual Display, etc.)
+  const RESIDENTIAL_TYPES = new Set(["residential-single", "residential-multi"]);
+  const useDefaults = !RESIDENTIAL_TYPES.has(bt);
+
   Object.entries(baselineRom.divisions).forEach(([divCode, divData]) => {
-    const baselineSubs = benchmarkSubs[divCode] || DEFAULT_SUBDIVISIONS[divCode];
+    const typeSpecific = benchmarkSubs[divCode];
+    const baselineSubs = typeSpecific || (useDefaults ? DEFAULT_SUBDIVISIONS[divCode] : null);
     if (!baselineSubs || !baselineSubs.length) return;
 
     const result = computeSubdivisionBreakdown({

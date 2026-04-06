@@ -15,19 +15,28 @@ import Closing from './sections/Closing';
 import Signature from './sections/Signature';
 import Acceptance from './sections/Acceptance';
 import ScheduleOfValues from './sections/ScheduleOfValues';
+import ProjectVision from './sections/ProjectVision';
+import SiteContext from './sections/SiteContext';
+import DesignNarrative from './sections/DesignNarrative';
+import CostVisualization3D from './sections/CostVisualization3D';
+import HeroImage from './sections/HeroImage';
 import PageBreak from './sections/PageBreak';
 import Spacer from './sections/Spacer';
 import UploadedDocumentSection from './UploadedDocumentSection';
 import CostTreemap from './CostTreemap';
 
 const SECTION_MAP = {
+  heroImage: HeroImage,
   coverLetter: CoverLetterSection,
   letterhead: Letterhead,
   recipient: Recipient,
   greeting: Greeting,
   intro: IntroParagraph,
+  projectVision: ProjectVision,
+  siteContext: SiteContext,
   scope: ScopeOfWork,
   baseBid: BaseBid,
+  designNarrative: DesignNarrative,
   alternates: Alternates,
   exclusions: Exclusions,
   allowances: Allowances,
@@ -37,6 +46,7 @@ const SECTION_MAP = {
   signature: Signature,
   acceptance: Acceptance,
   sov: ScheduleOfValues,
+  costVisualization3D: CostVisualization3D,
 };
 
 export default function ProposalSection({ sectionId, data, proposalStyles, sectionNumber }) {
