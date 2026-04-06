@@ -493,7 +493,7 @@ export const pullEstimatesIndex = async () => {
     const scope = getScope();
     let query = supabase
       .from("user_estimates")
-      .select("estimate_id, user_id, org_id, project_name, status, client, bid_due, grand_total, building_type, work_type, project_sf, estimate_number, visibility, assigned_to, last_modified, deleted_at")
+      .select("estimate_id, user_id, org_id, project_name, status, client, bid_due, grand_total, building_type, work_type, project_sf, estimate_number, visibility, assigned_to, last_modified, deleted_at, draft")
       .is("deleted_at", null);
 
     if (scope?.org_id) {
@@ -528,6 +528,7 @@ export const pullEstimatesIndex = async () => {
       divisionTotals: {}, outcomeMetadata: {}, startDate: "", estimatedHours: 0,
       elementCount: 0, companyProfileId: "", ownerId: row.user_id, orgId: row.org_id,
       correspondenceCount: 0, correspondencePendingCount: 0,
+      draft: !!row.draft,
     }));
   } catch (err) {
     console.warn("[cloudSync] pullEstimatesIndex() failed:", err.message || err);

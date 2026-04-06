@@ -367,24 +367,46 @@ export default function ProjectsWidget() {
                     </button>
                   )}
                   {!(isHovered || menuState?.id === proj.id) && (
-                    <span
-                      style={{
-                        fontSize: 8,
-                        fontWeight: 500,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        fontFamily: font,
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        flexShrink: 0,
-                        marginLeft: 6,
-                        color: C.textMuted,
-                        background: ov(0.05),
-                        border: `1px solid ${C.borderLight}`,
-                      }}
-                    >
-                      {proj.statusLabel}
-                    </span>
+                    <>
+                      {proj.isDraft && (
+                        <span
+                          style={{
+                            fontSize: 7,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            fontFamily: font,
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            flexShrink: 0,
+                            marginLeft: 6,
+                            color: "#F59E0B",
+                            background: "rgba(245,158,11,0.12)",
+                            border: "1px solid rgba(245,158,11,0.25)",
+                          }}
+                        >
+                          DRAFT
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          fontSize: 8,
+                          fontWeight: 500,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          fontFamily: font,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          flexShrink: 0,
+                          marginLeft: 6,
+                          color: C.textMuted,
+                          background: ov(0.05),
+                          border: `1px solid ${C.borderLight}`,
+                        }}
+                      >
+                        {proj.statusLabel}
+                      </span>
+                    </>
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

@@ -153,6 +153,12 @@ export default async function handler(req, res) {
             .insert({
               user_id: rfp.user_id,
               estimate_id: draftEstimateId,
+              draft: true,
+              project_name: parsedData.projectName || rfp.subject || "Imported RFP",
+              status: "Bidding",
+              client: parsedData.client?.company || "",
+              bid_due: parsedData.bidDue || null,
+              building_type: parsedData.jobType || "",
               data: {
                 ...estimateData,
                 id: draftEstimateId,

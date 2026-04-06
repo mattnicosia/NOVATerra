@@ -145,6 +145,7 @@ export function useDashboardData() {
         value: nn(e.grandTotal),
         status: statusToDisplay(e.status),
         statusLabel: e.status || "Draft",
+        isDraft: !!e.draft,
       })),
     [sortedEstimates],
   );

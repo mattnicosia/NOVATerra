@@ -141,6 +141,17 @@ export const pushEstimate = async (estimateId, data) => {
         p_assigned_to: assignedTo || null,
       });
       if (error) throw error;
+
+      // Clear draft flag on first real save (auto-drafts become active estimates)
+      if (cleanData?.draft) {
+        try {
+          await supabase
+            .from("user_estimates")
+            .update({ draft: false })
+            .eq("estimate_id", estimateId)
+            .eq("user_id", userId);
+        } catch { /* non-critical */ }
+      }
     });
     markSynced();
   } catch (err) {
