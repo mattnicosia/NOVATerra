@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -556,8 +557,8 @@ export default function TakeoffRow({
               ···
             </button>
           </div>
-          {/* Floating action menu */}
-          {actionMenuId === to.id && (
+          {/* Floating action menu — portal to body to escape transform clipping */}
+          {actionMenuId === to.id && createPortal(
             <div
               ref={actionMenuRef}
               style={{
@@ -790,14 +791,15 @@ export default function TakeoffRow({
                     : "Delete"}
                 </span>
               </button>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
         {/* Color/stroke/fill popup — triggered by color dot button */}
         {colorPopup && (() => {
           const btnRect = colorBtnRef.current?.getBoundingClientRect();
           if (!btnRect) return null;
-          return (
+          return createPortal(
             <div
               style={{
                 position: "fixed",
@@ -855,7 +857,8 @@ export default function TakeoffRow({
                 <input type="range" min="5" max="100" step="5" value={to.fillOpacity ?? 20} onChange={e => updateTakeoff(to.id, "fillOpacity", Number(e.target.value))} style={{ flex: 1, height: 3, accentColor: to.color, cursor: "pointer" }} />
                 <span style={{ fontSize: 9, color: C.text, fontFamily: T.font.mono || T.font.sans, minWidth: 22, textAlign: "right" }}>{to.fillOpacity ?? 20}%</span>
               </div>
-            </div>
+            </div>,
+            document.body,
           );
         })()}
         {/* Inline cost edit popover */}
