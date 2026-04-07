@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useUndoStore } from '@/stores/undoStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useNovaStore } from '@/stores/novaStore';
+import { useDrawingPipelineStore } from '@/stores/drawingPipelineStore';
 
 export function useKeyboardShortcuts() {
   useEffect(() => {
@@ -38,9 +39,33 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // ── Cmd+Z — Undo ──
+      // ── Cmd+Z — Undo (takeoff-aware) ──
       if (isMod && !e.shiftKey && e.key === 'z') {
         e.preventDefault();
+        // If on Takeoffs page with active/selected takeoff, undo last measurement
+        const dps = useDrawingPipelineStore.getState();
+        const tkId = dps.tkActiveTakeoffId || dps.tkSelectedTakeoffId;
+        if (tkId && window.location.pathname.includes('takeoff')) {
+          const to = dps.takeoffs.find(t => t.id === tkId);
+          if (to && (to.measurements || []).length > 0) {
+            const ms = to.measurements;
+            const removed = ms[ms.length - 1];
+            dps.setTakeoffs(
+              dps.takeoffs.map(t =>
+                t.id === tkId ? { ...t, measurements: ms.slice(0, -1) } : t
+              )
+            );
+            useNovaStore.getState().notify(`Undo: removed last ${removed?.type || 'measurement'}`, 'info');
+            return;
+          }
+          // If measuring with active points, pop the last point
+          if (dps.tkMeasureState === 'measuring' && (dps.tkActivePoints || []).length > 0) {
+            dps.setTkActivePoints(dps.tkActivePoints.slice(0, -1));
+            useNovaStore.getState().notify('Undo: removed last point', 'info');
+            return;
+          }
+        }
+        // Fall through to estimate-level undo
         const action = useUndoStore.getState().undo();
         if (action) {
           useNovaStore.getState().notify(`Undo: ${action}`, 'info');
