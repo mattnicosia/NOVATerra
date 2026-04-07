@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
+import lazyRetry from "@/utils/lazyRetry";
 import { Routes, Route, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { usePersistenceLoad, loadEstimate } from "@/hooks/usePersistence";
@@ -69,49 +70,50 @@ const BuildingViewer = lazy(() => import("@/components/building-viewer/index"));
 const CommandTable = lazy(() => import("@/components/building-viewer/CommandTable"));
 
 // ── Lazy-loaded pages — each becomes its own chunk, loaded on navigation ──
-const DashboardPage = lazy(() => import("@/pages/NovaDashboardPage"));
-const ProjectInfoPage = lazy(() => import("@/pages/ProjectInfoPage"));
-const PlanRoomPage = lazy(() => import("@/pages/PlanRoomPage"));
-const TakeoffsPage = lazy(() => import("@/pages/TakeoffsPage"));
-const AlternatesPage = lazy(() => import("@/pages/AlternatesPage"));
-const ScheduleOfValuesPage = lazy(() => import("@/pages/ScheduleOfValuesPage"));
-const ReviewPage = lazy(() => import("@/pages/ReviewPage"));
-const DocumentsPage = lazy(() => import("@/pages/DocumentsPage"));
+// Uses lazyRetry to handle stale chunk hashes after Vercel deploys
+const DashboardPage = lazyRetry(() => import("@/pages/NovaDashboardPage"));
+const ProjectInfoPage = lazyRetry(() => import("@/pages/ProjectInfoPage"));
+const PlanRoomPage = lazyRetry(() => import("@/pages/PlanRoomPage"));
+const TakeoffsPage = lazyRetry(() => import("@/pages/TakeoffsPage"));
+const AlternatesPage = lazyRetry(() => import("@/pages/AlternatesPage"));
+const ScheduleOfValuesPage = lazyRetry(() => import("@/pages/ScheduleOfValuesPage"));
+const ReviewPage = lazyRetry(() => import("@/pages/ReviewPage"));
+const DocumentsPage = lazyRetry(() => import("@/pages/DocumentsPage"));
 // CostDatabasePage now embedded inside CorePage — lazy import removed
-const AssembliesPage = lazy(() => import("@/pages/AssembliesPage"));
-const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
-const ContactsPage = lazy(() => import("@/pages/ContactsPage"));
-const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const InboxPage = lazy(() => import("@/pages/InboxPage"));
-const InsightsPage = lazy(() => import("@/pages/InsightsPage"));
-const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
-const CorePage = lazy(() => import("@/pages/CorePage"));
-const BidPackagesPage = lazy(() => import("@/pages/BidPackagesPage"));
-const BusinessDashboardPage = lazy(() => import("@/pages/BusinessDashboardPage"));
-const PortalPage = lazy(() => import("@/pages/PortalPage"));
-const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
-const ResourcePage = lazy(() => import("@/pages/ResourcePage"));
+const AssembliesPage = lazyRetry(() => import("@/pages/AssembliesPage"));
+const ReportsPage = lazyRetry(() => import("@/pages/ReportsPage"));
+const ContactsPage = lazyRetry(() => import("@/pages/ContactsPage"));
+const SettingsPage = lazyRetry(() => import("@/pages/SettingsPage"));
+const InboxPage = lazyRetry(() => import("@/pages/InboxPage"));
+const InsightsPage = lazyRetry(() => import("@/pages/InsightsPage"));
+const ProjectsPage = lazyRetry(() => import("@/pages/ProjectsPage"));
+const CorePage = lazyRetry(() => import("@/pages/CorePage"));
+const BidPackagesPage = lazyRetry(() => import("@/pages/BidPackagesPage"));
+const BusinessDashboardPage = lazyRetry(() => import("@/pages/BusinessDashboardPage"));
+const PortalPage = lazyRetry(() => import("@/pages/PortalPage"));
+const SubDashboardPage = lazyRetry(() => import("@/pages/SubDashboardPage"));
+const ResourcePage = lazyRetry(() => import("@/pages/ResourcePage"));
 
 // BLDG Talent + ROM pages (lazy-loaded, role-gated — existing users never download these)
-const RomPage = lazy(() => import("@/pages/RomPage"));
-const BTRegisterPage = lazy(() => import("@/pages/talent/BTRegisterPage"));
-const BTLoginPage = lazy(() => import("@/pages/talent/BTLoginPage"));
-const CandidateLayout = lazy(() => import("@/components/talent/layout/CandidateLayout"));
-const BTAdminLayout = lazy(() => import("@/components/talent/layout/BTAdminLayout"));
+const RomPage = lazyRetry(() => import("@/pages/RomPage"));
+const BTRegisterPage = lazyRetry(() => import("@/pages/talent/BTRegisterPage"));
+const BTLoginPage = lazyRetry(() => import("@/pages/talent/BTLoginPage"));
+const CandidateLayout = lazyRetry(() => import("@/components/talent/layout/CandidateLayout"));
+const BTAdminLayout = lazyRetry(() => import("@/components/talent/layout/BTAdminLayout"));
 
 // Admin pages (lazy-loaded, only accessed by admin users)
-const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
-const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
-const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
-const AdminUserDetail = lazy(() => import("@/pages/admin/AdminUserDetail"));
-const AdminEstimatesPage = lazy(() => import("@/pages/admin/AdminEstimatesPage"));
-const AdminEstimateDetail = lazy(() => import("@/pages/admin/AdminEstimateDetail"));
-const AdminEmbeddingsPage = lazy(() => import("@/pages/admin/AdminEmbeddingsPage"));
-const AdminNovaPage = lazy(() => import("@/pages/admin/AdminNovaPage"));
-const AdminUnitRatesPage = lazy(() => import("@/pages/admin/AdminUnitRatesPage"));
-const AdminFeedbackPage = lazy(() => import("@/pages/admin/AdminFeedbackPage"));
-const AdminInvitesPage = lazy(() => import("@/pages/admin/AdminInvitesPage"));
-const AdminAIConfigPage = lazy(() => import("@/pages/admin/AdminAIConfigPage"));
+const AdminLayout = lazyRetry(() => import("@/pages/admin/AdminLayout"));
+const AdminDashboard = lazyRetry(() => import("@/pages/admin/AdminDashboard"));
+const AdminUsersPage = lazyRetry(() => import("@/pages/admin/AdminUsersPage"));
+const AdminUserDetail = lazyRetry(() => import("@/pages/admin/AdminUserDetail"));
+const AdminEstimatesPage = lazyRetry(() => import("@/pages/admin/AdminEstimatesPage"));
+const AdminEstimateDetail = lazyRetry(() => import("@/pages/admin/AdminEstimateDetail"));
+const AdminEmbeddingsPage = lazyRetry(() => import("@/pages/admin/AdminEmbeddingsPage"));
+const AdminNovaPage = lazyRetry(() => import("@/pages/admin/AdminNovaPage"));
+const AdminUnitRatesPage = lazyRetry(() => import("@/pages/admin/AdminUnitRatesPage"));
+const AdminFeedbackPage = lazyRetry(() => import("@/pages/admin/AdminFeedbackPage"));
+const AdminInvitesPage = lazyRetry(() => import("@/pages/admin/AdminInvitesPage"));
+const AdminAIConfigPage = lazyRetry(() => import("@/pages/admin/AdminAIConfigPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {

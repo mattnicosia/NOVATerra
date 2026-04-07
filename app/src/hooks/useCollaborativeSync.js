@@ -357,7 +357,7 @@ export function useCollaborativeSync() {
     // ── Persist CRDT state periodically (for offline recovery) ──
     const persistInterval = setInterval(() => {
       const crdtData = serialize();
-      storage.setItem(`bldg-crdt-${activeEstimateId}`, JSON.stringify(crdtData)).catch(() => {});
+      storage.set(`bldg-crdt-${activeEstimateId}`, JSON.stringify(crdtData)).catch(() => {});
     }, 30_000); // every 30s
 
     // ── Cleanup ──
@@ -368,7 +368,7 @@ export function useCollaborativeSync() {
 
       // Persist final state before leaving
       const crdtData = serialize();
-      storage.setItem(`bldg-crdt-${activeEstimateId}`, JSON.stringify(crdtData)).catch(() => {});
+      storage.set(`bldg-crdt-${activeEstimateId}`, JSON.stringify(crdtData)).catch(() => {});
 
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);

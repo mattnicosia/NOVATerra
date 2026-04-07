@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect, Suspense } from "react";
+import lazyRetry from "@/utils/lazyRetry";
 import { useTheme } from "@/hooks/useTheme";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -25,8 +26,8 @@ import TakeoffRow from "@/components/takeoffs/TakeoffRow";
 import { TO_COLORS } from "@/utils/takeoffHelpers";
 import { detectDuplicates, isDismissed, dismissDuplicate } from "@/utils/duplicateDetector";
 
-const EstimatePanelView = lazy(() => import("@/components/estimate/EstimatePanelView"));
-const DiscoveryPanel = lazy(() => import("@/components/discovery/DiscoveryPanel"));
+const EstimatePanelView = lazyRetry(() => import("@/components/estimate/EstimatePanelView"));
+const DiscoveryPanel = lazyRetry(() => import("@/components/discovery/DiscoveryPanel"));
 
 const RAIL_W = 36;
 

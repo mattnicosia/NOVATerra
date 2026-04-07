@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -58,8 +59,16 @@ export default function TakeoffRow({
   setTkTool,
   setTkActivePoints,
 }) {
+  const rowRef = useRef(null);
   const isActive = tkActiveTakeoffId === to.id;
   const isSelected = tkSelectedTakeoffId === to.id || isActive;
+
+  // Scroll row into view when selected from canvas click
+  useEffect(() => {
+    if (isSelected && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [isSelected]);
   const isMeasuring =
     isActive && (tkMeasureState === "measuring" || tkMeasureState === "paused");
   const isPaused = isActive && tkMeasureState === "paused";
@@ -89,7 +98,7 @@ export default function TakeoffRow({
     cursor: "pointer",
   };
   return (
-    <div data-takeoff-id={to.id}>
+    <div data-takeoff-id={to.id} ref={rowRef}>
       <div
         className={`row${to._aiCosts ? " nova-priced" : ""}${isSelected ? " row-selected" : ""}${isMeasuring ? " row-measuring" : ""}`}
         draggable
