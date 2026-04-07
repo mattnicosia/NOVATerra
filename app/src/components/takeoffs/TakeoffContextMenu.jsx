@@ -198,6 +198,23 @@ export default function TakeoffContextMenu({
               Undo
             </div>
 
+            {/* Delete specific measurement (right-clicked on a measurement line) */}
+            {tkContextMenu.hitMeasurement && (
+              <div
+                className="nav-item"
+                onClick={() => {
+                  const { takeoffId, measurementId } = tkContextMenu.hitMeasurement;
+                  useDrawingPipelineStore.getState().removeMeasurement(takeoffId, measurementId);
+                  useUiStore.getState().showToast("Measurement deleted", "info");
+                  setTkContextMenu(null);
+                }}
+                style={{ ...menuItemStyle(C.orange), fontWeight: 500 }}
+              >
+                {ctxIcon("M3 6h18 M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2", C.orange)}
+                Delete This Measurement
+              </div>
+            )}
+
             {/* Delete Selected Takeoff */}
             {selectedTo && (
               <div

@@ -59,7 +59,12 @@ export const useEstimatesStore = create((set, get) => ({
       for (const entry of next) {
         if (entry?.id) seen.set(entry.id, entry);
       }
-      return { estimatesIndex: [...seen.values()] };
+      const deduped = [...seen.values()];
+      if (deduped.length < next.length) {
+        console.error(`[setEstimatesIndex] DEDUP CAUGHT ${next.length - deduped.length} duplicate(s)!`);
+        console.trace("[setEstimatesIndex] Duplicate injection stack trace");
+      }
+      return { estimatesIndex: deduped };
     });
   },
   setActiveEstimateId: v => set({ activeEstimateId: v }),
@@ -756,23 +761,42 @@ export const useEstimatesStore = create((set, get) => ({
   },
 }));
 
-// ═══ ZOMBIE GUARD SUBSCRIBER ═══
-// Watches ALL writes to estimatesIndex — if a permanently-deleted ID appears,
-// immediately strips it. Defense-in-depth against any resurrection code path.
+// ═══ ZOMBIE + DEDUP GUARD SUBSCRIBER ═══
+// Watches ALL writes to estimatesIndex — catches zombies AND duplicates
+// from any code path (including raw setState that bypasses setEstimatesIndex).
 let _guardActive = false;
 useEstimatesStore.subscribe(state => {
   const index = state.estimatesIndex;
-  if (!Array.isArray(index)) return;
+  if (!Array.isArray(index) || _guardActive) return;
 
-  if (_guardActive || _deletedIds.size === 0) return;
-  const hasZombie = index.some(e => _deletedIds.has(e.id));
-  if (hasZombie) {
+  // Check for zombies
+  const hasZombie = _deletedIds.size > 0 && index.some(e => _deletedIds.has(e.id));
+
+  // Check for duplicates (any code path, including raw setState)
+  const idCounts = new Map();
+  for (const e of index) {
+    if (e?.id) idCounts.set(e.id, (idCounts.get(e.id) || 0) + 1);
+  }
+  const hasDup = [...idCounts.values()].some(c => c > 1);
+
+  if (hasZombie || hasDup) {
     _guardActive = true;
-    const zombieIds = index.filter(e => _deletedIds.has(e.id)).map(e => e.id);
-    const filtered = index.filter(e => !_deletedIds.has(e.id));
-    console.error(`[ZOMBIE GUARD] INTERCEPTED ${zombieIds.length} zombie(s): ${zombieIds.join(", ")}`);
-    console.trace("[ZOMBIE GUARD] Resurrection stack trace");
-    useEstimatesStore.setState({ estimatesIndex: filtered });
+    if (hasDup) {
+      const dupIds = [...idCounts.entries()].filter(([, c]) => c > 1).map(([id]) => id);
+      console.error(`[DEDUP GUARD] INTERCEPTED ${dupIds.length} duplicate ID(s): ${dupIds.join(", ")}`);
+      console.trace("[DEDUP GUARD] Duplicate injection stack trace");
+    }
+    if (hasZombie) {
+      const zombieIds = index.filter(e => _deletedIds.has(e.id)).map(e => e.id);
+      console.error(`[ZOMBIE GUARD] INTERCEPTED ${zombieIds.length} zombie(s): ${zombieIds.join(", ")}`);
+      console.trace("[ZOMBIE GUARD] Resurrection stack trace");
+    }
+    // Dedup by ID (last wins) + strip zombies in one pass
+    const seen = new Map();
+    for (const e of index) {
+      if (e?.id && !_deletedIds.has(e.id)) seen.set(e.id, e);
+    }
+    useEstimatesStore.setState({ estimatesIndex: [...seen.values()] });
     _guardActive = false;
   }
 });

@@ -72,7 +72,47 @@ export default function useTakeoffEffects({
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         if (e.button === 2 && !didMove) {
-          setTkContextMenu({ x: e.clientX, y: e.clientY });
+          // Hit-test measurements at right-click position
+          let hitMeasurement = null;
+          const canvas = canvasRef?.current;
+          if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const pt = { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+            const { takeoffs, selectedDrawingId: sheetId } = useDrawingPipelineStore.getState();
+            const zoomScale = Math.max(1, canvas.width / rect.width);
+            const countRadius = Math.max(30, 30 * zoomScale);
+            const lineRadius = Math.max(12, 15 * zoomScale);
+            outer: for (const to of takeoffs) {
+              for (const m of to.measurements || []) {
+                if (m.sheetId !== sheetId) continue;
+                if (m.type === "count") {
+                  const d = Math.sqrt((pt.x - m.points[0].x) ** 2 + (pt.y - m.points[0].y) ** 2);
+                  if (d < countRadius) { hitMeasurement = { takeoffId: to.id, measurementId: m.id, desc: to.description }; break outer; }
+                } else if (m.type === "linear" && m.points.length >= 2) {
+                  for (let i = 0; i < m.points.length - 1; i++) {
+                    const a = m.points[i], b = m.points[i + 1];
+                    const len = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+                    if (len < 1) continue;
+                    const t = Math.max(0, Math.min(1, ((pt.x - a.x) * (b.x - a.x) + (pt.y - a.y) * (b.y - a.y)) / (len * len)));
+                    const proj = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+                    const dist = Math.sqrt((pt.x - proj.x) ** 2 + (pt.y - proj.y) ** 2);
+                    if (dist < lineRadius) { hitMeasurement = { takeoffId: to.id, measurementId: m.id, desc: to.description }; break outer; }
+                  }
+                } else if (m.type === "area" && m.points.length >= 3) {
+                  let inside = false;
+                  const pts = m.points;
+                  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+                    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+                    if (yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi) inside = !inside;
+                  }
+                  if (inside) { hitMeasurement = { takeoffId: to.id, measurementId: m.id, desc: to.description }; break outer; }
+                }
+              }
+            }
+          }
+          setTkContextMenu({ x: e.clientX, y: e.clientY, hitMeasurement });
         }
       }
     };

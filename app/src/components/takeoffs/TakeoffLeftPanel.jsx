@@ -137,7 +137,9 @@ export default function TakeoffLeftPanel({
   const activeModule = useModuleStore(s => s.activeModule);
   const setActiveModule = useModuleStore(s => s.setActiveModule);
   // ─── Local state (only used within this panel) ─────────────────
-  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [collapsedGroups, setCollapsedGroups] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("bldg-collapsedGroups")) || {}; } catch { return {}; }
+  });
   const [costEditId, setCostEditId] = useState(null);
   const [actionMenuId, setActionMenuId] = useState(null);
   const [actionConfirm, setActionConfirm] = useState(null);
@@ -165,7 +167,11 @@ export default function TakeoffLeftPanel({
 
   const selectedDrawing = useMemo(() => drawings.find(d => d.id === selectedDrawingId), [drawings, selectedDrawingId]);
 
-  const toggleGroupCollapse = group => setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  const toggleGroupCollapse = group => setCollapsedGroups(prev => {
+    const next = { ...prev, [group]: !prev[group] };
+    try { sessionStorage.setItem("bldg-collapsedGroups", JSON.stringify(next)); } catch {}
+    return next;
+  });
 
   // Close action menu on outside click
   useEffect(() => {

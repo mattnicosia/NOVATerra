@@ -182,11 +182,17 @@ export default function TakeoffsPage() {
   const [tkPanelMode, _setTkPanelMode] = useState("open");
   useEffect(() => { sessionStorage.setItem("bldg-pageFilter", pageFilter); }, [pageFilter]);
 
-  // Restore/persist tkVisibility
+  // Restore/persist tkVisibility — fall back to "all" if "active" but no selection
   useEffect(() => {
     const savedVis = sessionStorage.getItem("bldg-tkVisibility");
     if (savedVis && ["all", "page", "active"].includes(savedVis)) {
-      useDrawingPipelineStore.getState().setTkVisibility(savedVis);
+      const s = useDrawingPipelineStore.getState();
+      // "active" mode requires a selected takeoff; reset to "all" if none
+      if (savedVis === "active" && !s.tkSelectedTakeoffId && !s.tkActiveTakeoffId) {
+        useDrawingPipelineStore.getState().setTkVisibility("all");
+      } else {
+        useDrawingPipelineStore.getState().setTkVisibility(savedVis);
+      }
     }
   }, []);
   useEffect(() => { sessionStorage.setItem("bldg-tkVisibility", tkVisibility); }, [tkVisibility]);

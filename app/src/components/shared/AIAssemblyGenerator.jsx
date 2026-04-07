@@ -25,6 +25,7 @@ When given a plain-English description of a construction assembly, generate a co
 
 RULES:
 - Each element must have: code (CSI format like "03.310"), desc (clear item name), unit (EA, SF, LF, CY, etc.), m (material cost per unit as a number), l (labor cost per unit as a number), e (equipment cost per unit as a number), factor (multiplier — usually 1, but can represent conversion factors like 8 SF per LF of wall height)
+- For elements typically provided by subcontractors as an all-in unit rate (painting, flooring, specialties, MEP rough-ins, etc.), also include "sub" (the subcontractor all-in unit rate as a number) and set "mode" to "sub". For self-perform items where M/L/E breakdown is standard, set "mode" to "mle" (or omit — defaults to mle).
 - Use realistic 2025-2026 US construction pricing
 - Include ALL necessary components — don't skip anything a real estimator would include
 - Use proper CSI division codes
@@ -37,9 +38,16 @@ RESPOND WITH ONLY valid JSON in this exact format (no markdown, no backticks, no
   "name": "Assembly Name (descriptive)",
   "description": "Brief one-line description with per-unit context",
   "elements": [
-    {"code":"XX.XXX","desc":"Item Name","unit":"UNIT","m":0.00,"l":0.00,"e":0.00,"factor":1}
+    {"code":"XX.XXX","desc":"Item Name","unit":"UNIT","m":0.00,"l":0.00,"e":0.00,"sub":0.00,"mode":"mle","factor":1}
   ]
 }`;
+
+// Compute element total based on mode
+const elTotal = el => {
+  const f = nn(el.factor || 1);
+  if (el.mode === "sub") return nn(el.sub) * f;
+  return (nn(el.m) + nn(el.l) + nn(el.e)) * f;
+};
 
 export default function AIAssemblyGenerator({ onClose }) {
   const C = useTheme();
@@ -80,6 +88,12 @@ export default function AIAssemblyGenerator({ onClose }) {
       }
       const parsed = JSON.parse(json);
       if (!parsed.name || !parsed.elements?.length) throw new Error("Invalid assembly format");
+      // Normalize elements — ensure mode defaults
+      parsed.elements = parsed.elements.map(el => ({
+        ...el,
+        mode: el.mode || "mle",
+        sub: nn(el.sub),
+      }));
       setResult(parsed);
       setStream("");
     } catch (err) {
@@ -121,6 +135,8 @@ export default function AIAssemblyGenerator({ onClose }) {
         m: nn(el.m),
         l: nn(el.l),
         e: nn(el.e),
+        sub: nn(el.sub),
+        mode: el.mode || "mle",
         factor: nn(el.factor) || 1,
       })),
     });
@@ -134,6 +150,25 @@ export default function AIAssemblyGenerator({ onClose }) {
     updated.elements = [...updated.elements];
     updated.elements[idx] = { ...updated.elements[idx], [field]: value };
     setResult(updated);
+  };
+
+  const toggleMode = idx => {
+    if (!result) return;
+    const el = result.elements[idx];
+    const newMode = el.mode === "sub" ? "mle" : "sub";
+    // When switching to sub and no sub rate set, default to M+L+E total
+    const updates = { mode: newMode };
+    if (newMode === "sub" && !nn(el.sub)) {
+      updates.sub = nn(el.m) + nn(el.l) + nn(el.e);
+    }
+    updateElement(idx, "mode", newMode);
+    if (updates.sub !== undefined) {
+      // Need to set sub separately since updateElement handles one field
+      const updated = { ...result };
+      updated.elements = [...updated.elements];
+      updated.elements[idx] = { ...updated.elements[idx], ...updates };
+      setResult(updated);
+    }
   };
 
   const removeElement = idx => {
@@ -154,8 +189,11 @@ export default function AIAssemblyGenerator({ onClose }) {
   };
 
   const totalPer = result
-    ? result.elements.reduce((s, el) => s + (nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor || 1), 0)
+    ? result.elements.reduce((s, el) => s + elTotal(el), 0)
     : 0;
+
+  // Column grid: Code | Desc | Unit | Mode | [M/L/E or Sub] | Factor | Total | Actions
+  const GRID_MLE = "70px 2fr 44px 36px 72px 72px 72px 50px 80px 28px";
 
   return (
     <div
@@ -176,7 +214,7 @@ export default function AIAssemblyGenerator({ onClose }) {
     >
       <div
         style={{
-          width: 720,
+          width: 780,
           maxHeight: "85vh",
           background: C.bg,
           borderRadius: T.radius.lg,
@@ -299,7 +337,9 @@ export default function AIAssemblyGenerator({ onClose }) {
                   style={{
                     ...bt(C),
                     background: prompt.trim()
-                      ? `linear-gradient(135deg, ${C.accent}, ${C.accentAlt || C.purple})`
+                      ? result
+                        ? C.accent
+                        : `linear-gradient(135deg, ${C.accent}, ${C.accentAlt || C.purple})`
                       : C.bg2,
                     color: prompt.trim() ? "#fff" : C.textDim,
                     padding: "10px 18px",
@@ -310,9 +350,11 @@ export default function AIAssemblyGenerator({ onClose }) {
                     border: "none",
                     cursor: prompt.trim() ? "pointer" : "not-allowed",
                     opacity: prompt.trim() ? 1 : 0.5,
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  <Ic d={I.ai} size={14} color={prompt.trim() ? "#fff" : C.textDim} /> Build with NOVA
+                  <Ic d={result ? I.refresh || I.ai : I.ai} size={14} color={prompt.trim() ? "#fff" : C.textDim} />{" "}
+                  {result ? "Regenerate" : "Build with NOVA"}
                 </button>
               )}
             </div>
@@ -497,7 +539,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "70px 2fr 44px 72px 72px 72px 50px 80px 28px",
+                    gridTemplateColumns: GRID_MLE,
                     gap: 4,
                     padding: "8px 12px",
                     borderBottom: `1px solid ${C.border}`,
@@ -511,6 +553,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                   <span>Code</span>
                   <span>Description</span>
                   <span>Unit</span>
+                  <span></span>
                   <span style={{ textAlign: "right" }}>Material</span>
                   <span style={{ textAlign: "right" }}>Labor</span>
                   <span style={{ textAlign: "right" }}>Equip</span>
@@ -520,14 +563,15 @@ export default function AIAssemblyGenerator({ onClose }) {
                 </div>
 
                 {result.elements.map((el, idx) => {
-                  const elTotal = (nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor || 1);
+                  const total = elTotal(el);
                   const isEditing = editingIdx === idx;
+                  const isSub = el.mode === "sub";
                   return (
                     <div
                       key={idx}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "70px 2fr 44px 72px 72px 72px 50px 80px 28px",
+                        gridTemplateColumns: GRID_MLE,
                         gap: 4,
                         padding: "5px 12px",
                         borderBottom: `1px solid ${C.bg}`,
@@ -554,24 +598,58 @@ export default function AIAssemblyGenerator({ onClose }) {
                             onChange={e => updateElement(idx, "unit", e.target.value)}
                             style={inp(C, { fontSize: 9, padding: "2px 4px", textAlign: "center" })}
                           />
-                          <input
-                            type="number"
-                            value={el.m}
-                            onChange={e => updateElement(idx, "m", parseFloat(e.target.value) || 0)}
-                            style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.green })}
-                          />
-                          <input
-                            type="number"
-                            value={el.l}
-                            onChange={e => updateElement(idx, "l", parseFloat(e.target.value) || 0)}
-                            style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.blue })}
-                          />
-                          <input
-                            type="number"
-                            value={el.e}
-                            onChange={e => updateElement(idx, "e", parseFloat(e.target.value) || 0)}
-                            style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.orange })}
-                          />
+                          {/* Mode toggle in edit */}
+                          <button
+                            onClick={() => toggleMode(idx)}
+                            title={isSub ? "Switch to M/L/E" : "Switch to Sub rate"}
+                            style={{
+                              width: 28,
+                              height: 20,
+                              border: `1px solid ${isSub ? C.purple : C.border}`,
+                              background: isSub ? `${C.purple}18` : "transparent",
+                              borderRadius: 4,
+                              fontSize: 7,
+                              fontWeight: 700,
+                              color: isSub ? C.purple : C.textDim,
+                              cursor: "pointer",
+                              textTransform: "uppercase",
+                              letterSpacing: 0.3,
+                            }}
+                          >
+                            {isSub ? "Sub" : "MLE"}
+                          </button>
+                          {isSub ? (
+                            <>
+                              <input
+                                type="number"
+                                value={el.sub}
+                                onChange={e => updateElement(idx, "sub", parseFloat(e.target.value) || 0)}
+                                style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.purple, gridColumn: "span 3" })}
+                                placeholder="Sub rate"
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="number"
+                                value={el.m}
+                                onChange={e => updateElement(idx, "m", parseFloat(e.target.value) || 0)}
+                                style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.green })}
+                              />
+                              <input
+                                type="number"
+                                value={el.l}
+                                onChange={e => updateElement(idx, "l", parseFloat(e.target.value) || 0)}
+                                style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.blue })}
+                              />
+                              <input
+                                type="number"
+                                value={el.e}
+                                onChange={e => updateElement(idx, "e", parseFloat(e.target.value) || 0)}
+                                style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.orange })}
+                              />
+                            </>
+                          )}
                           <input
                             type="number"
                             value={el.factor || 1}
@@ -579,7 +657,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                             style={nInp(C, { fontSize: 10, padding: "2px 4px", textAlign: "center" })}
                           />
                           <div style={{ textAlign: "right", fontFamily: T.font.sans, fontWeight: 600 }}>
-                            {fmt2(elTotal)}
+                            {fmt2(total)}
                           </div>
                           <button
                             onClick={() => {
@@ -587,12 +665,12 @@ export default function AIAssemblyGenerator({ onClose }) {
                               if (editOrigRef.current && result.elements[idx]) {
                                 const orig = editOrigRef.current;
                                 const curr = result.elements[idx];
-                                const changed = orig.desc !== curr.desc || orig.m !== curr.m || orig.l !== curr.l || orig.e !== curr.e || orig.unit !== curr.unit || orig.code !== curr.code;
+                                const changed = orig.desc !== curr.desc || orig.m !== curr.m || orig.l !== curr.l || orig.e !== curr.e || orig.sub !== curr.sub || orig.mode !== curr.mode || orig.unit !== curr.unit || orig.code !== curr.code;
                                 if (changed) {
                                   useCorrectionStore.getState().logCorrection("assembly:edit", {
                                     context: `Edited element in "${result.name}": ${orig.desc} → ${curr.desc}`,
-                                    original: `${orig.code} ${orig.desc} M:${orig.m} L:${orig.l} E:${orig.e}`,
-                                    corrected: `${curr.code} ${curr.desc} M:${curr.m} L:${curr.l} E:${curr.e}`,
+                                    original: `${orig.code} ${orig.desc} ${orig.mode === "sub" ? "Sub:" + orig.sub : "M:" + orig.m + " L:" + orig.l + " E:" + orig.e}`,
+                                    corrected: `${curr.code} ${curr.desc} ${curr.mode === "sub" ? "Sub:" + curr.sub : "M:" + curr.m + " L:" + curr.l + " E:" + curr.e}`,
                                     field: "element-edit",
                                   });
                                 }
@@ -638,36 +716,80 @@ export default function AIAssemblyGenerator({ onClose }) {
                             {el.desc}
                           </span>
                           <span style={{ fontSize: 10, color: C.textDim, textAlign: "center" }}>{el.unit}</span>
-                          <span
+                          {/* Mode badge — clickable toggle */}
+                          <button
+                            onClick={() => toggleMode(idx)}
+                            title={isSub ? "Using sub rate — click for M/L/E" : "Using M/L/E — click for sub rate"}
                             style={{
-                              textAlign: "right",
-                              fontFamily: T.font.sans,
-                              fontSize: 10,
-                              color: C.green,
+                              width: 28,
+                              height: 16,
+                              border: `1px solid ${isSub ? C.purple + "60" : C.border}`,
+                              background: isSub ? `${C.purple}15` : "transparent",
+                              borderRadius: 3,
+                              fontSize: 7,
+                              fontWeight: 700,
+                              color: isSub ? C.purple : C.textDim,
+                              cursor: "pointer",
+                              textTransform: "uppercase",
+                              letterSpacing: 0.3,
+                              padding: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
                             }}
                           >
-                            {fmt2(nn(el.m) * nn(el.factor || 1))}
-                          </span>
-                          <span
-                            style={{
-                              textAlign: "right",
-                              fontFamily: T.font.sans,
-                              fontSize: 10,
-                              color: C.blue,
-                            }}
-                          >
-                            {fmt2(nn(el.l) * nn(el.factor || 1))}
-                          </span>
-                          <span
-                            style={{
-                              textAlign: "right",
-                              fontFamily: T.font.sans,
-                              fontSize: 10,
-                              color: C.orange,
-                            }}
-                          >
-                            {fmt2(nn(el.e) * nn(el.factor || 1))}
-                          </span>
+                            {isSub ? "Sub" : "MLE"}
+                          </button>
+                          {isSub ? (
+                            <>
+                              <span
+                                style={{
+                                  textAlign: "right",
+                                  fontFamily: T.font.sans,
+                                  fontSize: 10,
+                                  color: C.purple,
+                                  fontWeight: 600,
+                                  gridColumn: "span 3",
+                                }}
+                              >
+                                {fmt2(nn(el.sub) * nn(el.factor || 1))}
+                                <span style={{ fontWeight: 400, color: C.textDim, fontSize: 8, marginLeft: 3 }}>sub</span>
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span
+                                style={{
+                                  textAlign: "right",
+                                  fontFamily: T.font.sans,
+                                  fontSize: 10,
+                                  color: C.green,
+                                }}
+                              >
+                                {fmt2(nn(el.m) * nn(el.factor || 1))}
+                              </span>
+                              <span
+                                style={{
+                                  textAlign: "right",
+                                  fontFamily: T.font.sans,
+                                  fontSize: 10,
+                                  color: C.blue,
+                                }}
+                              >
+                                {fmt2(nn(el.l) * nn(el.factor || 1))}
+                              </span>
+                              <span
+                                style={{
+                                  textAlign: "right",
+                                  fontFamily: T.font.sans,
+                                  fontSize: 10,
+                                  color: C.orange,
+                                }}
+                              >
+                                {fmt2(nn(el.e) * nn(el.factor || 1))}
+                              </span>
+                            </>
+                          )}
                           <span
                             style={{
                               textAlign: "center",
@@ -679,7 +801,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                             {nn(el.factor || 1) !== 1 ? `×${el.factor}` : ""}
                           </span>
                           <span style={{ textAlign: "right", fontFamily: T.font.sans, fontWeight: 600 }}>
-                            {fmt2(elTotal)}
+                            {fmt2(total)}
                           </span>
                           <div style={{ display: "flex", gap: 1 }}>
                             <button
@@ -716,8 +838,10 @@ export default function AIAssemblyGenerator({ onClose }) {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 cursor: "pointer",
-                                opacity: 0.4,
+                                opacity: 0.7,
                               }}
+                              onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.background = C.red + "18"; }}
+                              onMouseLeave={e => { e.currentTarget.style.opacity = 0.7; e.currentTarget.style.background = "transparent"; }}
                             >
                               <Ic d={I.close} size={9} color={C.red} sw={2} />
                             </button>
@@ -741,16 +865,37 @@ export default function AIAssemblyGenerator({ onClose }) {
                 }}
               >
                 <span style={{ fontSize: 11, color: C.textMuted }}>
-                  {result.elements.length} elements &bull;{" "}
-                  <span style={{ color: C.green }}>
-                    M: {fmt2(result.elements.reduce((s, el) => s + nn(el.m) * nn(el.factor || 1), 0))}
-                  </span>{" "}
-                  <span style={{ color: C.blue }}>
-                    L: {fmt2(result.elements.reduce((s, el) => s + nn(el.l) * nn(el.factor || 1), 0))}
-                  </span>{" "}
-                  <span style={{ color: C.orange }}>
-                    E: {fmt2(result.elements.reduce((s, el) => s + nn(el.e) * nn(el.factor || 1), 0))}
-                  </span>
+                  {result.elements.length} elements
+                  {(() => {
+                    const mleEls = result.elements.filter(el => el.mode !== "sub");
+                    const subEls = result.elements.filter(el => el.mode === "sub");
+                    return (
+                      <>
+                        {mleEls.length > 0 && (
+                          <>
+                            {" "}&bull;{" "}
+                            <span style={{ color: C.green }}>
+                              M: {fmt2(mleEls.reduce((s, el) => s + nn(el.m) * nn(el.factor || 1), 0))}
+                            </span>{" "}
+                            <span style={{ color: C.blue }}>
+                              L: {fmt2(mleEls.reduce((s, el) => s + nn(el.l) * nn(el.factor || 1), 0))}
+                            </span>{" "}
+                            <span style={{ color: C.orange }}>
+                              E: {fmt2(mleEls.reduce((s, el) => s + nn(el.e) * nn(el.factor || 1), 0))}
+                            </span>
+                          </>
+                        )}
+                        {subEls.length > 0 && (
+                          <>
+                            {" "}&bull;{" "}
+                            <span style={{ color: C.purple }}>
+                              Sub: {fmt2(subEls.reduce((s, el) => s + nn(el.sub) * nn(el.factor || 1), 0))}
+                            </span>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </span>
                 <span
                   style={{

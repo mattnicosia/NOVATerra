@@ -657,15 +657,15 @@ async function syncEstimates() {
 
   if (toAdd.length > 0) {
     console.log(`[cloudSync] Estimates: adding ${toAdd.length} cloud-pulled entries to store`);
-    // ATOMIC: functional setState reads store at write-time, not from the stale
-    // closure snapshot. Re-check BOTH current store IDs AND freshDeletedSet inside
-    // the updater so user creates/deletes between the filter above and this write
-    // are respected (closes the Phase 4→5 race window).
-    useEstimatesStore.setState(state => {
-      const existingIds = new Set(state.estimatesIndex.map(ex => ex.id));
+    // ATOMIC: route through setEstimatesIndex (has built-in Map dedup) with
+    // functional updater so store state is read at write-time, not from the stale
+    // closure snapshot. Re-check freshDeletedSet inside the updater so user
+    // deletes between the filter above and this write are respected.
+    useEstimatesStore.getState().setEstimatesIndex(prev => {
+      const existingIds = new Set(prev.map(ex => ex.id));
       const safe = toAdd.filter(e => !existingIds.has(e.id) && !freshDeletedSet.has(e.id));
-      if (safe.length === 0) return state; // no-op, avoid new array allocation
-      return { estimatesIndex: [...state.estimatesIndex, ...safe] };
+      if (safe.length === 0) return prev; // no-op
+      return [...prev, ...safe];
     });
     const merged = useEstimatesStore.getState().estimatesIndex;
     const idxJson = JSON.stringify(merged);
