@@ -26,6 +26,7 @@ export default function useTakeoffCanvasRendering({
   tkTool,
   tkCalibrations,
   tkVisibility,
+  hiddenTakeoffIds,
   moduleRenderWidths,
   drawingScales,
   drawingDpi,
@@ -57,6 +58,7 @@ export default function useTakeoffCanvasRendering({
         .padStart(2, "0");
     const canvasTakeoffs = pageFilter === "page" ? filteredTakeoffs : takeoffs;
     canvasTakeoffs.forEach(to => {
+      if (hiddenTakeoffIds.includes(to.id)) return;
       if (tkVisibility === "active" && to.id !== tkSelectedTakeoffId && to.id !== tkActiveTakeoffId) return;
       const isSelectedTo = to.id === tkSelectedTakeoffId || to.id === tkActiveTakeoffId;
       const fillHex = toFillHex(to.fillOpacity ?? 75);
@@ -224,6 +226,7 @@ export default function useTakeoffCanvasRendering({
     tkActiveTakeoffId,
     moduleRenderWidths,
     tkVisibility,
+    hiddenTakeoffIds,
     drawingScales,
     drawingDpi,
     geoAnalysis,

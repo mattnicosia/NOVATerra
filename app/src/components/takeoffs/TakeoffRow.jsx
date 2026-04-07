@@ -10,6 +10,7 @@ import { uid, nn, fmt, fmt2 } from "@/utils/format";
 import { unitToTool } from "@/hooks/useMeasurementEngine";
 import FormulaExpressionRow from "@/components/takeoffs/FormulaExpressionRow";
 import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine";
+import CodePicker from "@/components/takeoffs/CodePicker";
 import { TO_COLORS } from "@/utils/takeoffHelpers";
 
 export default function TakeoffRow({
@@ -62,7 +63,9 @@ export default function TakeoffRow({
 }) {
   const rowRef = useRef(null);
   const colorBtnRef = useRef(null);
+  const codeBtnRef = useRef(null);
   const [colorPopup, setColorPopup] = useState(false);
+  const [codePicker, setCodePicker] = useState(false);
   const isActive = tkActiveTakeoffId === to.id;
   const isSelected = tkSelectedTakeoffId === to.id || isActive;
 
@@ -76,6 +79,7 @@ export default function TakeoffRow({
     isActive && (tkMeasureState === "measuring" || tkMeasureState === "paused");
   const isPaused = isActive && tkMeasureState === "paused";
   const isRevisionAffected = revisionAffectedIds.has(to.id);
+  const isHidden = useDrawingPipelineStore(s => s.hiddenTakeoffIds.includes(to.id));
   const computedQty = getComputedQty(to);
   const measuredQty = getMeasuredQty(to);
   const hasMeasurements = (to.measurements || []).length > 0;
@@ -137,6 +141,7 @@ export default function TakeoffRow({
                 : "3px solid transparent",
           boxShadow: isMeasuring ? `inset 0 0 0 1px ${to.color}30` : "none",
           transition: "background 100ms ease-out",
+          opacity: isHidden ? 0.4 : 1,
         }}
       >
         {/* Play / Pause / Stop — also drag handle for reordering */}
@@ -253,6 +258,35 @@ export default function TakeoffRow({
             />
           )}
         </button>
+        {/* Visibility toggle */}
+        <button
+          type="button"
+          title={isHidden ? "Show on canvas" : "Hide on canvas"}
+          onClick={e => {
+            e.stopPropagation();
+            useDrawingPipelineStore.getState().toggleTakeoffVisibility(to.id);
+          }}
+          style={{
+            width: 18, height: 18, padding: 0, border: "none",
+            background: "transparent", flexShrink: 0, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: isHidden ? 0.35 : 0.6,
+          }}
+        >
+          {isHidden ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+              <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </svg>
+          ) : (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          )}
+        </button>
         {/* Description */}
         <div
           style={{ flex: 2, minWidth: 80, minHeight: 0 }}
@@ -270,21 +304,26 @@ export default function TakeoffRow({
               fontWeight: T.fontWeight.medium,
             })}
           />
-          {(to.code || to._aiCosts) && (
-            <div
-              style={{
-                fontSize: 8,
-                color: `${C.purple}B0`,
-                fontFamily: T.font.mono,
-                paddingLeft: 4,
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-                lineHeight: 1.2,
-                ...truncate(),
-              }}
-            >
-              {to.code || ""}
+          <div
+            ref={codeBtnRef}
+            style={{
+              fontSize: 8,
+              color: to.code ? `${C.purple}B0` : C.textDim,
+              fontFamily: T.font.mono,
+              paddingLeft: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              lineHeight: 1.2,
+              cursor: "pointer",
+              ...truncate(),
+            }}
+            onClick={e => { e.stopPropagation(); setCodePicker(p => !p); }}
+            title="Click to assign division/code"
+          >
+            {to.code || (
+              <span style={{ fontSize: 7, color: C.textDim, opacity: 0.6 }}>+ code</span>
+            )}
               {to._aiCosts && (
                 <span
                   style={{
@@ -321,7 +360,16 @@ export default function TakeoffRow({
                   ASM ({to.assemblyElements.length})
                 </span>
               )}
-            </div>
+          </div>
+          {codePicker && (
+            <CodePicker
+              to={to}
+              C={C}
+              T={T}
+              anchorRef={codeBtnRef}
+              onClose={() => setCodePicker(false)}
+              updateTakeoff={updateTakeoff}
+            />
           )}
           {/* Estimator attribution badge */}
           {to.createdByName && (
@@ -674,6 +722,48 @@ export default function TakeoffRow({
                   </svg>
                   <span>Undo Last Measurement</span>
                 </button>
+              )}
+              {(to.measurements || []).length > 1 && (
+                <>
+                  <div style={{ padding: "4px 12px 2px", fontSize: 8, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Measurements ({(to.measurements || []).length})
+                  </div>
+                  <div style={{ maxHeight: 120, overflow: "auto" }}>
+                    {(to.measurements || []).map((m, idx) => {
+                      const label = m.type === "count" ? "Point" : m.type === "linear" ? `Line (${(m.points || []).length} pts)` : `Area (${(m.points || []).length} pts)`;
+                      return (
+                        <div
+                          key={m.id}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            padding: "3px 12px 3px 20px", fontSize: 10,
+                            color: C.text, cursor: "default",
+                          }}
+                        >
+                          <span style={{ fontSize: 8, color: C.textDim, fontFamily: "monospace", minWidth: 16 }}>#{idx + 1}</span>
+                          <span style={{ flex: 1, fontSize: 9 }}>{label}</span>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              removeMeasurement(to.id, m.id);
+                            }}
+                            style={{
+                              background: "none", border: "none", color: C.red,
+                              fontSize: 10, cursor: "pointer", padding: "2px 4px",
+                              opacity: 0.7, borderRadius: 3,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = "0.7")}
+                            title={`Remove measurement #${idx + 1}`}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+                </>
               )}
               <button
                 onClick={() => {

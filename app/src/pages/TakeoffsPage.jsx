@@ -62,6 +62,7 @@ export default function TakeoffsPage() {
   const tkNewInput = useDrawingPipelineStore(s => s.tkNewInput);
   const tkVisibility = useDrawingPipelineStore(s => s.tkVisibility);
   const setTkVisibility = useDrawingPipelineStore(s => s.setTkVisibility);
+  const hiddenTakeoffIds = useDrawingPipelineStore(s => s.hiddenTakeoffIds);
   const tkPanelTier = useDrawingPipelineStore(s => s.tkPanelTier);
 
   const activeModule = useModuleStore(s => s.activeModule);
@@ -400,6 +401,7 @@ export default function TakeoffsPage() {
     tkTool,
     tkCalibrations,
     tkVisibility,
+    hiddenTakeoffIds,
     moduleRenderWidths,
     drawingScales,
     drawingDpi,

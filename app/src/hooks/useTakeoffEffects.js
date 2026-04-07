@@ -283,6 +283,17 @@ export default function useTakeoffEffects({
         return;
       }
 
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !isTyping) {
+        if (tkMeasureState === "measuring") {
+          const points = useDrawingPipelineStore.getState().tkActivePoints;
+          if (points.length > 0) {
+            e.preventDefault();
+            useDrawingPipelineStore.getState().setTkActivePoints(points.slice(0, -1));
+            return;
+          }
+        }
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "d" && !isTyping) {
         if (tkSelectedTakeoffId) {
           e.preventDefault();

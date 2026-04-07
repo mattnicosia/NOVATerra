@@ -92,13 +92,24 @@ export default function AIAssemblyGenerator({ onClose }) {
       if (json.startsWith("```")) {
         json = json.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
       }
+      const braceIdx = json.indexOf("{");
+      if (braceIdx > 0) json = json.slice(braceIdx);
       const parsed = JSON.parse(json);
-      if (!parsed.name || !parsed.elements?.length) throw new Error("Invalid assembly format");
-      // Normalize elements — ensure mode defaults
+      if (!parsed.name || !Array.isArray(parsed.elements) || parsed.elements.length === 0) {
+        throw new Error("Invalid assembly format — expected { name, elements[] }");
+      }
+      // Normalize elements — ensure all fields are safe for rendering
       parsed.elements = parsed.elements.map(el => ({
         ...el,
+        code: el.code || "",
+        desc: el.desc || "",
+        unit: el.unit || "EA",
+        m: nn(el.m),
+        l: nn(el.l),
+        e: nn(el.e),
         mode: el.mode || "mle",
         sub: nn(el.sub),
+        factor: nn(el.factor || 1),
       }));
       setResult(parsed);
       setStream("");
@@ -155,20 +166,33 @@ RULES:
       if (json.startsWith("```")) {
         json = json.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
       }
+      // Strip any leading non-JSON text (model sometimes adds prose before JSON)
+      const braceIdx = json.indexOf("{");
+      if (braceIdx > 0) json = json.slice(braceIdx);
       const parsed = JSON.parse(json);
-      if (!parsed.name || !parsed.elements?.length) throw new Error("Invalid assembly format");
+      if (!parsed.name || !Array.isArray(parsed.elements) || parsed.elements.length === 0) {
+        throw new Error("Invalid assembly format — expected { name, elements[] }");
+      }
       parsed.elements = parsed.elements.map(el => ({
         ...el,
+        code: el.code || "",
+        desc: el.desc || "",
+        unit: el.unit || "EA",
+        m: nn(el.m),
+        l: nn(el.l),
+        e: nn(el.e),
         mode: el.mode || "mle",
         sub: nn(el.sub),
+        factor: nn(el.factor || 1),
       }));
       setResult(parsed);
       setChatHistory(prev => [...prev, { role: "nova", text: `Updated: ${parsed.elements.length} elements` }]);
     } catch (err) {
       if (err.name === "AbortError") { setChatLoading(false); return; }
       setChatHistory(prev => [...prev, { role: "nova", text: `Error: ${err.message}` }]);
+    } finally {
+      setChatLoading(false);
     }
-    setChatLoading(false);
     setTimeout(() => chatScrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
