@@ -721,6 +721,14 @@ export default function TakeoffDrawingViewer({
                   onDragOver={e => e.preventDefault()}
                   onClick={handleCanvasClick}
                   onMouseMove={e => {
+                    // Sync canvas dims with image to prevent cursor misalignment
+                    const img = drawingImgRef?.current;
+                    if (img && img.naturalWidth && canvasRef.current && canvasRef.current.width !== img.naturalWidth) {
+                      const w = img.naturalWidth, h = img.naturalHeight;
+                      canvasRef.current.width = w; canvasRef.current.height = h;
+                      if (cursorCanvasRef.current) { cursorCanvasRef.current.width = w; cursorCanvasRef.current.height = h; }
+                      if (predictionCanvasRef.current) { predictionCanvasRef.current.width = w; predictionCanvasRef.current.height = h; }
+                    }
                     const rect = e.target.getBoundingClientRect();
                     const sx = (canvasRef.current?.width || 1) / rect.width;
                     const sy = (canvasRef.current?.height || 1) / rect.height;

@@ -6331,7 +6331,7 @@ export const MODULES = {
             id: "BuildingType",
             label: "Building Type",
             type: "select",
-            options: ["Office", "Retail", "Warehouse", "Restaurant", "Healthcare", "Education", "Multi-Family"],
+            options: ["Office", "Retail", "Warehouse", "Restaurant", "Healthcare", "Education", "Multi-Family", "Single-Family"],
             default: "Office",
           },
           {

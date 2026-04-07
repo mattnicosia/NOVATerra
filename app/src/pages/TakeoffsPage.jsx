@@ -359,6 +359,9 @@ export default function TakeoffsPage() {
   const { handleCanvasClick, handleDrawingWheel, handleDrawingMouseDown } = useTakeoffCanvasHandlers({
     canvasRef,
     drawingContainerRef,
+    drawingImgRef,
+    cursorCanvasRef,
+    predictionCanvasRef,
     tkTransformRef,
     tkLastWheelX,
     tkPanning,

@@ -3,18 +3,6 @@
    ──────────────────────────────────────────────────────── */
 
 export const WIDGET_REGISTRY = {
-  "project-pulse": {
-    label: "Project Pulse",
-    description: "Radial portfolio visualization — estimates as particles",
-    defaultW: 6,
-    defaultH: 5,
-    minW: 3,
-    minH: 4,
-    maxW: 12,
-    maxH: 10,
-    category: "core",
-    singleton: true,
-  },
   projects: {
     label: "Projects",
     description: "Your estimate projects list",

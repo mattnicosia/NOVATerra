@@ -5,7 +5,6 @@ import { lazy } from "react";
    ──────────────────────────────────────────────────────── */
 
 export const WIDGET_COMPONENTS = {
-  "project-pulse": lazy(() => import("./ProjectPulseWidget")),
   projects: lazy(() => import("./ProjectsWidget")),
   benchmarks: lazy(() => import("./BenchmarksWidget")),
   estimate: lazy(() => import("./EstimateDisplayWidget")),

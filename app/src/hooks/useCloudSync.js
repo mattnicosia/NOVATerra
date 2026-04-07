@@ -674,7 +674,7 @@ async function syncEstimates() {
     // Mirror index to localStorage — resilient backup
     try {
       const userId = useAuthStore.getState().user?.id;
-      if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
+      if (userId && typeof localStorage !== "undefined") localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
     } catch {
       /* quota exceeded */
     }
@@ -719,7 +719,7 @@ async function syncEstimates() {
     await storage.set(idbKey("bldg-index"), JSON.stringify(cleanedIdx));
     try {
       const userId = useAuthStore.getState().user?.id;
-      if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, JSON.stringify(cleanedIdx));
+      if (userId && typeof localStorage !== "undefined") localStorage.setItem(`bldg-index-mirror-${userId}`, JSON.stringify(cleanedIdx));
     } catch {
       /* quota exceeded */
     }
@@ -732,7 +732,7 @@ async function syncEstimates() {
       await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(merged));
       const userId = useAuthStore.getState().user?.id;
       const orgId = useOrgStore.getState().org?.id || "solo";
-      if (userId) localStorage.setItem(`bldg-deleted-ids-${userId}-${orgId}`, JSON.stringify(merged));
+      if (userId && typeof localStorage !== "undefined") localStorage.setItem(`bldg-deleted-ids-${userId}-${orgId}`, JSON.stringify(merged));
       console.log(`[cloudSync] Added ${orphanIds.length} orphan(s) to deleted-IDs list`);
     } catch {
       /* storage write failed */

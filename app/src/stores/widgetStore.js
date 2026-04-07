@@ -32,8 +32,7 @@ const DEFAULT_LAYOUT = [
   { i: "w-inbox", x: 0, y: 13, w: 3, h: 6, widgetType: "inbox", config: {} },
   { i: "w-carbon-bm", x: 0, y: 19, w: 3, h: 6, widgetType: "carbon-benchmark", config: {} },
   // Center column (cols 3-8)
-  { i: "w-pulse", x: 3, y: 5, w: 6, h: 6, widgetType: "project-pulse", config: {} },
-  { i: "w-benchmarks", x: 3, y: 11, w: 6, h: 4, widgetType: "benchmarks", config: {} },
+  { i: "w-benchmarks", x: 3, y: 5, w: 6, h: 4, widgetType: "benchmarks", config: {} },
   { i: "w-carbon-bd", x: 3, y: 15, w: 6, h: 4, widgetType: "carbon-breakdown", config: {} },
   { i: "w-feed", x: 3, y: 19, w: 6, h: 6, widgetType: "live-feed", config: {} },
   // Right column (cols 9-11)

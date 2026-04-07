@@ -127,58 +127,42 @@ export async function saveAtomically(masterData) {
   const scope = getScope();
   const orgId = scope?.org_id || null;
 
-  // Build profiles array (default + additional)
-  const profiles = [];
+  // Build profiles map (deduped by ID — default profile wins over additional)
+  const profileMap = new Map();
   const defaultInfo = masterData.companyInfo;
+  const buildProfile = (src, isDefault) => ({
+    id: src.id || `default-${userId}`,
+    is_default: isDefault,
+    name: src.name || "",
+    short_name: src.shortName || null,
+    address: src.address || "",
+    city: src.city || "",
+    state: src.state || "",
+    zip: src.zip || "",
+    phone: src.phone || "",
+    email: src.email || "",
+    website: src.website || "",
+    license_no: src.licenseNo || "",
+    ein: src.ein || "",
+    logo: src.logo || null,
+    brand_colors: src.brandColors || [],
+    palettes: src.palettes || [],
+    boilerplate_exclusions: src.boilerplateExclusions || [],
+    boilerplate_notes: src.boilerplateNotes || [],
+    boilerplate_qualifications: src.boilerplateQualifications || [],
+    default_terms: src.defaultTerms || null,
+  });
   if (defaultInfo?.name) {
-    profiles.push({
-      id: defaultInfo.id || `default-${userId}`,
-      is_default: true,
-      name: defaultInfo.name || "",
-      short_name: defaultInfo.shortName || null,
-      address: defaultInfo.address || "",
-      city: defaultInfo.city || "",
-      state: defaultInfo.state || "",
-      zip: defaultInfo.zip || "",
-      phone: defaultInfo.phone || "",
-      email: defaultInfo.email || "",
-      website: defaultInfo.website || "",
-      license_no: defaultInfo.licenseNo || "",
-      ein: defaultInfo.ein || "",
-      logo: defaultInfo.logo || null,
-      brand_colors: defaultInfo.brandColors || [],
-      palettes: defaultInfo.palettes || [],
-      boilerplate_exclusions: defaultInfo.boilerplateExclusions || [],
-      boilerplate_notes: defaultInfo.boilerplateNotes || [],
-      boilerplate_qualifications: defaultInfo.boilerplateQualifications || [],
-      default_terms: defaultInfo.defaultTerms || null,
-    });
+    const id = defaultInfo.id || `default-${userId}`;
+    profileMap.set(id, buildProfile(defaultInfo, true));
   }
   for (const p of masterData.companyProfiles || []) {
     if (!p?.id) continue;
-    profiles.push({
-      id: p.id,
-      is_default: false,
-      name: p.name || "",
-      short_name: p.shortName || null,
-      address: p.address || "",
-      city: p.city || "",
-      state: p.state || "",
-      zip: p.zip || "",
-      phone: p.phone || "",
-      email: p.email || "",
-      website: p.website || "",
-      license_no: p.licenseNo || "",
-      ein: p.ein || "",
-      logo: p.logo || null,
-      brand_colors: p.brandColors || [],
-      palettes: p.palettes || [],
-      boilerplate_exclusions: p.boilerplateExclusions || [],
-      boilerplate_notes: p.boilerplateNotes || [],
-      boilerplate_qualifications: p.boilerplateQualifications || [],
-      default_terms: p.defaultTerms || null,
-    });
+    if (!profileMap.has(p.id)) {
+      profileMap.set(p.id, buildProfile(p, false));
+    }
   }
+  const profiles = Array.from(profileMap.values());
 
   // Build contacts array with contact_type
   const contacts = [];

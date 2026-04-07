@@ -213,7 +213,6 @@ export default function ProjectsWidget() {
   } = useDashboardData();
 
   const activeEstimateId = activeEstimate?.id || null;
-  const biddingEstimates = estimates.filter(e => e.statusLabel === "Bidding");
   const [hoveredId, setHoveredId] = useState(null);
   const [_ctaHovered, _setCtaHovered] = useState(false);
   const [menuState, setMenuState] = useState(null);
@@ -228,7 +227,7 @@ export default function ProjectsWidget() {
     boxShadow: "none",
   };
 
-  const hasEstimates = biddingEstimates.length > 0;
+  const hasEstimates = estimates.length > 0;
 
   const handleContextMenu = (e, proj) => {
     e.preventDefault();
@@ -264,7 +263,7 @@ export default function ProjectsWidget() {
             fontFamily: font,
           }}
         >
-          PROJECTS{hasEstimates ? ` (${biddingEstimates.length})` : ""}
+          PROJECTS{hasEstimates ? ` (${estimates.length})` : ""}
         </span>
         <button
           onClick={onCreateEstimate}
@@ -301,7 +300,7 @@ export default function ProjectsWidget() {
       {/* Project List */}
       <div style={{ ...glassCardStyle, overflow: "auto", flex: 1, minHeight: 0 }}>
         {hasEstimates ? (
-          biddingEstimates.map(proj => {
+          estimates.map(proj => {
             const isActive = proj.id === activeEstimateId;
             const isHovered = proj.id === hoveredId;
             return (

@@ -25,6 +25,9 @@ import { smartCountFromClick } from "@/utils/templateMatcher";
 export default function useTakeoffCanvasHandlers({
   canvasRef,
   drawingContainerRef,
+  drawingImgRef,
+  cursorCanvasRef,
+  predictionCanvasRef,
   tkTransformRef,
   tkLastWheelX,
   tkPanning,
@@ -40,10 +43,25 @@ export default function useTakeoffCanvasHandlers({
   calcPolygonArea,
   getDisplayUnit,
 }) {
+  // ─── Sync canvas dimensions with image (prevents cursor misalignment) ──
+  const syncCanvasDims = () => {
+    const img = drawingImgRef?.current;
+    if (!img || !img.naturalWidth) return;
+    const w = img.naturalWidth, h = img.naturalHeight;
+    for (const ref of [canvasRef, cursorCanvasRef, predictionCanvasRef]) {
+      const c = ref?.current;
+      if (c && (c.width !== w || c.height !== h)) {
+        c.width = w;
+        c.height = h;
+      }
+    }
+  };
+
   // ─── CANVAS CLICK HANDLER ──────────
   const handleCanvasClick = useCallback(
     e => {
       if (!canvasRef.current) return;
+      syncCanvasDims(); // Ensure canvas resolution matches image before converting coords
 
       // Read ALL store state fresh inside callback
       const tkStore = useDrawingPipelineStore.getState();

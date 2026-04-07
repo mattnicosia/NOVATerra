@@ -738,44 +738,6 @@ export default function ModulePanel({
                 {wallScheduleLoading ? "Scanning..." : "AI Wall Schedule"}
               </button>
             )}
-            {/* Delete entire module */}
-            <button
-              onClick={e => {
-                e.stopPropagation();
-                if (confirm(`Remove ${moduleDef.name} module and all its measurements?`)) {
-                  // Remove all linked takeoffs first
-                  const instData = instances[activeModule];
-                  if (instData) {
-                    Object.values(instData.itemTakeoffIds || {}).forEach(toId => {
-                      if (toId) removeTakeoff(toId);
-                    });
-                    Object.values(instData.categoryInstances || {}).forEach(cats => {
-                      (cats || []).forEach(ci => {
-                        Object.values(ci.itemTakeoffIds || {}).forEach(toId => {
-                          if (toId) removeTakeoff(toId);
-                        });
-                      });
-                    });
-                  }
-                  removeModule(activeModule);
-                }
-              }}
-              title="Delete module"
-              style={{
-                width: 22,
-                height: 22,
-                border: "none",
-                background: `${C.red}15`,
-                color: C.red,
-                borderRadius: 4,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >
-              <Ic d={I.xCircle} size={12} color={C.red} />
-            </button>
             <button
               onClick={e => {
                 e.stopPropagation();
