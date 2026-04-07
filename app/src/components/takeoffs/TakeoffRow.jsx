@@ -208,25 +208,38 @@ export default function TakeoffRow({
             </button>
           )}
         </div>
-        <div
+        <button
           ref={colorBtnRef}
+          type="button"
           style={{
-            width: 14,
-            height: 14,
-            borderRadius: 3,
-            background: to.color,
+            width: 22,
+            height: 22,
+            padding: 0,
+            borderRadius: 4,
+            background: "transparent",
+            border: "none",
             flexShrink: 0,
             cursor: "pointer",
             position: "relative",
-            border: colorPopup ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
-            boxShadow: colorPopup ? `0 0 6px ${to.color}60` : "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
-          onClick={e => {
+          onPointerDown={e => {
             e.stopPropagation();
-            e.preventDefault();
+            console.log("[TakeoffRow] color dot clicked", to.id, "colorPopup was:", colorPopup);
             setColorPopup(p => !p);
           }}
         >
+          <div style={{
+            width: 12,
+            height: 12,
+            borderRadius: 3,
+            background: to.color,
+            border: colorPopup ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
+            boxShadow: colorPopup ? `0 0 6px ${to.color}60` : "none",
+            pointerEvents: "none",
+          }} />
           {isMeasuring && (
             <div
               style={{
@@ -235,10 +248,11 @@ export default function TakeoffRow({
                 borderRadius: 3,
                 border: `2px solid ${to.color}`,
                 animation: "pulse 1.5s infinite",
+                pointerEvents: "none",
               }}
             />
           )}
-        </div>
+        </button>
         {/* Description */}
         <div
           style={{ flex: 2, minWidth: 80, minHeight: 0 }}
@@ -501,8 +515,9 @@ export default function TakeoffRow({
             </button>
             <button
               className="icon-btn"
-              onClick={e => {
+              onPointerDown={e => {
                 e.stopPropagation();
+                console.log("[TakeoffRow] ··· clicked", to.id);
                 if (actionMenuId === to.id) {
                   setActionMenuId(null);
                 } else {
