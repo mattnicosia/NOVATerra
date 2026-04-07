@@ -84,7 +84,7 @@ export const useOrgStore = create((set, get) => ({
           break; // success
         } catch (err) {
           if (attempt === RETRY_DELAYS.length) throw err; // final attempt failed
-          console.warn(`[orgStore] fetchOrg attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]}ms:`, err.message);
+          if (!err.message?.includes("abort")) console.warn(`[orgStore] fetchOrg attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]}ms:`, err.message);
           await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
           if (generation !== get()._fetchGeneration) return;
         }

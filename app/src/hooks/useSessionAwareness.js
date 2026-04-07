@@ -81,7 +81,7 @@ async function checkSessionValid(userId) {
     // Table doesn't exist or no row = allow
     if (error) {
       if (error.code === "42P01") return true;
-      console.warn("[sessionAwareness] check error:", error.message);
+      if (!error.message?.includes("abort")) console.warn("[sessionAwareness] check error:", error.message);
       return true;
     }
     if (!data) return true;
