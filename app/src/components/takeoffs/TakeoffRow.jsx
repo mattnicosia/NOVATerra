@@ -604,6 +604,45 @@ export default function TakeoffRow({
                   <span style={{ color: C.purple }}>Auto Count</span>
                 </button>
               )}
+              {(to.measurements || []).length > 0 && (
+                <button
+                  onClick={() => {
+                    const ms = to.measurements || [];
+                    const removed = ms[ms.length - 1];
+                    setTakeoffs(
+                      takeoffs.map(t =>
+                        t.id === to.id ? { ...t, measurements: ms.slice(0, -1) } : t
+                      )
+                    );
+                    setActionMenuId(null);
+                    setActionConfirm(null);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "7px 12px",
+                    border: "none",
+                    background: "transparent",
+                    color: C.text,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    transition: T.transition.fast,
+                  }}
+                  onMouseEnter={e =>
+                    (e.currentTarget.style.background = `${C.accent}10`)
+                  }
+                  onMouseLeave={e =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 10h6L5 6" /><path d="M3 10a9 9 0 1 1 2.6 6.4" />
+                  </svg>
+                  <span>Undo Last Measurement</span>
+                </button>
+              )}
               <button
                 onClick={() => {
                   const nt = {
