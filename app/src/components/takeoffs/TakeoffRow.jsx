@@ -145,6 +145,8 @@ export default function TakeoffRow({
       >
         {/* Play / Pause / Stop */}
         <div
+          draggable="false"
+          onMouseDown={e => e.stopPropagation()}
           style={{
             width: isMeasuring || isPaused ? 38 : 20,
             flexShrink: 0,
@@ -211,18 +213,23 @@ export default function TakeoffRow({
         </div>
         <div
           ref={colorBtnRef}
+          draggable="false"
+          onMouseDown={e => e.stopPropagation()}
           style={{
-            width: 10,
-            height: 10,
-            borderRadius: 2,
+            width: 14,
+            height: 14,
+            borderRadius: 3,
             background: to.color,
             flexShrink: 0,
             cursor: "pointer",
             position: "relative",
+            border: colorPopup ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
+            boxShadow: colorPopup ? `0 0 6px ${to.color}60` : "none",
           }}
           onClick={e => {
             e.stopPropagation();
-            setColorPopup(!colorPopup);
+            e.preventDefault();
+            setColorPopup(p => !p);
           }}
         >
           {isMeasuring && (
@@ -460,7 +467,9 @@ export default function TakeoffRow({
           >
             <button
               className="icon-btn"
-              onClick={() => setTkShowVars(tkShowVars === to.id ? null : to.id)}
+              draggable="false"
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); setTkShowVars(tkShowVars === to.id ? null : to.id); }}
               title="Variables & Formula"
               style={{
                 minWidth: 24,
@@ -499,8 +508,11 @@ export default function TakeoffRow({
             </button>
             <button
               className="icon-btn"
+              draggable="false"
+              onMouseDown={e => e.stopPropagation()}
               onClick={e => {
                 e.stopPropagation();
+                e.preventDefault();
                 if (actionMenuId === to.id) {
                   setActionMenuId(null);
                 } else {
