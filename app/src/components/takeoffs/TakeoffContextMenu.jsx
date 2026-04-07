@@ -179,24 +179,42 @@ export default function TakeoffContextMenu({
         {/* ── GENERAL ACTIONS (always available) ── */}
         {!isMeasuring && (
           <>
-            {/* Undo */}
-            <div
-              className="nav-item"
-              onClick={() => {
-                if (ctxCanUndo) {
-                  const actionName = useUndoStore.getState().undo();
-                  if (actionName) useUiStore.getState().showToast(`Undone: ${actionName}`, "info");
-                }
-                setTkContextMenu(null);
-              }}
-              style={{
-                ...menuItemStyle(ctxCanUndo ? C.text : C.textMuted),
-                opacity: ctxCanUndo ? 1 : 0.5,
-              }}
-            >
-              {ctxIcon("M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10", ctxCanUndo ? C.textMuted : C.bg2)}
-              Undo
-            </div>
+            {/* Undo Last Measurement — when a takeoff with measurements is selected */}
+            {selectedTo && selectedTo.measurements?.length > 0 && (
+              <div
+                className="nav-item"
+                onClick={() => {
+                  const lastM = selectedTo.measurements[selectedTo.measurements.length - 1];
+                  useDrawingPipelineStore.getState().removeMeasurement(selectedTo.id, lastM.id);
+                  useUiStore.getState().showToast("Undone last measurement", "info");
+                  setTkContextMenu(null);
+                }}
+                style={menuItemStyle(C.text)}
+              >
+                {ctxIcon("M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10", C.textMuted)}
+                Undo Last Measurement
+              </div>
+            )}
+            {/* Global Undo — fallback when no takeoff selected */}
+            {!selectedTo && (
+              <div
+                className="nav-item"
+                onClick={() => {
+                  if (ctxCanUndo) {
+                    const actionName = useUndoStore.getState().undo();
+                    if (actionName) useUiStore.getState().showToast(`Undone: ${actionName}`, "info");
+                  }
+                  setTkContextMenu(null);
+                }}
+                style={{
+                  ...menuItemStyle(ctxCanUndo ? C.text : C.textMuted),
+                  opacity: ctxCanUndo ? 1 : 0.5,
+                }}
+              >
+                {ctxIcon("M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10", ctxCanUndo ? C.textMuted : C.bg2)}
+                Undo
+              </div>
+            )}
 
             {/* Delete specific measurement (right-clicked on a measurement line) */}
             {tkContextMenu.hitMeasurement && (

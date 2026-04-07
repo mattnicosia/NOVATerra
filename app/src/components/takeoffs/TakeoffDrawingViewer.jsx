@@ -716,7 +716,7 @@ export default function TakeoffDrawingViewer({
                 {/* Canvas overlay */}
                 <canvas
                   ref={canvasRef}
-                  className={`tk-canvas-cursor${tkMeasureState === "measuring" ? " tk-measuring" : ""}`}
+                  className={`tk-canvas-cursor${(tkMeasureState === "measuring" || tkMeasureState === "paused") ? " tk-measuring" : ""}`}
                   onDrop={handlePdfRepairDrop}
                   onDragOver={e => e.preventDefault()}
                   onClick={handleCanvasClick}
@@ -807,7 +807,7 @@ export default function TakeoffDrawingViewer({
                     width: "100%",
                     height: "100%",
                     pointerEvents: "auto",
-                    cursor: tkMeasureState === "measuring" ? "crosshair" : "default",
+                    cursor: (tkMeasureState === "measuring" || tkMeasureState === "paused") ? "crosshair" : "default",
                   }}
                 />
                 {/* Prediction ghost overlay canvas — animated ghost markers */}
