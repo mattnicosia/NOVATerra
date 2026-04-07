@@ -560,7 +560,8 @@ export async function saveEstimate(overrideId) {
     divisionTotals,
     outcomeMetadata: data.project.outcomeMetadata || {},
     timerTotalMs: data.timerTotalMs || 0,
-    ownerId: data.project.ownerId || useAuthStore.getState().user?.id || null,
+    ownerId: data.project.createdBy || data.project.ownerId || useAuthStore.getState().user?.id || null,
+    updatedBy: useAuthStore.getState().user?.id || null,
     orgId: data.project.orgId || useOrgStore.getState().org?.id || null,
   };
 

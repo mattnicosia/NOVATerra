@@ -135,6 +135,7 @@ export const useEstimatesStore = create((set, get) => ({
       divisionTotals: {},
       outcomeMetadata: {},
       ownerId,
+      createdBy: ownerId,
       orgId,
       assignedTo: ownerId ? [ownerId] : [],
       templateId: templateId || null,
@@ -197,6 +198,7 @@ export const useEstimatesStore = create((set, get) => ({
         companyProfileId: companyProfileId || "",
         setupComplete: false, // triggers document-first onboarding
         ownerId,
+        createdBy: ownerId,
         orgId,
       },
       codeSystem: "csi-commercial",
@@ -272,6 +274,7 @@ export const useEstimatesStore = create((set, get) => ({
     const org = useOrgStore.getState().org;
     return {
       ownerId: userId || null,
+      createdBy: userId || null,
       orgId: org?.id || null,
     };
   },
@@ -432,12 +435,13 @@ export const useEstimatesStore = create((set, get) => ({
     const { ownerId, orgId } = get()._getOwnership();
     data.project.name = data.project.name + " (Copy)";
     data.project.ownerId = ownerId;
+    data.project.createdBy = ownerId;
     data.project.orgId = orgId;
     await storage.set(idbKey(`bldg-est-${newId}`), JSON.stringify(data));
 
     const src = get().estimatesIndex.find(e => e.id === id);
     if (!src) return; // guard against stale reference
-    const newEntry = { ...src, id: newId, name: data.project.name, lastModified: nowStr(), ownerId, orgId };
+    const newEntry = { ...src, id: newId, name: data.project.name, lastModified: nowStr(), ownerId, createdBy: ownerId, orgId };
     set(s => ({ estimatesIndex: [...s.estimatesIndex, newEntry] }));
     const idx = get().estimatesIndex; // read after atomic set
     const idxJson = JSON.stringify(idx);

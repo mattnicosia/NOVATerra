@@ -223,11 +223,19 @@ export const pullDataAnyScope = async key => {
 export const pullAllEstimatesAnyScope = async () => {
   if (!isReady()) return [];
   try {
-    const { data, error } = await supabase
+    // Org-owned model: pull estimates the user has access to (via RLS)
+    // Try org-scoped first, fall back to user-scoped
+    const scope = getScope();
+    let query = supabase
       .from("user_estimates")
       .select("estimate_id, data, user_id, org_id")
-      .eq("user_id", getUserId())
       .is("deleted_at", null);
+    if (scope?.org_id) {
+      query = query.eq("org_id", scope.org_id);
+    } else {
+      query = query.eq("user_id", getUserId());
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   } catch (err) {
@@ -395,13 +403,9 @@ export const pullEstimate = async estimateId => {
     if (error) throw error;
     if (!rows || rows.length === 0) {
       // No rows found in primary scope — fall through to solo fallback below
-    } else if (rows.length === 1) {
-      // Single copy — return directly (common case)
-      if (rows[0]?.data) return rows[0].data;
     } else {
-      // Multiple copies from different org members — merge
-      const merged = mergeEstimateCopies(rows);
-      if (merged) return merged;
+      // Org-owned model: one row per estimate. Return the first (and only) match.
+      if (rows[0]?.data) return rows[0].data;
     }
 
     // Fallback: if in org mode, also check solo-mode rows (pre-org-migration estimates)
@@ -459,21 +463,7 @@ export const pullAllEstimates = async () => {
     if (error) throw error;
     if (!data) return [];
 
-    // In org mode, multiple users may have copies of the same estimate.
-    // Group by estimate_id and merge duplicates.
-    if (scope?.org_id) {
-      const groups = {};
-      for (const row of data) {
-        if (!groups[row.estimate_id]) groups[row.estimate_id] = [];
-        groups[row.estimate_id].push(row);
-      }
-      return Object.entries(groups).map(([estimateId, rows]) => {
-        if (rows.length === 1) return rows[0];
-        const merged = mergeEstimateCopies(rows);
-        return { estimate_id: estimateId, data: merged, user_id: rows[0].user_id };
-      });
-    }
-
+    // Org-owned model: one row per estimate, no merging needed
     return data;
   } catch (err) {
     console.warn("[cloudSync] pullAllEstimates() failed:", err.message || err);
@@ -493,7 +483,7 @@ export const pullEstimatesIndex = async () => {
     const scope = getScope();
     let query = supabase
       .from("user_estimates")
-      .select("estimate_id, user_id, org_id, project_name, status, client, bid_due, grand_total, building_type, work_type, project_sf, estimate_number, visibility, assigned_to, last_modified, deleted_at, draft")
+      .select("estimate_id, user_id, org_id, created_by, updated_by, project_name, status, client, bid_due, grand_total, building_type, work_type, project_sf, estimate_number, visibility, assigned_to, last_modified, deleted_at, draft")
       .is("deleted_at", null);
 
     if (scope?.org_id) {
@@ -526,7 +516,7 @@ export const pullEstimatesIndex = async () => {
       // Fields not in normalized columns get populated later from JSONB blob during estimate load
       estimator: "", coEstimators: [], jobType: "", architect: "", zipCode: "",
       divisionTotals: {}, outcomeMetadata: {}, startDate: "", estimatedHours: 0,
-      elementCount: 0, companyProfileId: "", ownerId: row.user_id, orgId: row.org_id,
+      elementCount: 0, companyProfileId: "", ownerId: row.created_by || row.user_id, orgId: row.org_id,
       correspondenceCount: 0, correspondencePendingCount: 0,
       draft: !!row.draft,
     }));

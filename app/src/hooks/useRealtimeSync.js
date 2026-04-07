@@ -72,7 +72,7 @@ export function useRealtimeSync() {
         },
         payload => {
           // Skip own writes — we already applied them locally
-          if (payload.new?.user_id === userId) return;
+          if (payload.new?.updated_by === userId || payload.new?.user_id === userId) return;
 
           // Solo mode: skip rows with non-null org_id (belongs to a different scope)
           if (!orgId && payload.new?.org_id) return;

@@ -149,7 +149,7 @@ export const pushEstimate = async (estimateId, data) => {
             .from("user_estimates")
             .update({ draft: false })
             .eq("estimate_id", estimateId)
-            .eq("user_id", userId);
+            .is("deleted_at", null);
         } catch { /* non-critical */ }
       }
     });
@@ -219,7 +219,7 @@ export const syncIndexColumns = async (estimateId, updates) => {
       .from("user_estimates")
       .update(row)
       .eq("estimate_id", estimateId)
-      .eq("user_id", getUserId());
+      .is("deleted_at", null);
     if (error) console.warn(`[cloudSync] syncIndexColumns("${estimateId}") failed:`, error.message);
   } catch (err) {
     console.warn(`[cloudSync] syncIndexColumns("${estimateId}") error:`, err.message);

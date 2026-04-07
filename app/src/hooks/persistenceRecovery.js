@@ -60,11 +60,19 @@ export async function recoverFromCloud() {
   // 2. Pull all estimates — scope-blind
   let estimates = [];
   try {
-    const { data, error } = await sbClient
+    // Org-owned model: pull via RLS (org members see all org estimates)
+    // Try org scope first, fall back to user scope
+    const orgId = useOrgStore.getState().org?.id;
+    let estQuery = sbClient
       .from("user_estimates")
       .select("estimate_id, data, org_id")
-      .eq("user_id", userId)
       .is("deleted_at", null);
+    if (orgId) {
+      estQuery = estQuery.eq("org_id", orgId);
+    } else {
+      estQuery = estQuery.eq("user_id", userId);
+    }
+    const { data, error } = await estQuery;
     if (error) throw error;
     estimates = data || [];
     console.log(`[recoverFromCloud] Estimates query: ${estimates.length} rows`);
