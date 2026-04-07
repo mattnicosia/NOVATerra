@@ -103,14 +103,9 @@ export default function TakeoffRow({
     <div data-takeoff-id={to.id} ref={rowRef}>
       <div
         className={`row${to._aiCosts ? " nova-priced" : ""}${isSelected ? " row-selected" : ""}${isMeasuring ? " row-measuring" : ""}`}
-        draggable
-        onDragStart={() => {
-          tkDragTakeoff.current = to.id;
-        }}
         onDragEnter={() => {
           tkDragOverTakeoff.current = to.id;
         }}
-        onDragEnd={tkDragReorder}
         onDragOver={e => e.preventDefault()}
         onClick={() => {
           setTkSelectedTakeoffId(to.id);
@@ -124,7 +119,7 @@ export default function TakeoffRow({
           gap: 4,
           padding: `${T.space[1]}px ${T.space[2]}px`,
           borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
-          cursor: "grab",
+          cursor: "default",
           background: isMeasuring
             ? `${to.color}18`
             : isSelected
@@ -143,10 +138,11 @@ export default function TakeoffRow({
           transition: "background 100ms ease-out",
         }}
       >
-        {/* Play / Pause / Stop */}
+        {/* Play / Pause / Stop — also drag handle for reordering */}
         <div
-          draggable="false"
-          onMouseDown={e => e.stopPropagation()}
+          draggable
+          onDragStart={() => { tkDragTakeoff.current = to.id; }}
+          onDragEnd={tkDragReorder}
           style={{
             width: isMeasuring || isPaused ? 38 : 20,
             flexShrink: 0,
@@ -154,6 +150,7 @@ export default function TakeoffRow({
             alignItems: "center",
             justifyContent: "center",
             gap: 2,
+            cursor: "grab",
           }}
           onClick={e => e.stopPropagation()}
         >
@@ -213,8 +210,6 @@ export default function TakeoffRow({
         </div>
         <div
           ref={colorBtnRef}
-          draggable="false"
-          onMouseDown={e => e.stopPropagation()}
           style={{
             width: 14,
             height: 14,
@@ -467,8 +462,6 @@ export default function TakeoffRow({
           >
             <button
               className="icon-btn"
-              draggable="false"
-              onMouseDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); setTkShowVars(tkShowVars === to.id ? null : to.id); }}
               title="Variables & Formula"
               style={{
@@ -508,11 +501,8 @@ export default function TakeoffRow({
             </button>
             <button
               className="icon-btn"
-              draggable="false"
-              onMouseDown={e => e.stopPropagation()}
               onClick={e => {
                 e.stopPropagation();
-                e.preventDefault();
                 if (actionMenuId === to.id) {
                   setActionMenuId(null);
                 } else {
