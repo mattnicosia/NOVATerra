@@ -111,6 +111,7 @@ export default function useTakeoffActions({
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     const current = useDrawingPipelineStore.getState().takeoffs;
     const groupName = result.groupName || "AI Group";
+    const asmId = uid(); // shared assembly ID for all items in this group
     const newTakeoffs = result.items.map((item, i) => ({
       id: uid(),
       description: item.description,
@@ -125,6 +126,8 @@ export default function useTakeoffActions({
       formula: "",
       measurements: [],
       bidContext: bidCtx,
+      assemblyId: asmId,
+      assemblyLabel: groupName,
       _aiCosts: {
         material: nn(item.material),
         labor: nn(item.labor),

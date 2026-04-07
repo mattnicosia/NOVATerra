@@ -140,6 +140,9 @@ export default function TakeoffLeftPanel({
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem("bldg-collapsedGroups")) || {}; } catch { return {}; }
   });
+  const [collapsedAssemblies, setCollapsedAssemblies] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem("bldg-collapsedAsm")) || {}; } catch { return {}; }
+  });
   const [costEditId, setCostEditId] = useState(null);
   const [actionMenuId, setActionMenuId] = useState(null);
   const [actionConfirm, setActionConfirm] = useState(null);
@@ -170,6 +173,11 @@ export default function TakeoffLeftPanel({
   const toggleGroupCollapse = group => setCollapsedGroups(prev => {
     const next = { ...prev, [group]: !prev[group] };
     try { sessionStorage.setItem("bldg-collapsedGroups", JSON.stringify(next)); } catch {}
+    return next;
+  });
+  const toggleAssemblyCollapse = asmId => setCollapsedAssemblies(prev => {
+    const next = { ...prev, [asmId]: !prev[asmId] };
+    try { sessionStorage.setItem("bldg-collapsedAsm", JSON.stringify(next)); } catch {}
     return next;
   });
 
@@ -583,54 +591,118 @@ export default function TakeoffLeftPanel({
                                       )}
                                       <div style={{ width: 44 }}></div>
                                     </div>
-                                    {tos.map(to => (
-                                      <TakeoffRow
-                                        key={to.id}
-                                        to={to}
-                                        C={C}
-                                        T={T}
-                                        tkActiveTakeoffId={tkActiveTakeoffId}
-                                        tkSelectedTakeoffId={tkSelectedTakeoffId}
-                                        setTkSelectedTakeoffId={setTkSelectedTakeoffId}
-                                        tkMeasureState={tkMeasureState}
-                                        setTkMeasureState={setTkMeasureState}
-                                        tkShowVars={tkShowVars}
-                                        setTkShowVars={setTkShowVars}
-                                        tkPanelTier={tkPanelTier}
-                                        costEditId={costEditId}
-                                        setCostEditId={setCostEditId}
-                                        actionMenuId={actionMenuId}
-                                        setActionMenuId={setActionMenuId}
-                                        actionConfirm={actionConfirm}
-                                        setActionConfirm={setActionConfirm}
-                                        actionMenuPos={actionMenuPos}
-                                        setActionMenuPos={setActionMenuPos}
-                                        actionMenuRef={actionMenuRef}
-                                        measureFlashId={measureFlashId}
-                                        itemById={itemById}
-                                        revisionAffectedIds={revisionAffectedIds}
-                                        selectedDrawing={selectedDrawing}
-                                        selectedDrawingId={selectedDrawingId}
-                                        updateTakeoff={updateTakeoff}
-                                        removeTakeoff={removeTakeoff}
-                                        engageMeasuring={engageMeasuring}
-                                        stopMeasuring={stopMeasuring}
-                                        pauseMeasuring={pauseMeasuring}
-                                        removeMeasurement={removeMeasurement}
-                                        computeMeasurementValue={computeMeasurementValue}
-                                        getMeasuredQty={getMeasuredQty}
-                                        getComputedQty={getComputedQty}
-                                        startAutoCount={startAutoCount}
-                                        getItemTotal={getItemTotal}
-                                        tkDragTakeoff={tkDragTakeoff}
-                                        tkDragOverTakeoff={tkDragOverTakeoff}
-                                        tkDragReorder={tkDragReorder}
-                                        takeoffs={takeoffs}
-                                        setTakeoffs={setTakeoffs}
-                                        setTkTool={setTkTool}
-                                        setTkActivePoints={setTkActivePoints}
-                                      />
-                                    ))}
+                                    {(() => {
+                                      // Sub-group items by assemblyId for collapsible nesting
+                                      const loose = []; // items without an assemblyId
+                                      const asmGroups = {}; // assemblyId → [items]
+                                      const asmOrder = []; // preserve insertion order
+                                      tos.forEach(to => {
+                                        if (to.assemblyId) {
+                                          if (!asmGroups[to.assemblyId]) {
+                                            asmGroups[to.assemblyId] = { label: to.assemblyLabel || to.group, items: [] };
+                                            asmOrder.push(to.assemblyId);
+                                          }
+                                          asmGroups[to.assemblyId].items.push(to);
+                                        } else {
+                                          loose.push(to);
+                                        }
+                                      });
+                                      const renderRow = to => (
+                                        <TakeoffRow
+                                          key={to.id}
+                                          to={to}
+                                          C={C}
+                                          T={T}
+                                          tkActiveTakeoffId={tkActiveTakeoffId}
+                                          tkSelectedTakeoffId={tkSelectedTakeoffId}
+                                          setTkSelectedTakeoffId={setTkSelectedTakeoffId}
+                                          tkMeasureState={tkMeasureState}
+                                          setTkMeasureState={setTkMeasureState}
+                                          tkShowVars={tkShowVars}
+                                          setTkShowVars={setTkShowVars}
+                                          tkPanelTier={tkPanelTier}
+                                          costEditId={costEditId}
+                                          setCostEditId={setCostEditId}
+                                          actionMenuId={actionMenuId}
+                                          setActionMenuId={setActionMenuId}
+                                          actionConfirm={actionConfirm}
+                                          setActionConfirm={setActionConfirm}
+                                          actionMenuPos={actionMenuPos}
+                                          setActionMenuPos={setActionMenuPos}
+                                          actionMenuRef={actionMenuRef}
+                                          measureFlashId={measureFlashId}
+                                          itemById={itemById}
+                                          revisionAffectedIds={revisionAffectedIds}
+                                          selectedDrawing={selectedDrawing}
+                                          selectedDrawingId={selectedDrawingId}
+                                          updateTakeoff={updateTakeoff}
+                                          removeTakeoff={removeTakeoff}
+                                          engageMeasuring={engageMeasuring}
+                                          stopMeasuring={stopMeasuring}
+                                          pauseMeasuring={pauseMeasuring}
+                                          removeMeasurement={removeMeasurement}
+                                          computeMeasurementValue={computeMeasurementValue}
+                                          getMeasuredQty={getMeasuredQty}
+                                          getComputedQty={getComputedQty}
+                                          startAutoCount={startAutoCount}
+                                          getItemTotal={getItemTotal}
+                                          tkDragTakeoff={tkDragTakeoff}
+                                          tkDragOverTakeoff={tkDragOverTakeoff}
+                                          tkDragReorder={tkDragReorder}
+                                          takeoffs={takeoffs}
+                                          setTakeoffs={setTakeoffs}
+                                          setTkTool={setTkTool}
+                                          setTkActivePoints={setTkActivePoints}
+                                        />
+                                      );
+                                      return (
+                                        <>
+                                          {/* Loose items (no assembly) render directly */}
+                                          {loose.map(renderRow)}
+                                          {/* Assembly sub-groups — collapsible, default collapsed */}
+                                          {asmOrder.map(asmId => {
+                                            const ag = asmGroups[asmId];
+                                            const isAsmCollapsed = collapsedAssemblies[asmId] !== false; // default collapsed
+                                            const measuredCount = ag.items.filter(t => (t.measurements || []).length > 0 || t.quantity).length;
+                                            return (
+                                              <div key={asmId}>
+                                                <div
+                                                  onClick={() => toggleAssemblyCollapse(asmId)}
+                                                  style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                    padding: "4px 10px 4px 16px",
+                                                    cursor: "pointer",
+                                                    background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
+                                                    borderTop: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                                                    borderLeft: `2px solid ${C.purple}60`,
+                                                  }}
+                                                >
+                                                  <Ic
+                                                    d={I.chevron}
+                                                    size={8}
+                                                    color={C.purple}
+                                                    style={{
+                                                      transform: isAsmCollapsed ? "rotate(0deg)" : "rotate(90deg)",
+                                                      transition: "transform 0.15s",
+                                                    }}
+                                                  />
+                                                  <Ic d={I.assembly} size={10} color={C.purple} />
+                                                  <span style={{ fontSize: 9, fontWeight: 700, color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                    {ag.label}
+                                                  </span>
+                                                  <span style={{ fontSize: 8, color: C.textDim, flexShrink: 0 }}>
+                                                    {measuredCount}/{ag.items.length}
+                                                  </span>
+                                                </div>
+                                                {!isAsmCollapsed && ag.items.map(renderRow)}
+                                              </div>
+                                            );
+                                          })}
+                                        </>
+                                      );
+                                    })()}
                                     <button
                                       className="ghost-btn"
                                       onClick={() => addTakeoff(group)}
