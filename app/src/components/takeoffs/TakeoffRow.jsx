@@ -210,6 +210,7 @@ export default function TakeoffRow({
           )}
         </div>
         <div
+          ref={colorBtnRef}
           style={{
             width: 10,
             height: 10,
@@ -221,7 +222,7 @@ export default function TakeoffRow({
           }}
           onClick={e => {
             e.stopPropagation();
-            e.currentTarget.querySelector("input")?.click();
+            setColorPopup(!colorPopup);
           }}
         >
           {isMeasuring && (
@@ -235,20 +236,6 @@ export default function TakeoffRow({
               }}
             />
           )}
-          <input
-            type="color"
-            value={to.color}
-            onChange={e => updateTakeoff(to.id, "color", e.target.value)}
-            onClick={e => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              opacity: 0,
-              width: 0,
-              height: 0,
-              top: 0,
-              left: 0,
-            }}
-          />
         </div>
         {/* Description */}
         <div
@@ -511,27 +498,6 @@ export default function TakeoffRow({
               })()}
             </button>
             <button
-              ref={colorBtnRef}
-              className="icon-btn"
-              onClick={e => { e.stopPropagation(); setColorPopup(!colorPopup); }}
-              title="Color & Style"
-              style={{
-                width: 24,
-                height: 24,
-                border: `1px solid ${C.border}`,
-                background: C.bg2,
-                borderRadius: 5,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                flexShrink: 0,
-                position: "relative",
-              }}
-            >
-              <div style={{ width: 12, height: 12, borderRadius: 3, background: to.color || "#5b8def", border: "1px solid rgba(255,255,255,0.2)" }} />
-            </button>
-            <button
               className="icon-btn"
               onClick={e => {
                 e.stopPropagation();
@@ -547,6 +513,7 @@ export default function TakeoffRow({
                 }
                 setActionConfirm(null);
               }}
+              data-action-toggle="true"
               title="More actions"
               style={{
                 width: 24,
