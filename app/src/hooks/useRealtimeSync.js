@@ -284,7 +284,7 @@ async function _handleEstimateChange(payload) {
         name: data.project?.projectName || "Untitled",
         updated_at: data._savedAt || new Date().toISOString(),
       };
-      useEstimatesStore.getState().setEstimatesIndex([...currentIndex, indexEntry]);
+      useEstimatesStore.getState().setEstimatesIndex(prev => [...prev, indexEntry]);
       // Update IDB index
       try {
         const updatedIndex = useEstimatesStore.getState().estimatesIndex;

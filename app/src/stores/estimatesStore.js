@@ -41,14 +41,26 @@ export const useEstimatesStore = create((set, get) => ({
   activeEstimateId: null,
   draftId: null, // Non-null when estimate is a draft (not yet persisted to DB)
 
-  setEstimatesIndex: v => {
-    if (!Array.isArray(v)) return set({ estimatesIndex: [] });
-    // Dedup by estimate ID — keep the LAST occurrence (most recent push wins)
-    const seen = new Map();
-    for (const entry of v) {
-      if (entry?.id) seen.set(entry.id, entry);
-    }
-    set({ estimatesIndex: [...seen.values()] });
+  /**
+   * setEstimatesIndex — atomic, dedup-safe index mutation.
+   *
+   * Accepts either:
+   *   - An array (replaces index, deduped)
+   *   - A function (prev => next), evaluated inside Zustand's functional setState
+   *     to prevent TOCTOU races between concurrent sync processes.
+   *
+   * Always deduplicates by ID (last occurrence wins).
+   */
+  setEstimatesIndex: vOrFn => {
+    set(s => {
+      const next = typeof vOrFn === "function" ? vOrFn(s.estimatesIndex) : vOrFn;
+      if (!Array.isArray(next)) return { estimatesIndex: [] };
+      const seen = new Map();
+      for (const entry of next) {
+        if (entry?.id) seen.set(entry.id, entry);
+      }
+      return { estimatesIndex: [...seen.values()] };
+    });
   },
   setActiveEstimateId: v => set({ activeEstimateId: v }),
   clearDraft: () => set({ draftId: null }),

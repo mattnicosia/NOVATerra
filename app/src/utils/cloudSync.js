@@ -198,7 +198,7 @@ async function _applyDataToStore(key, data) {
       const currentIds = new Set(currentIndex.map(e => e.id));
       const newEntries = (Array.isArray(data) ? data : []).filter(e => !currentIds.has(e.id));
       if (newEntries.length > 0) {
-        useEstimatesStore.getState().setEstimatesIndex([...currentIndex, ...newEntries]);
+        useEstimatesStore.getState().setEstimatesIndex(prev => [...prev, ...newEntries]);
       }
     }
     console.log(`[cloudSync] Applied Realtime data for key "${key}"`);
