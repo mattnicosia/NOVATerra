@@ -284,12 +284,10 @@ async function _handleEstimateChange(payload) {
         name: data.project?.projectName || "Untitled",
         updated_at: data._savedAt || new Date().toISOString(),
       };
-      useEstimatesStore.setState(s => ({
-        estimatesIndex: [...s.estimatesIndex, indexEntry],
-      }));
+      useEstimatesStore.getState().setEstimatesIndex([...currentIndex, indexEntry]);
       // Update IDB index
       try {
-        const updatedIndex = [...currentIndex, indexEntry];
+        const updatedIndex = useEstimatesStore.getState().estimatesIndex;
         await storage.set(idbKey("bldg-index"), JSON.stringify(updatedIndex));
       } catch {
         /* IDB index update non-critical */

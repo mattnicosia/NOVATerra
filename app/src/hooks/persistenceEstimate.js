@@ -627,9 +627,8 @@ export async function saveEstimate(overrideId) {
     const stillActive = useEstimatesStore.getState().activeEstimateId === id;
     if (stillActive) {
       const newEntry = { id, ...entryFields };
-      useEstimatesStore.setState(s => ({
-        estimatesIndex: [...s.estimatesIndex, newEntry],
-      }));
+      const curIdx = useEstimatesStore.getState().estimatesIndex;
+      useEstimatesStore.getState().setEstimatesIndex([...curIdx, newEntry]);
     } else {
       console.warn("[saveEstimate] Estimate not in index and not active — skipping re-add for", id);
       return;

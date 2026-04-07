@@ -115,10 +115,9 @@ export async function runAutopilot({
     visibility: "private",
   };
 
-  useEstimatesStore.setState(s => ({
-    activeEstimateId: estimateId,
-    estimatesIndex: [...s.estimatesIndex, newEntry],
-  }));
+  const currentIdx = useEstimatesStore.getState().estimatesIndex;
+  useEstimatesStore.getState().setEstimatesIndex([...currentIdx, newEntry]);
+  useEstimatesStore.setState({ activeEstimateId: estimateId });
 
   // Hydrate project store with metadata
   useProjectStore.getState().setProject({
