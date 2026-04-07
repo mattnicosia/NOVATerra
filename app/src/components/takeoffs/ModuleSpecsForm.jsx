@@ -119,6 +119,14 @@ export function InstanceSpecsForm({ specs, catId, catInst, templates, onSpecChan
     });
   };
 
+  // Detect which template matches current specs (if any)
+  const activeTemplateIdx = templates ? templates.findIndex(tmpl =>
+    Object.entries(tmpl.specs).every(([k, v]) => {
+      const current = catInst.specs?.[k] ?? specs.find(s => s.id === k)?.default;
+      return String(current) === String(v);
+    })
+  ) : -1;
+
   const renderSpec = spec => (
     <div
       key={spec.id}
@@ -191,34 +199,42 @@ export function InstanceSpecsForm({ specs, catId, catInst, templates, onSpecChan
           >
             Quick Start
           </span>
-          {templates.map((tmpl, ti) => (
-            <button
-              key={ti}
-              onClick={() => applyTemplate(tmpl)}
-              style={{
-                padding: "3px 8px",
-                fontSize: 9,
-                fontWeight: 600,
-                border: `1px solid ${C.accent}30`,
-                background: C.bg1,
-                color: C.text,
-                borderRadius: 10,
-                cursor: "pointer",
-                transition: "all 0.15s",
-                whiteSpace: "nowrap",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = C.accent + "15";
-                e.currentTarget.style.borderColor = C.accent;
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = C.bg1;
-                e.currentTarget.style.borderColor = C.accent + "30";
-              }}
-            >
-              {tmpl.label}
-            </button>
-          ))}
+          {templates.map((tmpl, ti) => {
+            const isActive = ti === activeTemplateIdx;
+            return (
+              <button
+                key={ti}
+                onClick={() => applyTemplate(tmpl)}
+                style={{
+                  padding: "3px 8px",
+                  fontSize: 9,
+                  fontWeight: isActive ? 700 : 600,
+                  border: `1px solid ${isActive ? C.accent : C.accent + "30"}`,
+                  background: isActive ? C.accent : C.bg1,
+                  color: isActive ? "#fff" : C.text,
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  whiteSpace: "nowrap",
+                  boxShadow: isActive ? `0 1px 4px ${C.accent}40` : "none",
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = C.accent + "15";
+                    e.currentTarget.style.borderColor = C.accent;
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = C.bg1;
+                    e.currentTarget.style.borderColor = C.accent + "30";
+                  }
+                }}
+              >
+                {tmpl.label}
+              </button>
+            );
+          })}
         </div>
       )}
       {materialSpec && (

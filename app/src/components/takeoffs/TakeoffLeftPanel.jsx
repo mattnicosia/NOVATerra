@@ -637,19 +637,24 @@ export default function TakeoffLeftPanel({
                                       style={{
                                         display: "flex",
                                         alignItems: "center",
+                                        justifyContent: "center",
                                         gap: T.space[1],
-                                        width: "100%",
+                                        width: "calc(100% - 12px)",
+                                        margin: "4px 6px",
                                         padding: `${T.space[2]}px ${T.space[3]}px`,
                                         background: "transparent",
-                                        color: C.textDim,
+                                        color: C.textMuted,
                                         cursor: "pointer",
                                         fontSize: T.fontSize.xs,
-                                        fontWeight: T.fontWeight.medium,
-                                        border: "none",
-                                        borderTop: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
+                                        fontWeight: T.fontWeight.semibold || 600,
+                                        border: `1px dashed ${C.border}`,
+                                        borderRadius: 4,
+                                        transition: "all 0.15s",
                                       }}
+                                      onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; e.currentTarget.style.background = `${C.accent}08`; }}
+                                      onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; e.currentTarget.style.background = "transparent"; }}
                                     >
-                                      <Ic d={I.plus} size={9} /> Add item
+                                      <Ic d={I.plus} size={9} color="currentColor" sw={2} /> Add item to group
                                     </button>
                                   </>
                                 )}

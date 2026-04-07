@@ -303,6 +303,24 @@ export default function TakeoffRow({
                   NOVA
                 </span>
               )}
+              {to.assemblyElements && (
+                <span
+                  style={{
+                    color: C.purple,
+                    fontSize: 7,
+                    fontWeight: T.fontWeight.bold,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 2,
+                    background: `${C.purple}0A`,
+                    padding: "0 3px",
+                    borderRadius: 2,
+                  }}
+                  title={`Assembly: ${to.assemblyElements.length} elements`}
+                >
+                  ASM ({to.assemblyElements.length})
+                </span>
+              )}
             </div>
           )}
           {/* Estimator attribution badge */}

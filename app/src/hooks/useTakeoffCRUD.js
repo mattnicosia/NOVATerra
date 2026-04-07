@@ -186,30 +186,49 @@ export default function useTakeoffCRUD() {
     }
   }, []);
 
-  /** Insert all elements from an assembly as takeoffs */
+  /** Insert assembly as a single takeoff — measure once, all elements derive from it */
   const insertAssemblyIntoTakeoffs = useCallback(asm => {
     const ts = useDrawingPipelineStore.getState();
     const bidCtx = useUiStore.getState().activeGroupId || "base";
-    const newTakeoffs = asm.elements.map((el, i) => ({
-      id: uid(),
-      description: el.desc,
+    // Determine unit from elements: use the first element's unit, or most common unit
+    const units = asm.elements.map(el => el.unit).filter(Boolean);
+    const primaryUnit = units.length > 0
+      ? units.sort((a, b) => units.filter(u => u === b).length - units.filter(u => u === a).length)[0]
+      : "SF";
+    const newId = uid();
+    const newTakeoff = {
+      id: newId,
+      description: asm.name,
       quantity: "",
-      unit: el.unit || "SF",
-      color: TO_COLORS[(ts.takeoffs.length + i) % TO_COLORS.length],
+      unit: primaryUnit,
+      color: TO_COLORS[ts.takeoffs.length % TO_COLORS.length],
       drawingRef: "",
       group: asm.name,
       linkedItemId: "",
-      code: el.code,
+      code: asm.code || asm.elements[0]?.code || "",
       variables: [],
       formula: "",
       measurements: [],
       bidContext: bidCtx,
       createdAt: Date.now(),
-    }));
-    ts.setTakeoffs([...ts.takeoffs, ...newTakeoffs]);
+      // Assembly elements — derive quantities from this takeoff's measured qty
+      assemblyElements: asm.elements.map(el => ({
+        code: el.code || "",
+        desc: el.desc,
+        unit: el.unit || primaryUnit,
+        m: el.m || 0,
+        l: el.l || 0,
+        e: el.e || 0,
+        sub: el.sub || 0,
+        mode: el.mode || "mle",
+        factor: el.factor || 1,
+      })),
+      assemblyName: asm.name,
+    };
+    ts.setTakeoffs([...ts.takeoffs, newTakeoff]);
     ts.setTkNewInput("");
     ts.setTkDbResults([]);
-    useUiStore.getState().showToast(`Inserted ${asm.elements.length} takeoff items from "${asm.name}"`);
+    useUiStore.getState().showToast(`Inserted "${asm.name}" assembly — measure once to calculate all ${asm.elements.length} elements`);
   }, []);
 
   return {
