@@ -205,17 +205,18 @@ const SEED_MAP = {
   "dw-tape": "s314", // Joint Tape → Joint Tape, Paper (ROLL)
   "dw-screws": "s315", // Drywall Screws → Drywall Screws, Coarse Thread (LBS)
 
-  // ── Drywall (per-instance — ext walls, 1 side) ──
-  "ext-dw-sheets": "s105", // Drywall Sheets → Gypsum Board, 1/2" Standard (SF)
-  "ext-dw-compound": "s313", // Joint Compound → Joint Compound, All-Purpose (GAL)
-  "ext-dw-tape": "s314", // Joint Tape → Joint Tape, Paper (ROLL)
+  // ── Drywall (per-instance — ext walls) ──
+  "ext-dw-sheets": "s105", // Drywall Sheets (Hang) → Gypsum Board, 1/2" Standard (SF)
+  "ext-dw-finish": "s107", // Taping & Finishing → Drywall Taping & Finishing, Level 4 (SF)
   "ext-dw-screws": "s315", // Drywall Screws → Drywall Screws, Coarse Thread (LBS)
 
-  // ── Drywall (per-instance — int walls, 2 sides) ──
-  "int-dw-sheets": "s105", // Drywall Sheets → Gypsum Board, 1/2" Standard (SF)
-  "int-dw-compound": "s313", // Joint Compound → Joint Compound, All-Purpose (GAL)
-  "int-dw-tape": "s314", // Joint Tape → Joint Tape, Paper (ROLL)
+  // ── Drywall (per-instance — int walls) ──
+  "int-dw-sheets": "s105", // Drywall Sheets (Hang) → Gypsum Board, 1/2" Standard (SF)
+  "int-dw-finish": "s107", // Taping & Finishing → Drywall Taping & Finishing, Level 4 (SF)
   "int-dw-screws": "s315", // Drywall Screws → Drywall Screws, Coarse Thread (LBS)
+
+  // ── Interior Wall Insulation ──
+  "int-insul": "s083", // Wall Insulation → Batt Insulation, R-13 (SF)
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FLOORS MODULE

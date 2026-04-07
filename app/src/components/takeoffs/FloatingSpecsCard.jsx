@@ -45,7 +45,8 @@ export default function FloatingSpecsCard({ detectedReferences, setDetailOverlay
       }
       if (ci) break;
     }
-  } else if (activeModule) {
+  } else if (activeModule && tkMeasureState === "paused") {
+    // Only show when measuring is paused (between segments) — not when idle
     const mod = MODULES[activeModule];
     const inst = moduleInstances[activeModule];
     if (mod && inst) {

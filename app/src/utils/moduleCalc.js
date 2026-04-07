@@ -42,8 +42,14 @@ function computeFramingContext(ctx, specs) {
   ctx.SheetArea = parseSheet(specs.SheathSheet);
   ctx.DwSheetArea = parseSheet(specs.DwSheet);
 
-  // Parse DwLayers: "1" → 1, "2" → 2
-  ctx.DwLayerCount = parseInt(specs.DwLayers) || 1;
+  // Parse per-side GWB layers (backward-compat: fall back to old DwLayers if present)
+  const oldLayers = parseInt(specs.DwLayers) || 0;
+  ctx.DwSide1 = parseInt(specs.DwLayersSide1) || (oldLayers || 1);
+  ctx.DwSide2 = parseInt(specs.DwLayersSide2) || 0;
+  ctx.DwTotalLayers = ctx.DwSide1 + ctx.DwSide2;
+  ctx.DwFinishSides = (ctx.DwSide1 > 0 ? 1 : 0) + (ctx.DwSide2 > 0 ? 1 : 0);
+  // Backward compat alias
+  ctx.DwLayerCount = ctx.DwTotalLayers || 1;
 
   // Parse DwFinish: "Level 4" → 1.0, "Level 5" → 1.5 (skim coat = 50% more compound)
   ctx.DwFinishMult = specs.DwFinish === "Level 5" ? 1.5 : 1;
