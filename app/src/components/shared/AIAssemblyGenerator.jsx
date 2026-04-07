@@ -61,8 +61,14 @@ export default function AIAssemblyGenerator({ onClose }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [editingIdx, setEditingIdx] = useState(null);
+  const [chatMsg, setChatMsg] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]); // { role, text }
   const abortRef = useRef(null);
+  const chatAbortRef = useRef(null);
   const editOrigRef = useRef(null);
+  const chatInputRef = useRef(null);
+  const chatScrollRef = useRef(null);
 
   const generate = async () => {
     if (!prompt.trim()) return;
@@ -110,7 +116,60 @@ export default function AIAssemblyGenerator({ onClose }) {
 
   const stopGeneration = () => {
     if (abortRef.current) abortRef.current.abort();
+    if (chatAbortRef.current) chatAbortRef.current.abort();
     setLoading(false);
+    setChatLoading(false);
+  };
+
+  // ─── Chat: modify assembly via natural language ───
+  const sendChat = async () => {
+    if (!chatMsg.trim() || !result || chatLoading) return;
+    const userMsg = chatMsg.trim();
+    setChatMsg("");
+    setChatLoading(true);
+    setChatHistory(prev => [...prev, { role: "user", text: userMsg }]);
+    chatAbortRef.current = new AbortController();
+
+    try {
+      const fullText = await callAnthropicStream({
+        max_tokens: 2000,
+        system: `You are NOVA, the AI construction estimator inside NOVATerra. The user has an assembly and wants to modify it.
+
+CURRENT ASSEMBLY:
+${JSON.stringify(result, null, 2)}
+
+The user will describe changes they want. Apply their changes to the assembly and return the COMPLETE updated assembly as valid JSON. Supported fields per element: code, desc, unit, m (material), l (labor), e (equipment), sub (subcontractor rate), mode ("mle" or "sub"), factor.
+
+RULES:
+- Return the FULL assembly JSON (not just changed parts)
+- Preserve elements the user didn't ask to change
+- Capitalize first letter of every word in descriptions
+- Use realistic 2025-2026 US construction pricing
+- RESPOND WITH ONLY valid JSON (no markdown, no backticks, no explanation)`,
+        messages: [{ role: "user", content: userMsg }],
+        onText: () => {},
+        signal: chatAbortRef.current.signal,
+      });
+
+      let json = fullText.trim();
+      if (json.startsWith("```")) {
+        json = json.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+      }
+      const parsed = JSON.parse(json);
+      if (!parsed.name || !parsed.elements?.length) throw new Error("Invalid assembly format");
+      parsed.elements = parsed.elements.map(el => ({
+        ...el,
+        mode: el.mode || "mle",
+        sub: nn(el.sub),
+      }));
+      setResult(parsed);
+      setChatHistory(prev => [...prev, { role: "nova", text: `Updated: ${parsed.elements.length} elements` }]);
+    } catch (err) {
+      if (err.name === "AbortError") { setChatLoading(false); return; }
+      setChatHistory(prev => [...prev, { role: "nova", text: `Error: ${err.message}` }]);
+    }
+    setChatLoading(false);
+    setTimeout(() => chatScrollRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
   const addToDatabase = () => {
@@ -915,6 +974,79 @@ export default function AIAssemblyGenerator({ onClose }) {
                   {fmt2(totalPer)}
                   <span style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>/unit</span>
                 </span>
+              </div>
+
+              {/* ── Chat: modify assembly with natural language ── */}
+              <div style={{ padding: "10px 16px 6px", borderTop: `1px solid ${C.border}` }}>
+                {chatHistory.length > 0 && (
+                  <div style={{ maxHeight: 120, overflowY: "auto", marginBottom: 8 }}>
+                    {chatHistory.map((msg, i) => (
+                      <div key={i} style={{
+                        display: "flex", gap: 6, marginBottom: 4, alignItems: "flex-start",
+                        justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                      }}>
+                        {msg.role === "nova" && (
+                          <Ic d={I.ai} size={10} color={C.accent} />
+                        )}
+                        <span style={{
+                          fontSize: 10,
+                          color: msg.role === "user" ? C.text : msg.text.startsWith("Error") ? C.red : C.accent,
+                          fontWeight: msg.role === "nova" ? 600 : 400,
+                          background: msg.role === "user" ? `${C.accent}10` : "transparent",
+                          padding: msg.role === "user" ? "2px 8px" : "0",
+                          borderRadius: 8,
+                          maxWidth: "80%",
+                        }}>
+                          {msg.text}
+                        </span>
+                      </div>
+                    ))}
+                    <div ref={chatScrollRef} />
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <Ic d={I.ai} size={12} color={chatLoading ? C.accent : C.textDim} />
+                  <input
+                    ref={chatInputRef}
+                    value={chatMsg}
+                    onChange={e => setChatMsg(e.target.value)}
+                    placeholder="Ask NOVA to modify — e.g. 'change drywall to 5/8 Type X' or 'add primer coat'"
+                    disabled={chatLoading}
+                    style={{
+                      ...inp(C),
+                      flex: 1,
+                      fontSize: 11,
+                      padding: "6px 10px",
+                      background: C.bg2,
+                      border: `1px solid ${chatLoading ? C.accent + "40" : C.border}`,
+                      borderRadius: 6,
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendChat();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={sendChat}
+                    disabled={!chatMsg.trim() || chatLoading}
+                    style={{
+                      ...bt(C),
+                      padding: "6px 10px",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      background: chatMsg.trim() && !chatLoading ? C.accent : C.bg2,
+                      color: chatMsg.trim() && !chatLoading ? "#fff" : C.textDim,
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: chatMsg.trim() && !chatLoading ? "pointer" : "not-allowed",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {chatLoading ? "..." : "Send"}
+                  </button>
+                </div>
               </div>
             </div>
           )}
