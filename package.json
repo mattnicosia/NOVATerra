@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "vercel dev --listen 5173",
-    "build": "vite build",
+    "build": "cd app && vite build --outDir ../dist",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
