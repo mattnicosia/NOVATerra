@@ -996,18 +996,18 @@ button:disabled {
   z-index: 0;
 }
 
-/* ── Context-Aware Controls — hover-reveal action buttons ── */
+/* ── Context-Aware Controls — always-visible action buttons (beta feedback: users couldn't find delete) ── */
 .tk-row-actions {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease-out 200ms; /* 200ms delay on hide prevents edge-crossing flicker */
+  opacity: 0.45;
+  pointer-events: auto;
+  transition: opacity 120ms ease-out 200ms;
 }
 .row:hover .tk-row-actions,
 .row-selected .tk-row-actions,
 .row-measuring .tk-row-actions {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 120ms ease-out 0ms; /* instant show, no delay */
+  transition: opacity 120ms ease-out 0ms;
 }
 
 /* Pipeline bar animated fill */

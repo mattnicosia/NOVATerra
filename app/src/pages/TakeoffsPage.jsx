@@ -247,7 +247,15 @@ export default function TakeoffsPage() {
     const byGroup = takeoffs.filter(t => (t.bidContext || "base") === activeGroupId);
     if (pageFilter === "all") return byGroup;
     if (!selectedDrawingId) return byGroup;
-    return byGroup.filter(t => (t.measurements || []).some(m => m.sheetId === selectedDrawingId));
+    // Show items on this page OR newly-created items (no measurements yet = still setting up)
+    const now = Date.now();
+    return byGroup.filter(t => {
+      const onPage = (t.measurements || []).some(m => m.sheetId === selectedDrawingId);
+      if (onPage) return true;
+      // Keep items with no measurements (just created) visible for 10s so user can interact
+      if ((!t.measurements || t.measurements.length === 0) && t.createdAt && (now - t.createdAt < 10000)) return true;
+      return false;
+    });
   }, [takeoffs, pageFilter, selectedDrawingId, activeGroupId]);
   const takeoffGroups = useMemo(() => {
     const g = {};

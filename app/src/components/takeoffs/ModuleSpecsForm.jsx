@@ -88,7 +88,7 @@ export function SingleSpecsForm({ specs, specValues, onSpecChange }) {
 /**
  * Renders the instance specs form with condition filtering, templates, and spec group accordion.
  */
-export function InstanceSpecsForm({ specs, catId, catInst, templates, onSpecChange }) {
+export function InstanceSpecsForm({ specs, catId, catInst, templates, onSpecChange, filterSpecIds }) {
   const C = useTheme();
 
   const [collapsedSpecGroups, setCollapsedSpecGroups] = useState(new Set());
@@ -108,8 +108,10 @@ export function InstanceSpecsForm({ specs, catId, catInst, templates, onSpecChan
     if (specCtx[s.id] === undefined) specCtx[s.id] = s.default;
   });
 
-  const materialSpec = specs.find(s => s.id === "Material");
-  const restSpecs = specs.filter(s => s.id !== "Material");
+  // When filterSpecIds is provided, only show those specs (layer-scoped rendering)
+  const effectiveSpecs = filterSpecIds ? specs.filter(s => filterSpecIds.includes(s.id)) : specs;
+  const materialSpec = filterSpecIds ? null : effectiveSpecs.find(s => s.id === "Material");
+  const restSpecs = effectiveSpecs.filter(s => s.id !== "Material");
 
   const applyTemplate = template => {
     Object.entries(template.specs).forEach(([k, v]) => {

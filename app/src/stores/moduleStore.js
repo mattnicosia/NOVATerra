@@ -39,6 +39,14 @@ function getDefaultExpanded(moduleId) {
   return expanded;
 }
 
+// Build default layerEnabled from category layers definition
+function getDefaultLayerEnabled(cat) {
+  if (!cat.layers) return undefined;
+  const enabled = {};
+  cat.layers.forEach(layer => { enabled[layer.id] = true; });
+  return enabled;
+}
+
 // Build default categoryInstances for multi-instance categories
 function getDefaultCategoryInstances(moduleId) {
   const mod = MODULES[moduleId];
@@ -53,6 +61,8 @@ function getDefaultCategoryInstances(moduleId) {
         specs: getDefaultCatSpecs(cat),
         itemTakeoffIds: {},
         itemStatus: {},
+        layerEnabled: getDefaultLayerEnabled(cat),
+        customLayers: [],
       },
     ];
   });
@@ -158,6 +168,8 @@ export const useModuleStore = create((set, _get) => ({
                   specs: getDefaultCatSpecs(cat),
                   itemTakeoffIds: {},
                   itemStatus: {},
+                  layerEnabled: getDefaultLayerEnabled(cat),
+                  customLayers: [],
                 },
               ],
             },
@@ -256,6 +268,96 @@ export const useModuleStore = create((set, _get) => ({
               ...inst.categoryInstances,
               [catId]: existing.map(ci =>
                 ci.id === instanceId ? { ...ci, itemStatus: { ...ci.itemStatus, [itemId]: status } } : ci,
+              ),
+            },
+          },
+        },
+      };
+    }),
+
+  // ── Layer actions ──────────────────────────
+
+  toggleLayerEnabled: (moduleId, catId, instanceId, layerId) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci =>
+                ci.id === instanceId
+                  ? { ...ci, layerEnabled: { ...ci.layerEnabled, [layerId]: !(ci.layerEnabled?.[layerId] ?? true) } }
+                  : ci,
+              ),
+            },
+          },
+        },
+      };
+    }),
+
+  addCustomLayer: (moduleId, catId, instanceId, layer) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci =>
+                ci.id === instanceId
+                  ? { ...ci, customLayers: [...(ci.customLayers || []), { id: _uid(), ...layer }] }
+                  : ci,
+              ),
+            },
+          },
+        },
+      };
+    }),
+
+  removeCustomLayer: (moduleId, catId, instanceId, customLayerId) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci =>
+                ci.id === instanceId
+                  ? { ...ci, customLayers: (ci.customLayers || []).filter(cl => cl.id !== customLayerId) }
+                  : ci,
+              ),
+            },
+          },
+        },
+      };
+    }),
+
+  updateCustomLayer: (moduleId, catId, instanceId, customLayerId, updates) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci =>
+                ci.id === instanceId
+                  ? { ...ci, customLayers: (ci.customLayers || []).map(cl => cl.id === customLayerId ? { ...cl, ...updates } : cl) }
+                  : ci,
               ),
             },
           },
@@ -386,6 +488,25 @@ export function migrateModuleInstances(instances) {
         categoryInstances,
       };
     }
+  });
+
+  // Backfill layer fields on existing instances
+  Object.entries(migrated).forEach(([moduleId, inst]) => {
+    if (!inst.categoryInstances) return;
+    const mod = MODULES[moduleId];
+    if (!mod) return;
+    mod.categories.forEach(cat => {
+      if (!cat.multiInstance) return;
+      const instances = inst.categoryInstances[cat.id];
+      if (!instances) return;
+      instances.forEach(ci => {
+        if (ci.layerEnabled === undefined && cat.layers) {
+          ci.layerEnabled = {};
+          cat.layers.forEach(l => { ci.layerEnabled[l.id] = true; });
+        }
+        if (!ci.customLayers) ci.customLayers = [];
+      });
+    });
   });
 
   return migrated;

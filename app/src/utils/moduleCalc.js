@@ -545,8 +545,23 @@ export function computeAllDerivedWithInstances(
       const mergedSpecs = { ...specDefaults, ...globalSpecs, ...catInst.specs };
       const instCtx = buildCalcContext(moduleDef, mergedSpecs, takeoffs, mergedIds, scaleCtx);
 
+      // Build set of disabled item IDs from layer toggles
+      const disabledItemIds = new Set();
+      if (cat.layers && catInst.layerEnabled) {
+        cat.layers.forEach(layer => {
+          if (catInst.layerEnabled[layer.id] === false) {
+            (layer.itemIds || []).forEach(id => disabledItemIds.add(id));
+          }
+        });
+      }
+
       cat.items.forEach(item => {
         if (item.type === "derived") {
+          // Skip items in disabled layers
+          if (disabledItemIds.has(item.id)) {
+            results[`${catInst.id}:${item.id}`] = { qty: 0, active: false };
+            return;
+          }
           const active = evalCondition(item.condition, instCtx);
           let qty = 0;
           if (active && item.formula) {
@@ -574,6 +589,7 @@ export function computeAllDerivedWithInstances(
     });
     const extInstances = categoryInstances?.["ext-walls"] || [];
     extInstances.forEach(catInst => {
+      if (catInst.layerEnabled?.drywall === false) return; // skip if drywall layer toggled off
       const mergedIds = { ...globalItemTakeoffIds, ...catInst.itemTakeoffIds };
       const mergedSpecs = { ...extDefaults, ...globalSpecs, ...catInst.specs };
       if (mergedSpecs.DwType === "None") return; // skip if drywall disabled
@@ -591,6 +607,7 @@ export function computeAllDerivedWithInstances(
     });
     const intInstances = categoryInstances?.["int-walls"] || [];
     intInstances.forEach(catInst => {
+      if (catInst.layerEnabled?.drywall === false) return; // skip if drywall layer toggled off
       const mergedIds = { ...globalItemTakeoffIds, ...catInst.itemTakeoffIds };
       const mergedSpecs = { ...intDefaults, ...globalSpecs, ...catInst.specs };
       if (mergedSpecs.DwType === "None") return; // skip if drywall disabled

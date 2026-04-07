@@ -8,6 +8,40 @@ import { getUserId, isReady } from "./cloudSync-auth";
 
 const BLOB_BUCKET = "blobs";
 
+// Env vars for raw fetch (cleaned once at module load)
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\\n/g, "").replace(/\n/g, "").trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").replace(/\\n/g, "").replace(/\n/g, "").trim();
+
+let _authReady = null;
+
+export function waitForAuthReady() {
+  if (!supabase) {
+    return Promise.reject(new Error("[cloudSync] Supabase client not initialized"));
+  }
+
+  if (!_authReady) {
+    _authReady = new Promise((resolve, reject) => {
+      try {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (
+            (event === "INITIAL_SESSION" ||
+             event === "SIGNED_IN" ||
+             event === "TOKEN_REFRESHED") &&
+            session?.access_token
+          ) {
+            subscription.unsubscribe();
+            resolve();
+          }
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  return _authReady;
+}
+
 // Minimum valid image/blob size — anything smaller is likely a corrupted
 // error message stored by the CDN (e.g., "URI_TOO_LONG").
 const MIN_VALID_BLOB_BYTES = 200;
@@ -107,6 +141,7 @@ export const compressImage = (dataUrl, maxDim = 4096, quality = 0.82) => {
  */
 export const uploadBlob = async (path, dataUrl) => {
   if (!dataUrl || !supabase) return null;
+  await waitForAuthReady();
   try {
     let blob;
 
@@ -158,12 +193,20 @@ export const uploadBlob = async (path, dataUrl) => {
       }
     } catch (verifyErr) {
       console.warn(`[cloudSync] Upload verification check error:`, verifyErr.message);
-      // If verification itself errors, fall back to download check
+      // If verification itself errors, fall back to raw fetch check
       try {
-        const { data: dlCheck } = await supabase.storage.from(BLOB_BUCKET).download(path);
-        if (dlCheck && dlCheck.size >= MIN_VALID_BLOB_BYTES) {
-          verified = true;
-          console.log(`[cloudSync] Upload verified via download: "${path}" — ${dlCheck.size} bytes`);
+        const { data: { session: vs } } = await supabase.auth.getSession();
+        if (vs?.access_token) {
+          const dlResp = await fetch(`${supabaseUrl}/storage/v1/object/${BLOB_BUCKET}/${path}`, {
+            headers: { Authorization: `Bearer ${vs.access_token}`, apikey: supabaseAnonKey },
+          });
+          if (dlResp.ok) {
+            const dlBlob = await dlResp.blob();
+            if (dlBlob && dlBlob.size >= MIN_VALID_BLOB_BYTES) {
+              verified = true;
+              console.log(`[cloudSync] Upload verified via raw fetch: "${path}" — ${dlBlob.size} bytes`);
+            }
+          }
         }
       } catch {
         // Can't verify at all — treat as failed to be safe
@@ -198,34 +241,58 @@ const BLOB_DOWNLOAD_RETRIES = 3; // retry up to 3 times with exponential backoff
 
 const downloadBlobOnce = async storagePath => {
   if (!storagePath || !supabase) return null;
-  // Ensure session is fresh — stale JWTs cause 400 from Storage API
-  try { await supabase.auth.getSession(); } catch { /* non-critical */ }
-  const downloadPromise = supabase.storage.from(BLOB_BUCKET).download(storagePath);
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(
-      () => reject(new Error(`Blob download timed out after ${BLOB_DOWNLOAD_TIMEOUT / 1000}s`)),
-      BLOB_DOWNLOAD_TIMEOUT,
-    ),
-  );
-  const { data, error } = await Promise.race([downloadPromise, timeoutPromise]);
 
-  if (error) throw error;
-  if (!data) return null;
+  await waitForAuthReady();
 
-  // Reject corrupted blobs (CDN error pages are ~40 bytes)
-  if (data.size < MIN_VALID_BLOB_BYTES) {
-    console.warn(
-      `[cloudSync] Downloaded blob "${storagePath}" is only ${data.size} bytes — likely corrupted, skipping`,
-    );
-    return null;
+  // Fresh token on every download — no stale caching
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error(`[cloudSync] No valid access token for "${storagePath}"`);
   }
 
-  // Convert Blob to data URL
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.readAsDataURL(data);
-  });
+  const token = session.access_token;
+  const url = `${supabaseUrl}/storage/v1/object/${BLOB_BUCKET}/${storagePath}`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: supabaseAnonKey,
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "No body");
+      console.error(`[cloudSync] Raw storage fetch failed`, {
+        path: storagePath,
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.substring(0, 500),
+        hasToken: !!token,
+      });
+      throw new Error(`Storage download failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    if (blob.size < MIN_VALID_BLOB_BYTES) {
+      console.warn(`[cloudSync] Blob too small`, { path: storagePath, size: blob.size });
+      return null;
+    }
+
+    return await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 export const downloadBlob = async storagePath => {
@@ -240,7 +307,7 @@ export const downloadBlob = async storagePath => {
       if (isLastAttempt) {
         console.warn(
           `[cloudSync] downloadBlob("${storagePath}") failed after ${BLOB_DOWNLOAD_RETRIES} attempts:`,
-          err.message,
+          err.statusCode || err.status || err.message || err,
         );
         return null;
       }
@@ -365,6 +432,7 @@ export const stripAndUploadBlobs = async (estimateId, data) => {
  */
 export const hydrateBlobs = async data => {
   if (!data || !isReady()) return data;
+  await waitForAuthReady();
   const hydrated = { ...data };
   let hydrated_count = 0;
   let failed_count = 0;

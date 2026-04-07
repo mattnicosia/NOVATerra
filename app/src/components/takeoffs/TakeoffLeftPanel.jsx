@@ -363,14 +363,12 @@ export default function TakeoffLeftPanel({
                       addTakeoffFromAIAsSingle={addTakeoffFromAIAsSingle}
                     />
 
-                    {/* Module selector -- hidden when filtering to "This Page" */}
-                    {pageFilter !== "page" && (
-                      <TakeoffModuleSelector
-                        C={C} T={T}
-                        activeModule={activeModule}
-                        setActiveModule={setActiveModule}
-                      />
-                    )}
+                    {/* Module selector -- always visible (beta feedback: can't switch modules with page filter) */}
+                    <TakeoffModuleSelector
+                      C={C} T={T}
+                      activeModule={activeModule}
+                      setActiveModule={setActiveModule}
+                    />
 
                     {/* Module panel + takeoff list -- slide transition */}
                     <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>

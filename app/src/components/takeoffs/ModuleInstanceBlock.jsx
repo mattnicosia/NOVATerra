@@ -1,12 +1,15 @@
 // ModuleInstanceBlock — renders a single multi-instance block (header + specs + results)
-// Extracted from ModulePanel.jsx
+// Supports layer-grouped rendering when cat.layers is defined
+import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
-import { getDrivingQty } from "@/utils/moduleCalc";
+import { getDrivingQty, evalCondition } from "@/utils/moduleCalc";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { InstanceSpecsForm } from "@/components/takeoffs/ModuleSpecsForm";
 import ModuleResultRow from "@/components/takeoffs/ModuleResultRow";
+import LayerToggleBar from "@/components/takeoffs/LayerToggleBar";
+import CustomLayerForm from "@/components/takeoffs/CustomLayerForm";
 
 // Material color map
 const MATERIAL_COLORS = {
@@ -68,6 +71,10 @@ export default function ModuleInstanceBlock({
   removeTakeoff,
   removeCategoryInstance,
   renameCategoryInstance,
+  toggleLayerEnabled,
+  addCustomLayer,
+  removeCustomLayer,
+  updateCustomLayer,
 }) {
   const C = useTheme();
   const T = C.T;
@@ -214,13 +221,32 @@ export default function ModuleInstanceBlock({
       {/* Collapsible body */}
       {!isCollapsed && (
         <>
-          <InstanceSpecsForm
-            specs={cat.specs}
-            catId={cat.id}
-            catInst={catInst}
-            templates={cat.templates}
-            onSpecChange={handleInstanceSpecChange}
-          />
+          {cat.layers ? (
+            <LayerGroupedBody
+              cat={cat}
+              catInst={catInst}
+              activeModule={activeModule}
+              derived={derived}
+              inst={inst}
+              takeoffs={takeoffs}
+              handleInstanceSpecChange={handleInstanceSpecChange}
+              toggleExclude={toggleExclude}
+              updateTakeoff={updateTakeoff}
+              removeTakeoff={removeTakeoff}
+              toggleLayerEnabled={toggleLayerEnabled}
+              addCustomLayer={addCustomLayer}
+              removeCustomLayer={removeCustomLayer}
+              updateCustomLayer={updateCustomLayer}
+            />
+          ) : (
+            <InstanceSpecsForm
+              specs={cat.specs}
+              catId={cat.id}
+              catInst={catInst}
+              templates={cat.templates}
+              onSpecChange={handleInstanceSpecChange}
+            />
+          )}
 
           {/* Stud length warning */}
           {(() => {
@@ -291,8 +317,8 @@ export default function ModuleInstanceBlock({
             );
           })()}
 
-          {/* Derived result rows */}
-          {derivedItems.length > 0 && (
+          {/* Derived result rows — only shown when no layers (layers render their own items) */}
+          {!cat.layers && derivedItems.length > 0 && (
             <div style={{ padding: "2px 0 4px" }}>
               {derivedItems.map(item => (
                 <ModuleResultRow
@@ -313,6 +339,187 @@ export default function ModuleInstanceBlock({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ── Layer-grouped rendering ──
+function LayerGroupedBody({
+  cat, catInst, activeModule, derived, inst, takeoffs,
+  handleInstanceSpecChange, toggleExclude, updateTakeoff, removeTakeoff,
+  toggleLayerEnabled, addCustomLayer, removeCustomLayer, updateCustomLayer,
+}) {
+  const C = useTheme();
+  const [collapsedLayers, setCollapsedLayers] = useState(new Set());
+
+  // Build spec context for condition evaluation
+  const specCtx = { ...catInst.specs };
+  (cat.specs || []).forEach(s => {
+    if (specCtx[s.id] === undefined) specCtx[s.id] = s.default;
+  });
+
+  // Collect all spec IDs claimed by layers
+  const claimedSpecIds = new Set();
+  const claimedItemIds = new Set();
+  cat.layers.forEach(l => {
+    (l.specIds || []).forEach(id => claimedSpecIds.add(id));
+    (l.itemIds || []).forEach(id => claimedItemIds.add(id));
+  });
+
+  // Universal specs: Material, WallHeight, etc. — not claimed by any layer
+  const universalSpecIds = (cat.specs || [])
+    .filter(s => !claimedSpecIds.has(s.id))
+    .map(s => s.id);
+
+  // Visible layers (condition met)
+  const visibleLayers = cat.layers.filter(l => !l.condition || evalCondition(l.condition, specCtx));
+
+  const toggleLayerCollapse = layerId => {
+    setCollapsedLayers(prev => {
+      const next = new Set(prev);
+      next.has(layerId) ? next.delete(layerId) : next.add(layerId);
+      return next;
+    });
+  };
+
+  return (
+    <div>
+      {/* Universal specs (Material, WallHeight — not in any layer) */}
+      {universalSpecIds.length > 0 && (
+        <InstanceSpecsForm
+          specs={cat.specs}
+          catId={cat.id}
+          catInst={catInst}
+          templates={cat.templates}
+          onSpecChange={handleInstanceSpecChange}
+          filterSpecIds={universalSpecIds}
+        />
+      )}
+
+      {/* Layer toggle bar */}
+      <LayerToggleBar
+        layers={cat.layers}
+        layerEnabled={catInst.layerEnabled}
+        specCtx={specCtx}
+        onToggle={layerId => toggleLayerEnabled(activeModule, cat.id, catInst.id, layerId)}
+      />
+
+      {/* Render each visible + enabled layer */}
+      {visibleLayers.map(layer => {
+        const enabled = catInst.layerEnabled?.[layer.id] !== false;
+        if (!enabled) return null;
+
+        const layerSpecs = (cat.specs || []).filter(s => (layer.specIds || []).includes(s.id));
+        const layerItems = cat.items.filter(i => (layer.itemIds || []).includes(i.id) && i.type !== "driving");
+        const isLayerCollapsed = collapsedLayers.has(layer.id);
+
+        // Check if any items have qty > 0
+        const hasActiveItems = layerItems.some(item => {
+          const d = derived[`${catInst.id}:${item.id}`];
+          return d && d.active && d.qty > 0;
+        });
+
+        return (
+          <div key={layer.id} style={{ borderTop: `1px solid ${C.border}10` }}>
+            {/* Layer section header */}
+            <div
+              onClick={() => toggleLayerCollapse(layer.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "3px 8px",
+                cursor: "pointer",
+                userSelect: "none",
+              }}
+            >
+              <svg
+                width="7" height="7" viewBox="0 0 8 8" fill="none"
+                stroke={C.textDim} strokeWidth="1.5"
+                style={{ transform: isLayerCollapsed ? "rotate(-90deg)" : "rotate(0)", transition: "transform 0.15s" }}
+              >
+                <path d="M2 1l3 3-3 3" />
+              </svg>
+              <span style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {layer.name}
+              </span>
+              {hasActiveItems && (
+                <span style={{ fontSize: 7, color: C.green, fontWeight: 600 }}>
+                  {layerItems.filter(i => { const d = derived[`${catInst.id}:${i.id}`]; return d?.active && d?.qty > 0; }).length} items
+                </span>
+              )}
+            </div>
+
+            {!isLayerCollapsed && (
+              <>
+                {/* Layer-specific specs */}
+                {layerSpecs.length > 0 && (
+                  <InstanceSpecsForm
+                    specs={cat.specs}
+                    catId={cat.id}
+                    catInst={catInst}
+                    onSpecChange={handleInstanceSpecChange}
+                    filterSpecIds={layer.specIds}
+                  />
+                )}
+                {/* Layer items */}
+                {layerItems.length > 0 && (
+                  <div style={{ padding: "1px 0 2px" }}>
+                    {layerItems.map(item => (
+                      <ModuleResultRow
+                        key={`${catInst.id}:${item.id}`}
+                        item={item}
+                        cat={cat}
+                        catInst={catInst}
+                        derived={derived}
+                        inst={inst}
+                        takeoffs={takeoffs}
+                        handleManualQty={() => {}}
+                        toggleExclude={toggleExclude}
+                        updateTakeoff={updateTakeoff}
+                        removeTakeoff={removeTakeoff}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Unclaimed items (not in any layer) */}
+      {(() => {
+        const unclaimed = cat.items.filter(i => !claimedItemIds.has(i.id) && i.type !== "driving");
+        if (unclaimed.length === 0) return null;
+        return (
+          <div style={{ padding: "2px 0 4px" }}>
+            {unclaimed.map(item => (
+              <ModuleResultRow
+                key={`${catInst.id}:${item.id}`}
+                item={item}
+                cat={cat}
+                catInst={catInst}
+                derived={derived}
+                inst={inst}
+                takeoffs={takeoffs}
+                handleManualQty={() => {}}
+                toggleExclude={toggleExclude}
+                updateTakeoff={updateTakeoff}
+                removeTakeoff={removeTakeoff}
+              />
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Custom layers */}
+      <CustomLayerForm
+        customLayers={catInst.customLayers}
+        onAdd={layer => addCustomLayer(activeModule, cat.id, catInst.id, layer)}
+        onRemove={clId => removeCustomLayer(activeModule, cat.id, catInst.id, clId)}
+        onUpdate={(clId, updates) => updateCustomLayer(activeModule, cat.id, catInst.id, clId, updates)}
+      />
     </div>
   );
 }

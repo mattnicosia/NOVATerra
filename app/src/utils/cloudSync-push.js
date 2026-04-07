@@ -169,17 +169,12 @@ export const deleteEstimate = async estimateId => {
   if (!isReady()) return;
   markSyncing();
   try {
-    // Soft-delete: SET deleted_at instead of DELETE
-    let query = supabase
-      .from("user_estimates")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("estimate_id", estimateId)
-      .eq("user_id", getUserId());
-
+    // Soft-delete via RPC — bypasses RLS conflict between SELECT (deleted_at IS NULL) and UPDATE
     const scope = getScope();
-    query = applyScope(query, scope);
-
-    const { error } = await query;
+    const { error } = await supabase.rpc("soft_delete_estimate", {
+      p_estimate_id: estimateId,
+      p_org_id: scope?.org_id || null,
+    });
     if (error) throw error;
     markSynced();
   } catch (err) {

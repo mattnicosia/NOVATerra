@@ -44,6 +44,11 @@ export default function ModulePanel({
   const removeModule = useModuleStore(s => s.removeModule);
   const collapseAllCategories = useModuleStore(s => s.collapseAllCategories);
   const expandAllCategories = useModuleStore(s => s.expandAllCategories);
+  // Layer actions
+  const toggleLayerEnabled = useModuleStore(s => s.toggleLayerEnabled);
+  const addCustomLayer = useModuleStore(s => s.addCustomLayer);
+  const removeCustomLayer = useModuleStore(s => s.removeCustomLayer);
+  const updateCustomLayer = useModuleStore(s => s.updateCustomLayer);
 
   // Collapsed wall type instances (local UI state)
   const [collapsedInstances, setCollapsedInstances] = useState(new Set());
@@ -658,6 +663,10 @@ export default function ModulePanel({
       removeTakeoff={removeTakeoff}
       removeCategoryInstance={removeCategoryInstance}
       renameCategoryInstance={renameCategoryInstance}
+      toggleLayerEnabled={toggleLayerEnabled}
+      addCustomLayer={addCustomLayer}
+      removeCustomLayer={removeCustomLayer}
+      updateCustomLayer={updateCustomLayer}
     />
   );
 

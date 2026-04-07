@@ -64,6 +64,7 @@ export default function ScheduleOfValuesPage() {
   const getBidSelection = sk => bidSelections[sk] || { source: "internal" };
 
   // Compute totals matching what itemsStore.getTotals produces
+  // Order must match store: standard markups → tax → bond → custom markups
   const estimateTotals = useMemo(() => {
     let material = 0,
       labor = 0,
@@ -78,38 +79,43 @@ export default function ScheduleOfValuesPage() {
     });
     const direct = material + labor + equipment + sub;
 
-    // Ordered markup calculation
+    // Ordered markup calculation — skip inactive markups (matches store)
     let running = direct;
     const markupAmounts = {};
     markupOrder.forEach(mo => {
+      if (mo.active === false) { markupAmounts[mo.key] = 0; return; }
       const pct = nn(markup[mo.key]);
       if (pct === 0) {
         markupAmounts[mo.key] = 0;
         return;
       }
       const base = mo.compound ? running : direct;
-      const amt = (base * pct) / 100;
+      const amt = Math.round((base * pct) / 100 * 100) / 100;
       markupAmounts[mo.key] = amt;
       running += amt;
     });
     const subtotal = running;
 
-    let afterCustom = subtotal;
+    // Tax on post-markup subtotal (matches store order)
+    const tx = Math.round(subtotal * nn(markup.tax) / 100 * 100) / 100;
+    // Bond on (subtotal + tax)
+    const bd = Math.round((subtotal + tx) * nn(markup.bond) / 100 * 100) / 100;
+    let afterTaxBond = subtotal + tx + bd;
+
+    // Custom markups on post-tax-bond total (matches store order)
     const customAmounts = customMarkups.map(cm => {
       let amt = 0;
       if (cm.type === "pct") {
-        amt = (afterCustom * nn(cm.value)) / 100;
-        afterCustom += amt;
+        amt = Math.round(afterTaxBond * nn(cm.value) / 100 * 100) / 100;
+        afterTaxBond += amt;
       } else {
-        amt = nn(cm.value);
-        afterCustom += amt;
+        amt = Math.round(nn(cm.value) * 100) / 100;
+        afterTaxBond += amt;
       }
       return { id: cm.id, label: cm.label, type: cm.type, value: cm.value, amount: amt };
     });
     const customTotal = customAmounts.reduce((s, a) => s + a.amount, 0);
-    const bd = (afterCustom * nn(markup.bond)) / 100;
-    const tx = ((afterCustom + bd) * nn(markup.tax)) / 100;
-    const grand = afterCustom + bd + tx;
+    const grand = afterTaxBond;
     return {
       material,
       labor,
@@ -120,7 +126,7 @@ export default function ScheduleOfValuesPage() {
       subtotal,
       customAmounts,
       customTotal,
-      afterCustom,
+      afterCustom: grand,
       bd,
       tx,
       grand,

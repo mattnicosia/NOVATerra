@@ -89,6 +89,7 @@ export default function useTakeoffCRUD() {
         formula: "",
         measurements: [],
         bidContext: bidCtx,
+        createdAt: Date.now(),
         ...extraFields,
       },
     ]);
@@ -125,6 +126,7 @@ export default function useTakeoffCRUD() {
         formula: "",
         measurements: [],
         bidContext: bidCtx,
+        createdAt: Date.now(),
       },
     ]);
     ts.clearPredictions();
@@ -164,6 +166,7 @@ export default function useTakeoffCRUD() {
         formula: "",
         measurements: [],
         bidContext: bidCtx,
+        createdAt: Date.now(),
       },
     ]);
     ts.clearPredictions();
@@ -201,6 +204,7 @@ export default function useTakeoffCRUD() {
       formula: "",
       measurements: [],
       bidContext: bidCtx,
+      createdAt: Date.now(),
     }));
     ts.setTakeoffs([...ts.takeoffs, ...newTakeoffs]);
     ts.setTkNewInput("");
