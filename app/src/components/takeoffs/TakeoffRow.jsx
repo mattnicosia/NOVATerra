@@ -225,9 +225,8 @@ export default function TakeoffRow({
             alignItems: "center",
             justifyContent: "center",
           }}
-          onPointerDown={e => {
+          onClick={e => {
             e.stopPropagation();
-            console.log("[TakeoffRow] color dot clicked", to.id, "colorPopup was:", colorPopup);
             setColorPopup(p => !p);
           }}
         >
@@ -515,9 +514,8 @@ export default function TakeoffRow({
             </button>
             <button
               className="icon-btn"
-              onPointerDown={e => {
+              onClick={e => {
                 e.stopPropagation();
-                console.log("[TakeoffRow] ··· clicked", to.id);
                 if (actionMenuId === to.id) {
                   setActionMenuId(null);
                 } else {

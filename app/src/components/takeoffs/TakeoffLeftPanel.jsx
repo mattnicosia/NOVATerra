@@ -167,20 +167,20 @@ export default function TakeoffLeftPanel({
 
   const toggleGroupCollapse = group => setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
 
-  // Close action menu on outside click (delayed to avoid racing with the toggle button)
+  // Close action menu on outside click
   useEffect(() => {
     if (!actionMenuId) return;
     const handler = e => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-        // Check if click was on the ··· button itself (data attribute)
-        if (e.target.closest?.("[data-action-toggle]")) return;
-        setActionMenuId(null);
-        setActionConfirm(null);
-      }
+      // Skip if click is inside the menu itself
+      if (actionMenuRef.current && actionMenuRef.current.contains(e.target)) return;
+      // Skip if click is on the ··· toggle button
+      if (e.target.closest?.("[data-action-toggle]")) return;
+      setActionMenuId(null);
+      setActionConfirm(null);
     };
-    // Delay registration so the opening click doesn't immediately close
-    const timer = setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handler); };
+    // Use click (not mousedown) to avoid racing with the toggle button's onClick
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
   }, [actionMenuId]);
 
   // Panel drag-to-resize
