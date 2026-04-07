@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -60,6 +60,8 @@ export default function TakeoffRow({
   setTkActivePoints,
 }) {
   const rowRef = useRef(null);
+  const colorBtnRef = useRef(null);
+  const [colorPopup, setColorPopup] = useState(false);
   const isActive = tkActiveTakeoffId === to.id;
   const isSelected = tkSelectedTakeoffId === to.id || isActive;
 
@@ -509,6 +511,27 @@ export default function TakeoffRow({
               })()}
             </button>
             <button
+              ref={colorBtnRef}
+              className="icon-btn"
+              onClick={e => { e.stopPropagation(); setColorPopup(!colorPopup); }}
+              title="Color & Style"
+              style={{
+                width: 24,
+                height: 24,
+                border: `1px solid ${C.border}`,
+                background: C.bg2,
+                borderRadius: 5,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                flexShrink: 0,
+                position: "relative",
+              }}
+            >
+              <div style={{ width: 12, height: 12, borderRadius: 3, background: to.color || "#5b8def", border: "1px solid rgba(255,255,255,0.2)" }} />
+            </button>
+            <button
               className="icon-btn"
               onClick={e => {
                 e.stopPropagation();
@@ -749,82 +772,71 @@ export default function TakeoffRow({
             </div>
           )}
         </div>
-        {/* Color/stroke/fill popover */}
-        {isSelected && !isMeasuring && (
-          <div
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              zIndex: 50,
-              padding: "8px 10px 8px 27px",
-              background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}30)`,
-              border: `1px solid ${C.border}`,
-              borderTop: "none",
-              borderRadius: "0 0 8px 8px",
-              boxShadow: T.shadow.md,
-              display: "flex",
-              flexDirection: "column",
-              gap: 5,
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 7, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, minWidth: 28 }}>Color</span>
-              <div style={{ display: "flex", gap: 3 }}>
+        {/* Color/stroke/fill popup — triggered by color dot button */}
+        {colorPopup && (() => {
+          const btnRect = colorBtnRef.current?.getBoundingClientRect();
+          if (!btnRect) return null;
+          return (
+            <div
+              style={{
+                position: "fixed",
+                top: btnRect.bottom + 6,
+                left: Math.min(btnRect.left, window.innerWidth - 210),
+                zIndex: 9999,
+                width: 200,
+                padding: "10px 12px",
+                background: C.bg1,
+                border: `1px solid ${C.border}`,
+                borderRadius: 10,
+                boxShadow: T.shadow.lg || "0 8px 24px rgba(0,0,0,0.3)",
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 9, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Style</span>
+                <button onClick={() => setColorPopup(false)} style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>&times;</button>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
                 {TO_COLORS.map(c => (
                   <div
                     key={c}
                     onClick={() => updateTakeoff(to.id, "color", c)}
                     style={{
-                      width: 14,
-                      height: 14,
-                      borderRadius: 3,
+                      width: 20,
+                      height: 20,
+                      borderRadius: 4,
                       background: c,
                       cursor: "pointer",
-                      border: to.color === c ? "2px solid #fff" : "1px solid transparent",
-                      boxShadow: to.color === c ? `0 0 0 1px ${c}, 0 0 6px ${c}40` : "none",
+                      border: to.color === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.1)",
+                      boxShadow: to.color === c ? `0 0 0 1px ${c}, 0 0 8px ${c}50` : "none",
                       transition: "all 100ms",
                     }}
                   />
                 ))}
                 <div
                   style={{
-                    position: "relative",
-                    width: 14,
-                    height: 14,
-                    borderRadius: 3,
+                    width: 20, height: 20, borderRadius: 4,
                     background: `conic-gradient(red, yellow, lime, cyan, blue, magenta, red)`,
-                    cursor: "pointer",
+                    cursor: "pointer", border: "1px solid rgba(255,255,255,0.1)",
                   }}
-                  onClick={e => {
-                    e.stopPropagation();
-                    e.currentTarget.querySelector("input")?.click();
-                  }}
+                  onClick={e => { e.stopPropagation(); e.currentTarget.querySelector("input")?.click(); }}
                 >
-                  <input
-                    type="color"
-                    value={to.color}
-                    onChange={e => updateTakeoff(to.id, "color", e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                    style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }}
-                  />
+                  <input type="color" value={to.color} onChange={e => updateTakeoff(to.id, "color", e.target.value)} onClick={e => e.stopPropagation()} style={{ position: "absolute", opacity: 0, width: 0, height: 0 }} />
                 </div>
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, minWidth: 32 }}>Stroke</span>
+                <input type="range" min="1" max="10" step="1" value={to.strokeWidth ?? 3} onChange={e => updateTakeoff(to.id, "strokeWidth", Number(e.target.value))} style={{ flex: 1, height: 3, accentColor: to.color, cursor: "pointer" }} />
+                <span style={{ fontSize: 9, color: C.text, fontFamily: T.font.mono || T.font.sans, minWidth: 22, textAlign: "right" }}>{to.strokeWidth ?? 3}px</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, minWidth: 32 }}>Fill</span>
+                <input type="range" min="5" max="100" step="5" value={to.fillOpacity ?? 20} onChange={e => updateTakeoff(to.id, "fillOpacity", Number(e.target.value))} style={{ flex: 1, height: 3, accentColor: to.color, cursor: "pointer" }} />
+                <span style={{ fontSize: 9, color: C.text, fontFamily: T.font.mono || T.font.sans, minWidth: 22, textAlign: "right" }}>{to.fillOpacity ?? 20}%</span>
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 7, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, minWidth: 28 }}>Stroke</span>
-              <input type="range" min="1" max="10" step="1" value={to.strokeWidth ?? 3} onChange={e => updateTakeoff(to.id, "strokeWidth", Number(e.target.value))} style={{ width: 70, height: 3, accentColor: to.color, cursor: "pointer" }} />
-              <span style={{ fontSize: 8, color: C.textDim, fontFamily: T.font.sans, minWidth: 18 }}>{to.strokeWidth ?? 3}px</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 7, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, minWidth: 28 }}>Fill</span>
-              <input type="range" min="5" max="100" step="5" value={to.fillOpacity ?? 20} onChange={e => updateTakeoff(to.id, "fillOpacity", Number(e.target.value))} style={{ width: 70, height: 3, accentColor: to.color, cursor: "pointer" }} />
-              <span style={{ fontSize: 8, color: C.textDim, fontFamily: T.font.sans, minWidth: 24 }}>{to.fillOpacity ?? 20}%</span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
         {/* Inline cost edit popover */}
         {costEditId === to.id &&
           tkPanelTier !== "compact" &&
