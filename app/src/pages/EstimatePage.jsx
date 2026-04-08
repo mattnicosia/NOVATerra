@@ -27,6 +27,7 @@ import CollaborationBar from "@/components/estimate/CollaborationBar";
 import ScenariosPanel from "@/components/estimate/ScenariosPanel";
 import RFIPanel from "@/components/estimate/RFIPanel";
 import EstimateItemRow from "@/components/estimate/EstimateItemRow";
+import { CSI } from "@/constants/csi";
 import EstimateTotalsBar from "@/components/estimate/EstimateTotalsBar";
 import EstimateModals from "@/components/estimate/EstimateModals";
 import SpatialTreemap from "@/components/estimate/SpatialTreemap";
@@ -1593,14 +1594,14 @@ export default function EstimatePage() {
   );
 }
 
-// ── Inline code edit popover ──
+// ── Inline code edit popover with expandable subdivisions ──
 function CodeEditPopover({ C, T, item, rect, divisions, subFromCode, onSelect, onClose }) {
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState(null);
-  const ref = useRef(null);
+  const [expandedDiv, setExpandedDiv] = useState(null);
+  const popRef = useRef(null);
 
   useEffect(() => {
-    const handler = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    const handler = e => { if (popRef.current && !popRef.current.contains(e.target)) onClose(); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
@@ -1611,25 +1612,37 @@ function CodeEditPopover({ C, T, item, rect, divisions, subFromCode, onSelect, o
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  const csiData = CSI;
+
   const searchLower = search.toLowerCase();
+
+  // Filter divisions — also search within subdivisions
   const filtered = divisions.filter(([code, name]) => {
     if (!searchLower) return true;
-    return code.includes(searchLower) || name.toLowerCase().includes(searchLower);
+    if (code.includes(searchLower) || name.toLowerCase().includes(searchLower)) return true;
+    // Check CSI subdivisions
+    const csi = csiData?.[code];
+    if (csi?.subs) {
+      return Object.entries(csi.subs).some(
+        ([sc, sn]) => sc.includes(searchLower) || sn.toLowerCase().includes(searchLower)
+      );
+    }
+    return false;
   });
 
-  const top = rect ? Math.min(rect.bottom + 4, window.innerHeight - 340) : 200;
-  const left = rect ? Math.min(rect.left, window.innerWidth - 260) : 200;
+  const top = rect ? Math.min(rect.bottom + 4, window.innerHeight - 380) : 200;
+  const left = rect ? Math.min(rect.left, window.innerWidth - 280) : 200;
 
   return (
     <div
-      ref={ref}
+      ref={popRef}
       style={{
         position: "fixed",
         top,
         left,
         zIndex: 9999,
-        width: 250,
-        maxHeight: 320,
+        width: 270,
+        maxHeight: 370,
         background: C.bg1,
         border: `1px solid ${C.border}`,
         borderRadius: 10,
@@ -1649,7 +1662,7 @@ function CodeEditPopover({ C, T, item, rect, divisions, subFromCode, onSelect, o
           autoFocus
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search divisions..."
+          placeholder="Search divisions & subdivisions..."
           style={{
             width: "100%", fontSize: 10, padding: "4px 6px",
             background: C.bg2 || C.bg1, color: C.text,
@@ -1658,25 +1671,63 @@ function CodeEditPopover({ C, T, item, rect, divisions, subFromCode, onSelect, o
         />
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "2px 0" }}>
-        {filtered.map(([code, name]) => (
-          <button
-            key={code}
-            onClick={() => onSelect(code)}
-            style={{
-              width: "100%", padding: "5px 10px", border: "none",
-              background: item.code?.startsWith(code) ? `${C.accent}12` : "transparent",
-              color: C.text, display: "flex", alignItems: "center", gap: 6,
-              fontSize: 11, cursor: "pointer", textAlign: "left",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
-            onMouseLeave={e => (e.currentTarget.style.background = item.code?.startsWith(code) ? `${C.accent}12` : "transparent")}
-          >
-            <span style={{ fontFamily: T.font.mono, fontSize: 9, color: C.purple, fontWeight: 700, minWidth: 22 }}>
-              {code}
-            </span>
-            <span style={{ flex: 1, fontSize: 10 }}>{name}</span>
-          </button>
-        ))}
+        {filtered.map(([code, name]) => {
+          const csi = csiData?.[code];
+          const subs = csi?.subs ? Object.entries(csi.subs) : [];
+          const isExpanded = expandedDiv === code;
+          const filteredSubs = searchLower
+            ? subs.filter(([sc, sn]) => sc.includes(searchLower) || sn.toLowerCase().includes(searchLower))
+            : subs;
+
+          return (
+            <div key={code}>
+              <button
+                onClick={() => {
+                  if (subs.length > 0) {
+                    setExpandedDiv(isExpanded ? null : code);
+                  } else {
+                    onSelect(code);
+                  }
+                }}
+                style={{
+                  width: "100%", padding: "5px 10px", border: "none",
+                  background: item.code === code ? `${C.accent}12` : "transparent",
+                  color: C.text, display: "flex", alignItems: "center", gap: 6,
+                  fontSize: 11, cursor: "pointer", textAlign: "left",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                onMouseLeave={e => (e.currentTarget.style.background = item.code === code ? `${C.accent}12` : "transparent")}
+              >
+                <span style={{ fontFamily: T.font.mono, fontSize: 9, color: C.purple, fontWeight: 700, minWidth: 22 }}>
+                  {code}
+                </span>
+                <span style={{ flex: 1, fontSize: 10 }}>{name}</span>
+                {subs.length > 0 && (
+                  <span style={{ fontSize: 8, color: C.textDim }}>{isExpanded ? "▾" : "▸"}</span>
+                )}
+              </button>
+              {isExpanded && filteredSubs.map(([subCode, subName]) => (
+                <button
+                  key={subCode}
+                  onClick={() => onSelect(subCode)}
+                  style={{
+                    width: "100%", padding: "4px 10px 4px 32px", border: "none",
+                    background: item.code === subCode ? `${C.accent}12` : "transparent",
+                    color: C.text, display: "flex", alignItems: "center", gap: 6,
+                    fontSize: 10, cursor: "pointer", textAlign: "left",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = item.code === subCode ? `${C.accent}12` : "transparent")}
+                >
+                  <span style={{ fontFamily: T.font.mono, fontSize: 8, color: `${C.purple}A0`, minWidth: 42 }}>
+                    {subCode}
+                  </span>
+                  <span style={{ flex: 1, fontSize: 9 }}>{subName}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
       </div>
       {item.code && (
         <div style={{ padding: "4px 10px", borderTop: `1px solid ${C.border}`, fontSize: 9, color: C.textDim, display: "flex", justifyContent: "space-between" }}>
