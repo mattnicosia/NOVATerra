@@ -496,6 +496,11 @@ export async function saveEstimate(overrideId) {
   // Stamp save time for cross-device sync freshness comparison
   data._savedAt = new Date().toISOString();
 
+  // Embed computed totals into blob so cloudSync-push can read them
+  // (previously only written to index entry, causing cloud grand_total = NULL)
+  const preComputedTotals = useItemsStore.getState().getTotals();
+  data.project.grandTotal = preComputedTotals.grand;
+
   // Guard: abort if org context changed during async save (prevents cross-org writes)
   const currentOrgId = useOrgStore.getState().org?.id || null;
   if (currentOrgId !== saveOrgId) {

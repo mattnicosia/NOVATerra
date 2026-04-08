@@ -1,8 +1,10 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { loadEstimate } from "@/hooks/usePersistence";
+import { storage } from "@/utils/storage";
+import { idbKey } from "@/utils/idbKey";
 
 /* ────────────────────────────────────────────────────────
    useDashboardData — centralized data for dashboard widgets
@@ -23,6 +25,31 @@ function statusToDisplay(status) {
   return "review";
 }
 
+// ── One-time repair: recompute grandTotal for stale index entries ──
+// Estimates saved before the grandTotal-in-blob fix have grand_total = 0.
+// Load their IDB blobs, compute direct costs, and patch the index.
+function computeDirectFromBlob(data) {
+  if (!data?.items?.length) return 0;
+  let total = 0;
+  for (const it of data.items) {
+    const q = parseFloat(it.quantity) || 0;
+    total += q * (parseFloat(it.material) || 0);
+    total += q * (parseFloat(it.labor) || 0);
+    total += q * (parseFloat(it.equipment) || 0);
+    total += q * (parseFloat(it.subcontractor) || 0);
+  }
+  // Apply markup from blob if present (simplified — uses overhead+profit only)
+  const m = data.markup || {};
+  const overhead = parseFloat(m.overhead) || 0;
+  const profit = parseFloat(m.profit) || 0;
+  let grand = total;
+  if (overhead) grand += (total * overhead) / 100;
+  if (profit) grand += (grand * profit) / 100;
+  // If the blob already has grandTotal embedded (new saves), prefer it
+  if (data.project?.grandTotal > 0) return data.project.grandTotal;
+  return grand;
+}
+
 export function useDashboardData() {
   const navigate = useNavigate();
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
@@ -30,6 +57,39 @@ export function useDashboardData() {
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
 
   const [selectedEstimateId, setSelectedEstimateId] = useState(null);
+  const repairRan = useRef(false);
+
+  // Repair stale grandTotals on first dashboard mount
+  useEffect(() => {
+    if (repairRan.current) return;
+    repairRan.current = true;
+    const stale = estimatesIndex.filter(e => !e.grandTotal && (e.elementCount > 0));
+    if (stale.length === 0) return;
+
+    (async () => {
+      const updateIndexEntry = useEstimatesStore.getState().updateIndexEntry;
+      for (const entry of stale) {
+        try {
+          const raw = await storage.get(idbKey(`bldg-est-${entry.id}`));
+          if (!raw) continue;
+          const data = JSON.parse(raw.value || raw);
+          const grand = computeDirectFromBlob(data);
+          if (grand > 0) {
+            // Also compute divisionTotals
+            const divisionTotals = {};
+            for (const item of (data.items || [])) {
+              const div = item.division || item.code?.slice(0, 2) || "00";
+              const q = parseFloat(item.quantity) || 0;
+              const itemTotal = q * ((parseFloat(item.material) || 0) + (parseFloat(item.labor) || 0) +
+                (parseFloat(item.equipment) || 0) + (parseFloat(item.subcontractor) || 0));
+              divisionTotals[div] = (divisionTotals[div] || 0) + itemTotal;
+            }
+            updateIndexEntry(entry.id, { grandTotal: grand, divisionTotals });
+          }
+        } catch { /* skip broken entries */ }
+      }
+    })();
+  }, [estimatesIndex]);
 
   // Filter by company — "__all__" shows everything, otherwise exact match
   const companyEstimates = useMemo(() => {

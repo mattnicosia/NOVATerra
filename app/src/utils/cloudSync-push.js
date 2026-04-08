@@ -7,6 +7,7 @@ import { supabase } from "./supabase";
 import { getUserId, getScope, applyScope, isReady, markSynced, markError, markSyncing } from "./cloudSync-auth";
 import { withRetry } from "./cloudSync-retry";
 import { stripAndUploadBlobs, stripMasterBlobs } from "./cloudSync-blobs";
+import { useEstimatesStore } from "@/stores/estimatesStore";
 
 // ---------- push operations ----------
 
@@ -122,6 +123,13 @@ export const pushEstimate = async (estimateId, data) => {
       // Only deleteEstimate() should touch the deleted_at column.
       const project = cleanData?.project || {};
 
+      // grandTotal: prefer blob value (embedded by saveEstimate), fall back to index entry
+      let grandTotal = project.grandTotal;
+      if (!grandTotal) {
+        const idx = useEstimatesStore.getState().estimatesIndex.find(e => e.id === estimateId);
+        if (idx) grandTotal = idx.grandTotal;
+      }
+
       // Atomic write: blob + normalized columns in a single Postgres transaction
       const { error } = await supabase.rpc("save_estimate", {
         p_user_id: userId,
@@ -132,7 +140,7 @@ export const pushEstimate = async (estimateId, data) => {
         p_status: project.status || "Draft",
         p_client: project.client || "",
         p_bid_due: project.bidDue || null,
-        p_grand_total: project.grandTotal ? parseFloat(project.grandTotal) || null : null,
+        p_grand_total: grandTotal ? parseFloat(grandTotal) || null : null,
         p_building_type: project.buildingType || "",
         p_work_type: project.workType || "",
         p_project_sf: project.projectSF || "",
