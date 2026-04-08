@@ -4,6 +4,7 @@ import { CSI } from "@/constants/csi";
 import { useItemsStore } from "@/stores/itemsStore";
 import { inp } from "@/utils/styles";
 import { fmt2, nn } from "@/utils/format";
+import { normalizeCode } from "@/utils/csiFormat";
 
 export default function CodePicker({ to, C, T, anchorRef, onClose, updateTakeoff }) {
   const [tab, setTab] = useState("division");
@@ -144,7 +145,7 @@ export default function CodePicker({ to, C, T, anchorRef, onClose, updateTakeoff
                       if (subs.length > 0) {
                         setExpandedDiv(isExpanded ? null : code);
                       } else {
-                        updateTakeoff(to.id, "code", code);
+                        updateTakeoff(to.id, "code", normalizeCode(code));
                         onClose();
                       }
                     }}
@@ -169,7 +170,7 @@ export default function CodePicker({ to, C, T, anchorRef, onClose, updateTakeoff
                       <button
                         key={subCode}
                         onClick={() => {
-                          updateTakeoff(to.id, "code", subCode);
+                          updateTakeoff(to.id, "code", normalizeCode(subCode));
                           onClose();
                         }}
                         style={{
@@ -202,7 +203,7 @@ export default function CodePicker({ to, C, T, anchorRef, onClose, updateTakeoff
               <button
                 key={it.id}
                 onClick={() => {
-                  updateTakeoff(to.id, "code", it.code || "");
+                  updateTakeoff(to.id, "code", normalizeCode(it.code || ""));
                   updateTakeoff(to.id, "linkedItemId", it.id);
                   onClose();
                 }}

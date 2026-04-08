@@ -28,6 +28,7 @@ import ScenariosPanel from "@/components/estimate/ScenariosPanel";
 import RFIPanel from "@/components/estimate/RFIPanel";
 import EstimateItemRow from "@/components/estimate/EstimateItemRow";
 import { CSI } from "@/constants/csi";
+import { normalizeCode, subdivisionFromCode, sortDivisionNames, sortCodes } from "@/utils/csiFormat";
 import EstimateTotalsBar from "@/components/estimate/EstimateTotalsBar";
 import EstimateModals from "@/components/estimate/EstimateModals";
 import SpatialTreemap from "@/components/estimate/SpatialTreemap";
@@ -278,13 +279,12 @@ export default function EstimatePage() {
     return map;
   }, [items]);
 
-  // Helper: get subdivision key
+  // Helper: get subdivision key (normalized)
   const getSubKey = item => {
     const code = item.code || "";
-    const sk = code.includes(".")
-      ? code.split(".").slice(0, 2).join(".")
-      : (item.division || "Unassigned").split(" - ")[0] || "00";
-    return sk.includes(".") ? sk : `${sk}.00`;
+    if (code) return subdivisionFromCode(code);
+    const div = (item.division || "").split(" - ")[0] || "00";
+    return `${div.padStart(2, "0")}.000`;
   };
 
   // Helper: get group key for item based on groupBy type
@@ -336,9 +336,11 @@ export default function EstimatePage() {
 
   // Pre-sort groups
   const sortedGroups = useMemo(() => {
-    return Object.entries(groupedItems).sort(([a, ag], [b, bg]) =>
-      estGroupBy === "trade" ? (ag.sortVal || 0) - (bg.sortVal || 0) : a.localeCompare(b),
-    );
+    return Object.entries(groupedItems).sort(([a, ag], [b, bg]) => {
+      if (estGroupBy === "trade") return (ag.sortVal || 0) - (bg.sortVal || 0);
+      if (estGroupBy === "division") return sortDivisionNames(a, b);
+      return sortCodes(a, b); // subdivision sort
+    });
   }, [groupedItems, estGroupBy]);
 
   const getSubLabel = sk => {
@@ -1579,9 +1581,10 @@ export default function EstimatePage() {
             divisions={divEntries}
             subFromCode={subFromCode}
             onSelect={(code) => {
-              updateItem(codeEditItemId, "code", code);
+              const normalized = normalizeCode(code);
+              updateItem(codeEditItemId, "code", normalized);
               // Also update the division field to match
-              const divCode = code.split(".")[0];
+              const divCode = normalized.split(".")[0];
               updateItem(codeEditItemId, "division", divCode);
               // If filtering by division, switch to "All" so item doesn't vanish
               if (estDivision !== "All") {

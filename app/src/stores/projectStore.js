@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { CODE_SYSTEMS } from "@/constants/codeSystems";
 import { today } from "@/utils/format";
+import { divisionFromCode, subdivisionFromCode } from "@/utils/csiFormat";
 
 const blankProject = () => ({
   name: "New Estimate",
@@ -242,16 +243,15 @@ export const useProjectStore = create((set, get) => ({
 
   divFromCode: code => {
     if (!code) return "";
-    const dc = code.split(".")[0];
+    const dc = divisionFromCode(code);
     const codes = get().getActiveCodes();
     return codes[dc] ? `${dc} - ${codes[dc].name}` : dc;
   },
 
   subFromCode: code => {
     if (!code) return "";
-    const parts = code.split(".");
-    const dc = parts[0],
-      sk = `${parts[0]}.${parts[1]}`;
+    const sk = subdivisionFromCode(code);
+    const dc = divisionFromCode(code);
     const codes = get().getActiveCodes();
     return codes[dc]?.subs?.[sk] || sk;
   },

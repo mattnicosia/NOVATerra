@@ -223,6 +223,7 @@ export async function loadEstimate(id) {
       i.bidContext !== undefined ? i : { ...i, bidContext: "base" },
     );
     useItemsStore.getState().setItems(itemsWithContext);
+    useItemsStore.getState().normalizeAllCodes();
     const loadedMarkup = data.markup || useItemsStore.getState().markup;
     // Strip legacy compound flag from markup object
     const { compound: _legacyCompound, ...cleanMarkup } = loadedMarkup;

@@ -6,6 +6,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { getLaborMultiplier } from "@/utils/laborTypes";
+import { normalizeCode } from "@/utils/csiFormat";
 import { resolveLocationFactors, METRO_AREAS } from "@/constants/locationFactors";
 
 // Default markup order — each entry can independently compound on running subtotal
@@ -137,6 +138,16 @@ export const useItemsStore = create((set, get) => ({
   projectAssemblies: [],
 
   setItems: v => set({ items: v }),
+  // Normalize all item codes to standard format (run once after load)
+  normalizeAllCodes: () => set(s => {
+    let changed = false;
+    const fixed = s.items.map(it => {
+      const nc = normalizeCode(it.code);
+      if (nc !== it.code) { changed = true; return { ...it, code: nc }; }
+      return it;
+    });
+    return changed ? { items: fixed } : {};
+  }),
   setMarkup: v => set({ markup: v }),
   setMarkupOrder: v => set({ markupOrder: v }),
   setCustomMarkups: v => set({ customMarkups: v }),
@@ -155,7 +166,7 @@ export const useItemsStore = create((set, get) => ({
     const newId = uid();
     const newItem = {
       id: newId,
-      code: preset?.code || "",
+      code: normalizeCode(preset?.code || ""),
       description: preset?.name || "",
       division: division || "",
       quantity: preset?.quantity ?? 1,

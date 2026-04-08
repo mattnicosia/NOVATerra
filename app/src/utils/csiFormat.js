@@ -1,0 +1,87 @@
+/**
+ * CSI MasterFormat code normalization and sorting.
+ *
+ * Standard format: DD.SSS.SS (dots, zero-padded segments)
+ *   Division:    2 digits  → "03", "06", "09"
+ *   Subdivision: 3 digits  → "100", "200", "300"
+ *   Sub-sub:     2 digits  → "10", "23" (optional)
+ *
+ * Examples:
+ *   "6"       → "06"
+ *   "6.1"     → "06.100"
+ *   "06.11"   → "06.110"
+ *   "06.110"  → "06.110"  (no change)
+ *   "3.300.1" → "03.300.10"
+ *   ""        → ""
+ */
+
+export function normalizeCode(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+
+  // Split on dots
+  const parts = trimmed.split(".");
+  if (parts.length === 0) return "";
+
+  // Division: pad to 2 digits
+  const div = parts[0].padStart(2, "0");
+
+  if (parts.length === 1) return div;
+
+  // Subdivision: pad to 3 digits
+  const sub = parts[1].padStart(3, "0");
+
+  if (parts.length === 2) return `${div}.${sub}`;
+
+  // Sub-subdivision: pad to 2 digits
+  const subsub = parts[2].padStart(2, "0");
+  return `${div}.${sub}.${subsub}`;
+}
+
+/**
+ * Extract the division (first segment) from a code.
+ * "06.110.23" → "06"
+ * "06 - Wood" → "06"
+ */
+export function divisionFromCode(code) {
+  if (!code) return "";
+  // Handle "06 - Wood" display format
+  if (code.includes(" - ")) return code.split(" - ")[0].trim().padStart(2, "0");
+  return (code.split(".")[0] || "").padStart(2, "0");
+}
+
+/**
+ * Extract the subdivision key (first two segments) from a code.
+ * "06.110.23" → "06.110"
+ * "06"        → "06.000"
+ */
+export function subdivisionFromCode(code) {
+  if (!code) return "";
+  const parts = normalizeCode(code).split(".");
+  if (parts.length < 2) return `${parts[0]}.000`;
+  return `${parts[0]}.${parts[1]}`;
+}
+
+/**
+ * Numeric-aware sort comparator for CSI codes.
+ * Sorts "02" before "06" before "09", and "06.100" before "06.200".
+ * Handles display format "06 - Wood" by extracting the code portion.
+ */
+export function sortCodes(a, b) {
+  const na = normalizeCode(divisionFromCode(a) === a ? a : divisionFromCode(a));
+  const nb = normalizeCode(divisionFromCode(b) === b ? b : divisionFromCode(b));
+  // Pad to fixed width for natural string comparison
+  const pa = na.split(".").map(s => s.padStart(4, "0")).join(".");
+  const pb = nb.split(".").map(s => s.padStart(4, "0")).join(".");
+  return pa.localeCompare(pb);
+}
+
+/**
+ * Sort display-format division names like "06 - Wood" numerically.
+ */
+export function sortDivisionNames(a, b) {
+  const codeA = (a.split(" - ")[0] || "").padStart(2, "0");
+  const codeB = (b.split(" - ")[0] || "").padStart(2, "0");
+  return codeA.localeCompare(codeB);
+}
