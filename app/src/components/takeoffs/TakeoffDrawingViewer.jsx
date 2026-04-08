@@ -528,39 +528,7 @@ export default function TakeoffDrawingViewer({
                   </button>
                 </>
               )}
-              {/* Undo last point button — visible during active measurement */}
-              {tkActivePoints.length > 0 && (
-                <button
-                  className="icon-btn"
-                  onClick={() => setTkActivePoints(tkActivePoints.slice(0, -1))}
-                  title="Undo last point (removes the most recent click)"
-                  style={{
-                    width: 24,
-                    height: 24,
-                    border: `1px solid ${C.border}`,
-                    background: C.bg2,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={C.textMuted}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10" />
-                  </svg>
-                </button>
-              )}
+              {/* Undo handled by left rail button + Ctrl+Z */}
               {/* Tools folder moved to left side of toolbar */}
               {/* Settings gear removed */}
             </>

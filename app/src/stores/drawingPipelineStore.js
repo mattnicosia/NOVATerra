@@ -798,7 +798,15 @@ export const useDrawingPipelineStore = create((set, get) => ({
     set(s => ({ takeoffs: [...s.takeoffs, newTakeoff] }));
     useUndoStore.getState().push({
       action: `Add takeoff "${newTakeoff.description}"`,
-      undo: () => set(s => ({ takeoffs: s.takeoffs.filter(t => t.id !== newId) })),
+      undo: () => {
+        // Guard: don't delete a takeoff that has measurements — user would lose work
+        const tk = get().takeoffs.find(t => t.id === newId);
+        if (tk && tk.measurements && tk.measurements.length > 0) {
+          useUiStore.getState().showToast("Can't undo — takeoff has measurements", "warning");
+          return;
+        }
+        set(s => ({ takeoffs: s.takeoffs.filter(t => t.id !== newId) }));
+      },
       redo: () => set(s => ({ takeoffs: [...s.takeoffs, newTakeoff] })),
       timestamp: Date.now(),
     });
