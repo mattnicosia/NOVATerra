@@ -578,7 +578,7 @@ export const useDrawingPipelineStore = create((set, get) => ({
   tkPanelOpen: true,
   toFilter: "all",
   tkVisibility: "all",
-  hiddenTakeoffIds: [],
+  hiddenTakeoffIds: new Set(),
   tkNewInput: "",
   tkNewUnit: "SF",
   tkDbResults: [],
@@ -750,13 +750,12 @@ export const useDrawingPipelineStore = create((set, get) => ({
   setToFilter: v => set({ toFilter: v }),
   setTkVisibility: v => set({ tkVisibility: v }),
   toggleTakeoffVisibility: id => set(s => {
-    const hidden = [...s.hiddenTakeoffIds];
-    const idx = hidden.indexOf(id);
-    if (idx >= 0) hidden.splice(idx, 1);
-    else hidden.push(id);
-    return { hiddenTakeoffIds: hidden };
+    const next = new Set(s.hiddenTakeoffIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return { hiddenTakeoffIds: next };
   }),
-  showAllTakeoffs: () => set({ hiddenTakeoffIds: [] }),
+  showAllTakeoffs: () => set({ hiddenTakeoffIds: new Set() }),
   setTkNewInput: v => set({ tkNewInput: v }),
   setTkNewUnit: v => set({ tkNewUnit: v }),
   setTkDbResults: v => set({ tkDbResults: v }),

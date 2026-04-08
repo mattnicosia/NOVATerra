@@ -131,8 +131,8 @@ export default function TakeoffControlRail({
   };
 
   /* ── MODE GROUP: Select + Undo ── */
-  const undoState = useUndoStore.getState();
-  const canUndo = undoState.canUndo();
+  const undoPastLen = useUndoStore(s => s.past.length);
+  const canUndo = undoPastLen > 0;
   const isMeasuring = tkMeasureState === "measuring";
   const activePoints = useDrawingPipelineStore(s => s.tkActivePoints);
   const hasActivePoints = isMeasuring && activePoints.length > 0;

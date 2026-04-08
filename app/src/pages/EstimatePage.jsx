@@ -90,6 +90,12 @@ export default function EstimatePage() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [codeEditItemId, setCodeEditItemId] = useState(null);
+  // Clean up stale code edit ID if item was deleted
+  useEffect(() => {
+    if (codeEditItemId && !items.some(it => it.id === codeEditItemId)) {
+      setCodeEditItemId(null);
+    }
+  }, [codeEditItemId, items]);
   const [showNova, setShowNova] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(0); // 0 = idle, 1 = first confirm, 2 = second confirm
   const [leftPanelTab, setLeftPanelTab] = useState("estimate"); // "estimate" | "scenarios" | "notes" | "rfis"
@@ -1559,7 +1565,7 @@ export default function EstimatePage() {
       {/* Inline code editor — appears when user clicks a code cell */}
       {codeEditItemId && (() => {
         const editItem = items.find(it => it.id === codeEditItemId);
-        if (!editItem) { setCodeEditItemId(null); return null; }
+        if (!editItem) return null;
         const el = document.querySelector(`[data-item-id="${codeEditItemId}"] .est-col`);
         const rect = el?.getBoundingClientRect();
         const divEntries = Object.entries(DIVISIONS);

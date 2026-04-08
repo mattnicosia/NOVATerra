@@ -79,7 +79,7 @@ export default function TakeoffRow({
     isActive && (tkMeasureState === "measuring" || tkMeasureState === "paused");
   const isPaused = isActive && tkMeasureState === "paused";
   const isRevisionAffected = revisionAffectedIds.has(to.id);
-  const isHidden = useDrawingPipelineStore(s => s.hiddenTakeoffIds.includes(to.id));
+  const isHidden = useDrawingPipelineStore(s => s.hiddenTakeoffIds.has(to.id));
   const computedQty = getComputedQty(to);
   const measuredQty = getMeasuredQty(to);
   const hasMeasurements = (to.measurements || []).length > 0;

@@ -58,7 +58,7 @@ export default function useTakeoffCanvasRendering({
         .padStart(2, "0");
     const canvasTakeoffs = pageFilter === "page" ? filteredTakeoffs : takeoffs;
     canvasTakeoffs.forEach(to => {
-      if (hiddenTakeoffIds.includes(to.id)) return;
+      if (hiddenTakeoffIds.has(to.id)) return;
       if (tkVisibility === "active" && to.id !== tkSelectedTakeoffId && to.id !== tkActiveTakeoffId) return;
       const isSelectedTo = to.id === tkSelectedTakeoffId || to.id === tkActiveTakeoffId;
       const fillHex = toFillHex(to.fillOpacity ?? 75);
@@ -485,7 +485,7 @@ export default function useTakeoffCanvasRendering({
     }
 
     // Always-visible crosshair
-    if (tkCursorPt && (tkTool === "area" || tkTool === "linear" || tkTool === "calibrate" || tkTool === "count")) {
+    if (tkCursorPt && (tkTool === "area" || tkTool === "linear" || tkTool === "rect" || tkTool === "calibrate" || tkTool === "count")) {
       ctx.save();
       ctx.strokeStyle = "rgba(255,0,255,0.5)";
       ctx.lineWidth = 1;

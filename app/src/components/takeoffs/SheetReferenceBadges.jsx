@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 
@@ -13,6 +13,17 @@ export default function SheetReferenceBadges({
   const T = C.T;
   const [hoveredRef, setHoveredRef] = useState(null);
   const [menuRef, setMenuRef] = useState(null); // { idx, x, y }
+  const menuPopRef = useRef(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuRef) return;
+    const handler = e => {
+      if (menuPopRef.current && !menuPopRef.current.contains(e.target)) setMenuRef(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuRef]);
   const drawings = useDrawingPipelineStore(s => s.drawings);
   const pdfCanvases = useDrawingPipelineStore(s => s.pdfCanvases);
   const sheetIndex = useDrawingPipelineStore(s => s.sheetIndex);
@@ -150,6 +161,7 @@ export default function SheetReferenceBadges({
 
         return (
           <div
+            ref={menuPopRef}
             style={{
               position: "fixed",
               top: menuRef.y + 8,
