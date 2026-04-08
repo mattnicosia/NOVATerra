@@ -157,7 +157,7 @@ export default function TakeoffsPage() {
   const [checkDimMode, setCheckDimMode] = useState(false);
   const checkDimRef = useRef(false);
   const [showMeasureLabels, setShowMeasureLabels] = useState(
-    () => sessionStorage.getItem("bldg-showLabels") !== "false",
+    () => sessionStorage.getItem("bldg-showLabels") === "true",
   );
   useEffect(() => {
     snapAngleOnRef.current = snapAngleOn;

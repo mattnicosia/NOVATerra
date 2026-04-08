@@ -167,7 +167,10 @@ export default function TakeoffControlRail({
           useUiStore.getState().showToast("Undone: last point", "info");
           return;
         }
-        // Otherwise: undo last store action (measurement, edit, etc.)
+        // Undo last store action (measurement, edit, etc.)
+        // Works across closed takeoffs — keeps going back through history
+        const freshCanUndo = useUndoStore.getState().canUndo();
+        if (!freshCanUndo) return;
         const actionName = useUndoStore.getState().undo();
         if (actionName) {
           useUiStore.getState().showToast(`Undone: ${actionName}`, "info");

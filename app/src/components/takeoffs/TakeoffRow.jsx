@@ -128,7 +128,7 @@ export default function TakeoffRow({
           background: isMeasuring
             ? `${to.color}18`
             : isSelected
-              ? `${to.color}0A`
+              ? `${to.color}18`
               : isRevisionAffected
                 ? "rgba(245,158,11,0.06)"
                 : "transparent",
@@ -137,9 +137,13 @@ export default function TakeoffRow({
             : isRevisionAffected && !isSelected
               ? "3px solid #F59E0B"
               : isSelected
-                ? `3px solid ${to.color}80`
+                ? `3px solid ${to.color}`
                 : "3px solid transparent",
-          boxShadow: isMeasuring ? `inset 0 0 0 1px ${to.color}30` : "none",
+          boxShadow: isMeasuring
+            ? `inset 0 0 0 1px ${to.color}30`
+            : isSelected
+              ? `inset 0 0 0 1px ${to.color}20`
+              : "none",
           transition: "background 100ms ease-out",
           opacity: isHidden ? 0.4 : 1,
         }}
