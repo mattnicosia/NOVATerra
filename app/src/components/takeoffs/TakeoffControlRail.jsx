@@ -133,6 +133,10 @@ export default function TakeoffControlRail({
   /* ── MODE GROUP: Select + Undo ── */
   const undoState = useUndoStore.getState();
   const canUndo = undoState.canUndo();
+  const isMeasuring = tkMeasureState === "measuring";
+  const activePoints = useDrawingPipelineStore(s => s.tkActivePoints);
+  const hasActivePoints = isMeasuring && activePoints.length > 0;
+  const undoAvailable = hasActivePoints || canUndo;
   const modeTools = [
     {
       id: "select",
@@ -153,18 +157,25 @@ export default function TakeoffControlRail({
     },
     {
       id: "undo",
-      label: canUndo ? "Undo" : "Nothing to undo",
+      label: hasActivePoints ? "Undo Last Point" : canUndo ? "Undo" : "Nothing to undo",
       active: false,
       action: () => {
+        // During active measurement: undo last click point first
+        if (hasActivePoints) {
+          const pts = useDrawingPipelineStore.getState().tkActivePoints;
+          useDrawingPipelineStore.getState().setTkActivePoints(pts.slice(0, -1));
+          useUiStore.getState().showToast("Undone: last point", "info");
+          return;
+        }
+        // Otherwise: undo last store action (measurement, edit, etc.)
         const actionName = useUndoStore.getState().undo();
         if (actionName) {
-          const toast = useUiStore.getState().showToast;
-          toast(`Undone: ${actionName}`, "info");
+          useUiStore.getState().showToast(`Undone: ${actionName}`, "info");
         }
       },
-      disabled: !canUndo,
+      disabled: !undoAvailable,
       icon: (
-        <svg {...ico(false)} style={{ opacity: canUndo ? 1 : 0.35 }}>
+        <svg {...ico(false)} style={{ opacity: undoAvailable ? 1 : 0.35 }}>
           <path d="M1 4v6h6" />
           <path d="M3.51 15a9 9 0 105.64-12.36L1 10" />
         </svg>

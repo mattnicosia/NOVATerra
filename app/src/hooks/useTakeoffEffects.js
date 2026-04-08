@@ -15,6 +15,7 @@
 import { useEffect, useRef } from "react";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useUndoStore } from "@/stores/undoStore";
 import { unitToTool } from "@/hooks/useMeasurementEngine";
 import { uid } from "@/utils/format";
 import { runSmartPredictions } from "@/utils/predictiveEngine";
@@ -284,14 +285,21 @@ export default function useTakeoffEffects({
       }
 
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !isTyping) {
+        e.preventDefault();
         if (tkMeasureState === "measuring") {
+          // During active measurement: undo last click point
           const points = useDrawingPipelineStore.getState().tkActivePoints;
           if (points.length > 0) {
-            e.preventDefault();
             useDrawingPipelineStore.getState().setTkActivePoints(points.slice(0, -1));
             return;
           }
         }
+        // Not measuring (or no points left): undo last store action (measurement, edit, etc.)
+        const actionName = useUndoStore.getState().undo();
+        if (actionName) {
+          useUiStore.getState().showToast(`Undone: ${actionName}`, "info");
+        }
+        return;
       }
 
       if ((e.metaKey || e.ctrlKey) && e.key === "d" && !isTyping) {
