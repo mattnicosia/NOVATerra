@@ -1568,7 +1568,7 @@ export default function EstimatePage() {
         if (!editItem) return null;
         const el = document.querySelector(`[data-item-id="${codeEditItemId}"] .est-col`);
         const rect = el?.getBoundingClientRect();
-        const divEntries = Object.entries(DIVISIONS);
+        const divEntries = Object.entries(CSI).map(([code, data]) => [code, data.name]);
 
         return createPortal(
           <CodeEditPopover
