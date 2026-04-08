@@ -11,12 +11,12 @@
 export const CSI = {
   "00": { name: "Procurement & Contracting", subs: {
     "00.100": "Solicitation",
-    "00.200": "Instructions for Procurement",
+    "00.200": "Instructions For Procurement",
     "00.300": "Available Information",
     "00.400": "Procurement Forms & Supplements",
     "00.500": "Contracting Forms & Supplements",
     "00.600": "Project Forms",
-    "00.700": "Conditions of the Contract",
+    "00.700": "Conditions Of The Contract",
     "00.900": "Revisions, Clarifications & Modifications",
   }},
   "01": { name: "General Requirements", subs: {
@@ -35,9 +35,9 @@ export const CSI = {
   //  DIVISION 02 — EXISTING CONDITIONS
   // ═══════════════════════════════════════════════════════════
   "02": { name: "Existing Conditions", subs: {
-    "02.010": "Maintenance of Existing Conditions",
-    "02.030": "Conservation Treatment for Period Conditions",
-    "02.050": "Common Work Results for Existing Conditions",
+    "02.010": "Maintenance Of Existing Conditions",
+    "02.030": "Conservation Treatment For Period Conditions",
+    "02.050": "Common Work Results For Existing Conditions",
     "02.200": "Assessment",
     "02.210": "Surveys",
     "02.220": "Existing Conditions Assessment",
@@ -49,7 +49,7 @@ export const CSI = {
     "02.320": "Geotechnical Investigations",
     "02.400": "Demolition & Structure Moving",
     "02.410": "Demolition",
-    "02.420": "Removal & Diversion of Construction Materials",
+    "02.420": "Removal & Diversion Of Construction Materials",
     "02.430": "Structure Moving",
     "02.500": "Site Remediation",
     "02.510": "Physical Decontamination",
@@ -61,14 +61,14 @@ export const CSI = {
     "02.570": "Sinkhole Remediation",
     "02.580": "Snow Control",
     "02.600": "Contaminated Site Material Removal",
-    "02.610": "Removal & Disposal of Contaminated Soils",
+    "02.610": "Removal & Disposal Of Contaminated Soils",
     "02.620": "Hazardous Waste Recovery Processes",
     "02.650": "Underground Storage Tank Removal",
     "02.700": "Water Remediation",
     "02.710": "Groundwater Treatment",
     "02.720": "Water Decontamination",
     "02.800": "Facility Remediation",
-    "02.810": "Transportation & Disposal of Hazardous Materials",
+    "02.810": "Transportation & Disposal Of Hazardous Materials",
     "02.820": "Asbestos Remediation",
     "02.830": "Lead Remediation",
     "02.840": "Polychlorinate Biphenyl Remediation",
@@ -80,8 +80,8 @@ export const CSI = {
   //  DIVISION 03 — CONCRETE
   // ═══════════════════════════════════════════════════════════
   "03": { name: "Concrete", subs: {
-    "03.010": "Maintenance of Concrete",
-    "03.050": "Common Work Results for Concrete",
+    "03.010": "Maintenance Of Concrete",
+    "03.050": "Common Work Results For Concrete",
     "03.100": "Concrete Forming & Accessories",
     "03.110": "Concrete Forming",
     "03.150": "Concrete Accessories",
@@ -91,7 +91,7 @@ export const CSI = {
     "03.230": "Stressed Tendon Reinforcing",
     "03.240": "Fibrous Reinforcing",
     "03.250": "Composite Reinforcing",
-    "03.300": "Cast-in-Place Concrete",
+    "03.300": "Cast-In-Place Concrete",
     "03.310": "Structural Concrete",
     "03.330": "Architectural Concrete",
     "03.340": "Low-Density Concrete",
@@ -116,8 +116,8 @@ export const CSI = {
     "03.630": "Epoxy Grouting",
     "03.640": "Injection Grouting",
     "03.700": "Mass Concrete",
-    "03.710": "Mass Concrete for Raft Foundations",
-    "03.720": "Mass Concrete for Dams",
+    "03.710": "Mass Concrete For Raft Foundations",
+    "03.720": "Mass Concrete For Dams",
     "03.800": "Concrete Cutting & Boring",
     "03.810": "Concrete Cutting",
     "03.820": "Concrete Boring",
@@ -127,8 +127,8 @@ export const CSI = {
   //  DIVISION 04 — MASONRY
   // ═══════════════════════════════════════════════════════════
   "04": { name: "Masonry", subs: {
-    "04.010": "Maintenance of Masonry",
-    "04.050": "Common Work Results for Masonry",
+    "04.010": "Maintenance Of Masonry",
+    "04.050": "Common Work Results For Masonry",
     "04.200": "Unit Masonry",
     "04.210": "Clay Unit Masonry",
     "04.220": "Concrete Unit Masonry",
@@ -162,8 +162,8 @@ export const CSI = {
   //  DIVISION 05 — METALS
   // ═══════════════════════════════════════════════════════════
   "05": { name: "Metals", subs: {
-    "05.010": "Maintenance of Metals",
-    "05.050": "Common Work Results for Metals",
+    "05.010": "Maintenance Of Metals",
+    "05.050": "Common Work Results For Metals",
     "05.100": "Structural Metal Framing",
     "05.120": "Structural Steel Framing",
     "05.130": "Structural Stainless Steel Framing",
@@ -209,8 +209,8 @@ export const CSI = {
   //  DIVISION 06 — WOOD, PLASTICS & COMPOSITES
   // ═══════════════════════════════════════════════════════════
   "06": { name: "Wood, Plastics & Composites", subs: {
-    "06.010": "Maintenance of Wood, Plastics & Composites",
-    "06.050": "Common Work Results for Wood, Plastics & Composites",
+    "06.010": "Maintenance Of Wood, Plastics & Composites",
+    "06.050": "Common Work Results For Wood, Plastics & Composites",
     "06.100": "Rough Carpentry",
     "06.110": "Wood Framing",
     "06.120": "Structural Panels",
@@ -258,8 +258,8 @@ export const CSI = {
   //  DIVISION 07 — THERMAL & MOISTURE PROTECTION
   // ═══════════════════════════════════════════════════════════
   "07": { name: "Thermal & Moisture Protection", subs: {
-    "07.010": "Maintenance of Thermal & Moisture Protection",
-    "07.050": "Common Work Results for Thermal & Moisture Protection",
+    "07.010": "Maintenance Of Thermal & Moisture Protection",
+    "07.050": "Common Work Results For Thermal & Moisture Protection",
     "07.100": "Dampproofing & Waterproofing",
     "07.110": "Dampproofing",
     "07.120": "Built-Up Bituminous Waterproofing",
@@ -322,8 +322,8 @@ export const CSI = {
   //  DIVISION 08 — OPENINGS
   // ═══════════════════════════════════════════════════════════
   "08": { name: "Openings", subs: {
-    "08.010": "Maintenance of Openings",
-    "08.050": "Common Work Results for Openings",
+    "08.010": "Maintenance Of Openings",
+    "08.050": "Common Work Results For Openings",
     "08.100": "Doors & Frames",
     "08.110": "Metal Doors & Frames",
     "08.120": "Metal Frames",
@@ -385,11 +385,11 @@ export const CSI = {
   //  DIVISION 09 — FINISHES
   // ═══════════════════════════════════════════════════════════
   "09": { name: "Finishes", subs: {
-    "09.010": "Maintenance of Finishes",
-    "09.050": "Common Work Results for Finishes",
+    "09.010": "Maintenance Of Finishes",
+    "09.050": "Common Work Results For Finishes",
     "09.200": "Plaster & Gypsum Board",
     "09.210": "Plaster & Gypsum Board Assemblies",
-    "09.220": "Supports for Plaster & Gypsum Board",
+    "09.220": "Supports For Plaster & Gypsum Board",
     "09.230": "Gypsum Plastering",
     "09.240": "Cement Plastering",
     "09.250": "Other Plastering",
@@ -443,8 +443,8 @@ export const CSI = {
   //  DIVISION 10 — SPECIALTIES
   // ═══════════════════════════════════════════════════════════
   "10": { name: "Specialties", subs: {
-    "10.010": "Maintenance of Specialties",
-    "10.050": "Common Work Results for Specialties",
+    "10.010": "Maintenance Of Specialties",
+    "10.050": "Common Work Results For Specialties",
     "10.100": "Information Specialties",
     "10.110": "Visual Display Units",
     "10.120": "Display Cases",
@@ -489,8 +489,8 @@ export const CSI = {
   //  DIVISION 11 — EQUIPMENT
   // ═══════════════════════════════════════════════════════════
   "11": { name: "Equipment", subs: {
-    "11.010": "Maintenance of Equipment",
-    "11.050": "Common Work Results for Equipment",
+    "11.010": "Maintenance Of Equipment",
+    "11.050": "Common Work Results For Equipment",
     "11.100": "Vehicle & Pedestrian Equipment",
     "11.110": "Vehicle Service Equipment",
     "11.120": "Parking Control Equipment",
@@ -547,8 +547,8 @@ export const CSI = {
   //  DIVISION 12 — FURNISHINGS
   // ═══════════════════════════════════════════════════════════
   "12": { name: "Furnishings", subs: {
-    "12.010": "Maintenance of Furnishings",
-    "12.050": "Common Work Results for Furnishings",
+    "12.010": "Maintenance Of Furnishings",
+    "12.050": "Common Work Results For Furnishings",
     "12.100": "Art",
     "12.110": "Murals",
     "12.120": "Wall Decorations",
@@ -591,8 +591,8 @@ export const CSI = {
   //  DIVISION 13 — SPECIAL CONSTRUCTION
   // ═══════════════════════════════════════════════════════════
   "13": { name: "Special Construction", subs: {
-    "13.010": "Maintenance of Special Construction",
-    "13.050": "Common Work Results for Special Construction",
+    "13.010": "Maintenance Of Special Construction",
+    "13.050": "Common Work Results For Special Construction",
     "13.100": "Special Facility Components",
     "13.110": "Swimming Pools",
     "13.120": "Fountains",
@@ -630,8 +630,8 @@ export const CSI = {
   //  DIVISION 14 — CONVEYING EQUIPMENT
   // ═══════════════════════════════════════════════════════════
   "14": { name: "Conveying Equipment", subs: {
-    "14.010": "Maintenance of Conveying Equipment",
-    "14.050": "Common Work Results for Conveying Equipment",
+    "14.010": "Maintenance Of Conveying Equipment",
+    "14.050": "Common Work Results For Conveying Equipment",
     "14.100": "Dumbwaiters",
     "14.110": "Manual Dumbwaiters",
     "14.120": "Electric Dumbwaiters",
@@ -669,10 +669,10 @@ export const CSI = {
   //  DIVISION 21 — FIRE SUPPRESSION
   // ═══════════════════════════════════════════════════════════
   "21": { name: "Fire Suppression", subs: {
-    "21.010": "Maintenance of Fire Suppression",
-    "21.050": "Common Work Results for Fire Suppression",
+    "21.010": "Maintenance Of Fire Suppression",
+    "21.050": "Common Work Results For Fire Suppression",
     "21.070": "Fire Suppression Systems Insulation",
-    "21.090": "Instrumentation & Control for Fire Suppression",
+    "21.090": "Instrumentation & Control For Fire Suppression",
     "21.100": "Water-Based Fire-Suppression Systems",
     "21.110": "Facility Fire-Suppression Water-Service Piping",
     "21.120": "Fire-Suppression Standpipes",
@@ -689,17 +689,17 @@ export const CSI = {
     "21.330": "Positive-Displacement Fire Pumps",
     "21.340": "Fire Pump Accessories",
     "21.400": "Fire-Suppression Water Storage",
-    "21.410": "Storage Tanks for Fire-Suppression Water",
+    "21.410": "Storage Tanks For Fire-Suppression Water",
   }},
 
   // ═══════════════════════════════════════════════════════════
   //  DIVISION 22 — PLUMBING
   // ═══════════════════════════════════════════════════════════
   "22": { name: "Plumbing", subs: {
-    "22.010": "Maintenance of Plumbing",
-    "22.050": "Common Work Results for Plumbing",
+    "22.010": "Maintenance Of Plumbing",
+    "22.050": "Common Work Results For Plumbing",
     "22.070": "Plumbing Insulation",
-    "22.090": "Instrumentation & Control for Plumbing",
+    "22.090": "Instrumentation & Control For Plumbing",
     "22.100": "Plumbing Piping",
     "22.110": "Facility Water Distribution",
     "22.120": "Facility Potable-Water Storage Tanks",
@@ -723,22 +723,22 @@ export const CSI = {
     "22.500": "Pool & Fountain Plumbing Systems",
     "22.510": "Swimming Pool Plumbing Systems",
     "22.520": "Fountain Plumbing Systems",
-    "22.600": "Gas & Vacuum Systems for Lab & Healthcare",
-    "22.610": "Compressed Air Systems for Lab & Healthcare",
-    "22.620": "Vacuum Systems for Lab & Healthcare",
-    "22.630": "Gas Systems for Lab & Healthcare",
-    "22.660": "Chemical-Waste Systems for Lab & Healthcare",
-    "22.670": "Processed Water Systems for Lab & Healthcare",
+    "22.600": "Gas & Vacuum Systems For Lab & Healthcare",
+    "22.610": "Compressed Air Systems For Lab & Healthcare",
+    "22.620": "Vacuum Systems For Lab & Healthcare",
+    "22.630": "Gas Systems For Lab & Healthcare",
+    "22.660": "Chemical-Waste Systems For Lab & Healthcare",
+    "22.670": "Processed Water Systems For Lab & Healthcare",
   }},
 
   // ═══════════════════════════════════════════════════════════
   //  DIVISION 23 — HVAC
   // ═══════════════════════════════════════════════════════════
   "23": { name: "Heating, Ventilating & Air Conditioning", subs: {
-    "23.010": "Maintenance of HVAC Systems",
-    "23.050": "Common Work Results for HVAC",
+    "23.010": "Maintenance Of HVAC Systems",
+    "23.050": "Common Work Results For HVAC",
     "23.070": "HVAC Insulation",
-    "23.090": "Instrumentation & Control for HVAC",
+    "23.090": "Instrumentation & Control For HVAC",
     "23.100": "Facility Fuel Systems",
     "23.110": "Facility Fuel Piping",
     "23.120": "Facility Fuel Pumps",
@@ -768,7 +768,7 @@ export const CSI = {
     "23.540": "Furnaces",
     "23.550": "Fuel-Fired Heaters",
     "23.560": "Solar Energy Heating Equipment",
-    "23.570": "Heat Exchangers for HVAC",
+    "23.570": "Heat Exchangers For HVAC",
     "23.600": "Central Cooling Equipment",
     "23.610": "Refrigerant Compressors",
     "23.620": "Packaged Compressor & Condenser Units",
@@ -777,7 +777,7 @@ export const CSI = {
     "23.650": "Cooling Towers",
     "23.700": "Central HVAC Equipment",
     "23.710": "Thermal Storage",
-    "23.720": "Air-to-Air Energy Recovery Equipment",
+    "23.720": "Air-To-Air Energy Recovery Equipment",
     "23.730": "Indoor Central-Station Air-Handling Units",
     "23.740": "Packaged Outdoor HVAC Equipment",
     "23.760": "Evaporative Air-Cooling Equipment",
@@ -792,7 +792,7 @@ export const CSI = {
   //  DIVISION 25 — INTEGRATED AUTOMATION
   // ═══════════════════════════════════════════════════════════
   "25": { name: "Integrated Automation", subs: {
-    "25.050": "Common Work Results for Integrated Automation",
+    "25.050": "Common Work Results For Integrated Automation",
     "25.100": "Integrated Automation Network Equipment",
     "25.300": "Integrated Automation Instrumentation & Terminal Devices",
     "25.500": "Integrated Automation Facility Controls",
@@ -803,9 +803,9 @@ export const CSI = {
   //  DIVISION 26 — ELECTRICAL
   // ═══════════════════════════════════════════════════════════
   "26": { name: "Electrical", subs: {
-    "26.010": "Maintenance of Electrical Systems",
-    "26.050": "Common Work Results for Electrical",
-    "26.090": "Instrumentation & Control for Electrical Systems",
+    "26.010": "Maintenance Of Electrical Systems",
+    "26.050": "Common Work Results For Electrical",
+    "26.090": "Instrumentation & Control For Electrical Systems",
     "26.100": "Medium-Voltage Electrical Distribution",
     "26.110": "Substations",
     "26.120": "Medium-Voltage Transformers",
@@ -843,8 +843,8 @@ export const CSI = {
   //  DIVISION 27 — COMMUNICATIONS
   // ═══════════════════════════════════════════════════════════
   "27": { name: "Communications", subs: {
-    "27.010": "Maintenance of Communications Systems",
-    "27.050": "Common Work Results for Communications",
+    "27.010": "Maintenance Of Communications Systems",
+    "27.050": "Common Work Results For Communications",
     "27.100": "Structured Cabling",
     "27.110": "Communications Equipment Room Fittings",
     "27.130": "Communications Backbone Cabling",
@@ -869,8 +869,8 @@ export const CSI = {
   //  DIVISION 28 — ELECTRONIC SAFETY & SECURITY
   // ═══════════════════════════════════════════════════════════
   "28": { name: "Electronic Safety & Security", subs: {
-    "28.010": "Maintenance of Electronic Safety & Security",
-    "28.050": "Common Work Results for Electronic Safety & Security",
+    "28.010": "Maintenance Of Electronic Safety & Security",
+    "28.050": "Common Work Results For Electronic Safety & Security",
     "28.100": "Access Control",
     "28.130": "Access Control Software & Database Management",
     "28.140": "Access Control System Hardware",
@@ -895,8 +895,8 @@ export const CSI = {
   //  DIVISION 31 — EARTHWORK
   // ═══════════════════════════════════════════════════════════
   "31": { name: "Earthwork", subs: {
-    "31.010": "Maintenance of Earthwork",
-    "31.050": "Common Work Results for Earthwork",
+    "31.010": "Maintenance Of Earthwork",
+    "31.050": "Common Work Results For Earthwork",
     "31.090": "Geotechnical Instrumentation & Monitoring",
     "31.100": "Site Clearing",
     "31.110": "Clearing & Grubbing",
@@ -946,8 +946,8 @@ export const CSI = {
   //  DIVISION 32 — EXTERIOR IMPROVEMENTS
   // ═══════════════════════════════════════════════════════════
   "32": { name: "Exterior Improvements", subs: {
-    "32.010": "Maintenance of Exterior Improvements",
-    "32.050": "Common Work Results for Exterior Improvements",
+    "32.010": "Maintenance Of Exterior Improvements",
+    "32.050": "Common Work Results For Exterior Improvements",
     "32.100": "Bases, Ballasts & Paving",
     "32.110": "Base Courses",
     "32.120": "Flexible Paving",
@@ -983,9 +983,9 @@ export const CSI = {
   //  DIVISION 33 — UTILITIES
   // ═══════════════════════════════════════════════════════════
   "33": { name: "Utilities", subs: {
-    "33.010": "Maintenance of Utilities",
-    "33.050": "Common Work Results for Utilities",
-    "33.090": "Instrumentation & Control for Utilities",
+    "33.010": "Maintenance Of Utilities",
+    "33.050": "Common Work Results For Utilities",
+    "33.090": "Instrumentation & Control For Utilities",
     "33.100": "Water Utilities",
     "33.110": "Groundwater Sources",
     "33.120": "Surface Water Sources",
@@ -1024,7 +1024,7 @@ export const CSI = {
   //  DIVISIONS 34–48 — INFRASTRUCTURE & PROCESS
   // ═══════════════════════════════════════════════════════════
   "34": { name: "Transportation", subs: {
-    "34.050": "Common Work Results for Transportation",
+    "34.050": "Common Work Results For Transportation",
     "34.100": "Guideways/Railways",
     "34.200": "Traction Power",
     "34.400": "Transportation Signaling & Control Equipment",
@@ -1033,7 +1033,7 @@ export const CSI = {
     "34.800": "Bridges",
   }},
   "35": { name: "Waterway & Marine Construction", subs: {
-    "35.050": "Common Work Results for Waterway & Marine Construction",
+    "35.050": "Common Work Results For Waterway & Marine Construction",
     "35.200": "Waterway & Marine Construction & Equipment",
     "35.300": "Coastal Construction",
     "35.400": "Waterway Construction & Equipment",
@@ -1041,17 +1041,17 @@ export const CSI = {
     "35.700": "Dam Construction & Equipment",
   }},
   "40": { name: "Process Interconnections", subs: {
-    "40.050": "Common Work Results for Process Interconnections",
+    "40.050": "Common Work Results For Process Interconnections",
     "40.100": "Gas & Vapor Process Piping & Ductwork",
     "40.200": "Liquids Process Piping",
     "40.300": "Solid & Mixed Materials Piping & Chutes",
     "40.400": "Process Piping & Equipment Protection",
     "40.600": "Process Control & Enterprise Management Systems",
-    "40.700": "Instrumentation for Process Systems",
+    "40.700": "Instrumentation For Process Systems",
     "40.900": "Primary Control Devices",
   }},
   "41": { name: "Material Processing & Handling Equipment", subs: {
-    "41.050": "Common Work Results for Material Processing & Handling",
+    "41.050": "Common Work Results For Material Processing & Handling",
     "41.100": "Bulk Material Processing Equipment",
     "41.200": "Piece Material Handling Equipment",
     "41.300": "Manufacturing Equipment",
@@ -1060,20 +1060,20 @@ export const CSI = {
     "41.600": "Mobile Plant Equipment",
   }},
   "42": { name: "Process Heating, Cooling & Drying Equipment", subs: {
-    "42.050": "Common Work Results for Process Heating, Cooling & Drying",
+    "42.050": "Common Work Results For Process Heating, Cooling & Drying",
     "42.100": "Process Heating Equipment",
     "42.200": "Process Cooling Equipment",
     "42.300": "Process Drying Equipment",
   }},
   "43": { name: "Process Gas & Liquid Handling", subs: {
-    "43.050": "Common Work Results for Process Gas & Liquid Handling",
+    "43.050": "Common Work Results For Process Gas & Liquid Handling",
     "43.100": "Gas Handling Equipment",
     "43.200": "Liquid Handling Equipment",
     "43.300": "Gas & Liquid Purification Equipment",
     "43.400": "Gas & Liquid Storage",
   }},
   "44": { name: "Pollution & Waste Control Equipment", subs: {
-    "44.050": "Common Work Results for Pollution & Waste Control",
+    "44.050": "Common Work Results For Pollution & Waste Control",
     "44.100": "Air Pollution Control",
     "44.200": "Noise Pollution Control",
     "44.300": "Odor Control",
@@ -1082,7 +1082,7 @@ export const CSI = {
     "44.600": "Waste Thermal Processing Equipment",
   }},
   "46": { name: "Water & Wastewater Equipment", subs: {
-    "46.050": "Common Work Results for Water & Wastewater Equipment",
+    "46.050": "Common Work Results For Water & Wastewater Equipment",
     "46.070": "Packaged Water & Wastewater Treatment Equipment",
     "46.200": "Water & Wastewater Preliminary Treatment Equipment",
     "46.300": "Water & Wastewater Chemical Feed Equipment",
@@ -1092,8 +1092,8 @@ export const CSI = {
     "46.700": "Water & Wastewater Residuals Handling & Treatment",
   }},
   "48": { name: "Electrical Power Generation", subs: {
-    "48.050": "Common Work Results for Electrical Power Generation",
-    "48.090": "Instrumentation & Control for Electrical Power Generation",
+    "48.050": "Common Work Results For Electrical Power Generation",
+    "48.090": "Instrumentation & Control For Electrical Power Generation",
     "48.100": "Electrical Power Generation Equipment",
     "48.300": "Combined Heat & Power Generation",
     "48.700": "Electrical Power Generation Testing",

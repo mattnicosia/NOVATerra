@@ -93,7 +93,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s914",
     code: "01.0050.0381",
-    name: "Truck Expenses (.003% of Revenue)",
+    name: "Truck Expenses (.003% Of Revenue)",
     unit: "LS",
     material: 0,
     labor: 0,
@@ -420,7 +420,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s945",
     code: "01.5400.1070",
-    name: "Sidewalk Shed 3-Month Rental (14'-20' High x 12' Wide)",
+    name: "Sidewalk Shed 3-Month Rental (14'-20' High X 12' Wide)",
     unit: "LF",
     material: 0,
     labor: 0,
@@ -431,7 +431,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s946",
     code: "01.5400.1080",
-    name: "Sidewalk Shed Engineering and Permits",
+    name: "Sidewalk Shed Engineering And Permits",
     unit: "LS",
     material: 0,
     labor: 0,
@@ -509,7 +509,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s953",
     code: "01.5426.0030",
-    name: "Mast Climber Anchors and Bracing",
+    name: "Mast Climber Anchors And Bracing",
     unit: "EA",
     material: 0,
     labor: 0,
@@ -522,7 +522,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s954",
     code: "01.5600.1170",
-    name: "10' Temporary Construction Fence + 12 x 12 Viewer",
+    name: "10' Temporary Construction Fence + 12 X 12 Viewer",
     unit: "LF",
     material: 0,
     labor: 0,
@@ -544,7 +544,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s956",
     code: "01.5600.1190",
-    name: "F/I Temporary Guardrails, Posts, Base Plates and Toe Boards",
+    name: "F/I Temporary Guardrails, Posts, Base Plates And Toe Boards",
     unit: "LF",
     material: 0,
     labor: 0,
@@ -602,7 +602,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s001",
     code: "03.110",
-    name: "Formwork, Wall (up to 8')",
+    name: "Formwork, Wall (Up To 8')",
     unit: "SFCA",
     material: 3.5,
     labor: 8.75,
@@ -724,7 +724,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s013",
     code: "05.110",
-    name: "Structural Steel, Beams (W-shapes)",
+    name: "Structural Steel, Beams (W-Shapes)",
     unit: "TON",
     material: 3200.0,
     labor: 1800.0,
@@ -734,7 +734,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s014",
     code: "05.110",
-    name: "Structural Steel, Columns (W-shapes)",
+    name: "Structural Steel, Columns (W-Shapes)",
     unit: "TON",
     material: 3400.0,
     labor: 2000.0,
@@ -794,7 +794,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s020",
     code: "05.510",
-    name: "Metal Stairs, Steel Pan w/ Concrete Fill",
+    name: "Metal Stairs, Steel Pan W/ Concrete Fill",
     unit: "FLT",
     material: 4200.0,
     labor: 3500.0,
@@ -1204,7 +1204,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s387",
     code: "05.400",
-    name: "Metal Framing Screws, #8 TEK (box/1000)",
+    name: "Metal Framing Screws, #8 TEK (Box/1000)",
     unit: "EA",
     material: 35.0,
     labor: 0.0,
@@ -1389,7 +1389,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s405",
     code: "07.920",
-    name: "Acoustical Sealant, Perimeter of Board",
+    name: "Acoustical Sealant, Perimeter Of Board",
     unit: "LF",
     material: 0.35,
     labor: 0.45,
@@ -1399,7 +1399,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s406",
     code: "07.920",
-    name: "Acoustical Sealant, Tube (29 oz)",
+    name: "Acoustical Sealant, Tube (29 Oz)",
     unit: "EA",
     material: 5.5,
     labor: 0.0,
@@ -1411,7 +1411,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s407",
     code: "07.840",
-    name: "Firestop Sealant, Intumescent (joint/penetration)",
+    name: "Firestop Sealant, Intumescent (Joint/Penetration)",
     unit: "LF",
     material: 4.5,
     labor: 6.0,
@@ -1421,7 +1421,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s408",
     code: "07.840",
-    name: "Firestop Sealant, Silicone (construction joint)",
+    name: "Firestop Sealant, Silicone (Construction Joint)",
     unit: "LF",
     material: 3.8,
     labor: 5.5,
@@ -1431,7 +1431,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s409",
     code: "07.840",
-    name: "Firestop Caulk, Latex (penetration seal)",
+    name: "Firestop Caulk, Latex (Penetration Seal)",
     unit: "LF",
     material: 2.5,
     labor: 4.0,
@@ -1441,7 +1441,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s410",
     code: "07.840",
-    name: "Firestop Pillow/Plug (cable tray/opening)",
+    name: "Firestop Pillow/Plug (Cable Tray/Opening)",
     unit: "EA",
     material: 12.0,
     labor: 8.0,
@@ -1461,7 +1461,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s412",
     code: "07.840",
-    name: "Firestop Wrap Strip (duct penetration)",
+    name: "Firestop Wrap Strip (Duct Penetration)",
     unit: "LF",
     material: 6.5,
     labor: 5.0,
@@ -1501,7 +1501,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s416",
     code: "07.840",
-    name: "Firestop Board/Panel (large opening)",
+    name: "Firestop Board/Panel (Large Opening)",
     unit: "SF",
     material: 4.8,
     labor: 4.8,
@@ -1545,7 +1545,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s420",
     code: "05.400",
-    name: "Shaft Wall H-Stud, 25ga (for shaftliner)",
+    name: "Shaft Wall H-Stud, 25ga (For Shaftliner)",
     unit: "LF",
     material: 0.65,
     labor: 0.85,
@@ -1555,7 +1555,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s421",
     code: "05.400",
-    name: "Shaft Wall C-Track, 25ga (for shaftliner)",
+    name: "Shaft Wall C-Track, 25ga (For Shaftliner)",
     unit: "LF",
     material: 0.48,
     labor: 0.45,
@@ -1565,7 +1565,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s422",
     code: "05.400",
-    name: "Aluminum Breakaway Clip (area sep wall)",
+    name: "Aluminum Breakaway Clip (Area Sep Wall)",
     unit: "EA",
     material: 0.85,
     labor: 0.5,
@@ -1585,7 +1585,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s424",
     code: "07.920",
-    name: "Backer Rod, Closed Cell (various dia.)",
+    name: "Backer Rod, Closed Cell (Various Dia.)",
     unit: "LF",
     material: 0.15,
     labor: 0.2,
@@ -1595,7 +1595,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s425",
     code: "07.920",
-    name: "Fire-Rated Caulk at Head of Wall (HOW joint)",
+    name: "Fire-Rated Caulk At Head Of Wall (HOW Joint)",
     unit: "LF",
     material: 1.8,
     labor: 2.2,
@@ -1779,7 +1779,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s040",
     code: "06.110",
-    name: "Blocking & Backing, 2x (misc)",
+    name: "Blocking & Backing, 2x (Misc)",
     unit: "LF",
     material: 0.65,
     labor: 1.8,
@@ -1839,7 +1839,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s046",
     code: "06.110",
-    name: "Simpson Joist Hanger (typical)",
+    name: "Simpson Joist Hanger (Typical)",
     unit: "EA",
     material: 3.5,
     labor: 1.5,
@@ -1933,7 +1933,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s055",
     code: "06.170",
-    name: "Prefab Roof Trusses (typical span 24-32')",
+    name: "Prefab Roof Trusses (Typical Span 24-32')",
     unit: "SF",
     material: 3.5,
     labor: 2.2,
@@ -1943,7 +1943,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s056",
     code: "06.170",
-    name: "Prefab Floor Trusses (typical span 16-24')",
+    name: "Prefab Floor Trusses (Typical Span 16-24')",
     unit: "SF",
     material: 4.2,
     labor: 2.0,
@@ -2025,7 +2025,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s064",
     code: "06.150",
-    name: "Composite Decking (Trex-type)",
+    name: "Composite Decking (Trex-Type)",
     unit: "SF",
     material: 6.5,
     labor: 4.5,
@@ -2149,7 +2149,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s076",
     code: "06.410",
-    name: "Kitchen Cabinets, Mid-Grade (installed)",
+    name: "Kitchen Cabinets, Mid-Grade (Installed)",
     unit: "LF",
     material: 350.0,
     labor: 85.0,
@@ -2189,7 +2189,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s962",
     code: "06.410",
-    name: "Full-Height Cabinet, Floor-to-Ceiling",
+    name: "Full-Height Cabinet, Floor-To-Ceiling",
     unit: "LF",
     material: 700.0,
     labor: 135.0,
@@ -2290,7 +2290,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s079",
     code: "06.400",
-    name: "Countertop, Granite (installed)",
+    name: "Countertop, Granite (Installed)",
     unit: "SF",
     material: 45.0,
     labor: 25.0,
@@ -2300,7 +2300,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s080",
     code: "06.400",
-    name: "Countertop, Quartz (installed)",
+    name: "Countertop, Quartz (Installed)",
     unit: "SF",
     material: 55.0,
     labor: 25.0,
@@ -2310,7 +2310,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s081",
     code: "06.400",
-    name: "Countertop, Laminate (installed)",
+    name: "Countertop, Laminate (Installed)",
     unit: "SF",
     material: 15.0,
     labor: 12.0,
@@ -2395,7 +2395,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s083",
     code: "07.210",
-    name: "Batt Insulation, R-13 (2x4 wall)",
+    name: "Batt Insulation, R-13 (2x4 Wall)",
     unit: "SF",
     material: 0.45,
     labor: 0.65,
@@ -2405,7 +2405,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s329",
     code: "07.210",
-    name: "Batt Insulation, R-15 HD (2x4 wall)",
+    name: "Batt Insulation, R-15 HD (2x4 Wall)",
     unit: "SF",
     material: 1.16,
     labor: 0.0,
@@ -2415,7 +2415,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s330",
     code: "07.210",
-    name: "Batt Insulation, R-19 (2x6 wall)",
+    name: "Batt Insulation, R-19 (2x6 Wall)",
     unit: "SF",
     material: 0.48,
     labor: 0.71,
@@ -2425,7 +2425,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s331",
     code: "07.210",
-    name: "Batt Insulation, R-21 (2x6 wall)",
+    name: "Batt Insulation, R-21 (2x6 Wall)",
     unit: "SF",
     material: 0.6,
     labor: 0.91,
@@ -2435,7 +2435,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s084",
     code: "07.210",
-    name: "Batt Insulation, R-30 (attic)",
+    name: "Batt Insulation, R-30 (Attic)",
     unit: "SF",
     material: 0.64,
     labor: 0.95,
@@ -2445,7 +2445,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s085",
     code: "07.210",
-    name: "Batt Insulation, R-38 (attic)",
+    name: "Batt Insulation, R-38 (Attic)",
     unit: "SF",
     material: 0.78,
     labor: 1.18,
@@ -2455,7 +2455,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s332",
     code: "07.210",
-    name: "Batt Insulation, R-38C (cathedral)",
+    name: "Batt Insulation, R-38C (Cathedral)",
     unit: "SF",
     material: 1.07,
     labor: 1.6,
@@ -2661,7 +2661,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s089",
     code: "07.250",
-    name: "House Wrap (Tyvek-type)",
+    name: "House Wrap (Tyvek-Type)",
     unit: "SF",
     material: 0.18,
     labor: 0.25,
@@ -2681,7 +2681,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s091",
     code: "07.190",
-    name: "Vapor Barrier, 6 mil Poly",
+    name: "Vapor Barrier, 6 Mil Poly",
     unit: "SF",
     material: 0.08,
     labor: 0.12,
@@ -2692,7 +2692,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s092",
     code: "07.310",
-    name: "Asphalt Shingles, Architectural (30-yr)",
+    name: "Asphalt Shingles, Architectural (30-Yr)",
     unit: "SQ",
     material: 120.0,
     labor: 185.0,
@@ -2722,7 +2722,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s095",
     code: "07.540",
-    name: "TPO Membrane Roofing, 60 mil",
+    name: "TPO Membrane Roofing, 60 Mil",
     unit: "SF",
     material: 2.2,
     labor: 2.5,
@@ -4106,7 +4106,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s482",
     code: "03.110",
-    name: "ICF Forms (Stay-in-Place)",
+    name: "ICF Forms (Stay-In-Place)",
     unit: "SFCA",
     material: 6.5,
     labor: 5.0,
@@ -5074,7 +5074,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s622",
     code: "03.310",
-    name: "NW Concrete Topping (on deck)",
+    name: "NW Concrete Topping (On Deck)",
     unit: "CY",
     material: 165.0,
     labor: 50.0,
@@ -5084,7 +5084,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s623",
     code: "03.310",
-    name: "LW Concrete Topping (on deck)",
+    name: "LW Concrete Topping (On Deck)",
     unit: "CY",
     material: 195.0,
     labor: 55.0,
@@ -5854,7 +5854,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s744",
     code: "07.530",
-    name: "TPO Membrane, 45 mil",
+    name: "TPO Membrane, 45 Mil",
     unit: "SF",
     material: 1.4,
     labor: 1.6,
@@ -5864,7 +5864,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s745",
     code: "07.530",
-    name: "TPO Membrane, 60 mil",
+    name: "TPO Membrane, 60 Mil",
     unit: "SF",
     material: 1.8,
     labor: 1.7,
@@ -5874,7 +5874,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s746",
     code: "07.530",
-    name: "EPDM Membrane, 60 mil",
+    name: "EPDM Membrane, 60 Mil",
     unit: "SF",
     material: 1.6,
     labor: 1.5,
@@ -6058,7 +6058,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s800",
     code: "05.110",
-    name: "High-Strength Bolts, A325 (w/ Nut & Washer)",
+    name: "High-Strength Bolts, A325 (W/ Nut & Washer)",
     unit: "LBS",
     material: 3.5,
     labor: 4.2,
@@ -7157,7 +7157,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s288",
     code: "07.260",
-    name: "Vapor Barrier, 10 mil Poly",
+    name: "Vapor Barrier, 10 Mil Poly",
     unit: "SF",
     material: 0.1,
     labor: 0.15,
@@ -7167,7 +7167,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s289",
     code: "07.260",
-    name: "Vapor Barrier, 15 mil Poly",
+    name: "Vapor Barrier, 15 Mil Poly",
     unit: "SF",
     material: 0.18,
     labor: 0.15,
@@ -7459,7 +7459,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s820",
     code: "02.0500.0030",
-    name: "F/I Temporary Tarp(s)",
+    name: "F/I Temporary Tarp(S)",
     unit: "SF",
     material: 0.0,
     labor: 0.0,
@@ -8107,7 +8107,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s879",
     code: "02.1000.2150",
-    name: "Remove Window and Frame, wood or metal",
+    name: "Remove Window And Frame, Wood Or Metal",
     unit: "SF",
     material: 0.0,
     labor: 47.6,
@@ -8117,7 +8117,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s880",
     code: "02.1000.2160",
-    name: "Remove Hardwood (nailed) flooring",
+    name: "Remove Hardwood (Nailed) Flooring",
     unit: "SF",
     material: 0.0,
     labor: 34.15,
@@ -8127,7 +8127,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s881",
     code: "02.1000.2170",
-    name: "Remove Paint from Existing CMU/Masonry",
+    name: "Remove Paint From Existing CMU/Masonry",
     unit: "SF",
     material: 0.0,
     labor: 38.57,
@@ -8158,7 +8158,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s884",
     code: "02.1000.9022",
-    name: "Remove Ceiling Tile (Grid to Remain)",
+    name: "Remove Ceiling Tile (Grid To Remain)",
     unit: "SF",
     material: 0.0,
     labor: 0.0,
@@ -8333,7 +8333,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s900",
     code: "02.2500.1093",
-    name: "Abate Roof Membrane Down to Existing Deck",
+    name: "Abate Roof Membrane Down To Existing Deck",
     unit: "SF",
     material: 0.0,
     labor: 0.0,
@@ -8391,7 +8391,7 @@ export const SEED_ASSEMBLIES = [
     id: "a01",
     code: "06.100.A01",
     name: "Standard Interior Partition (2x4, Drywall Both Sides, Insulated, Painted)",
-    description: "Complete interior wall per LF, 8' height",
+    description: "Complete Interior Wall Per LF, 8' Height",
     elements: [
       { code: "06.100.001", desc: "Wood Framing, 2x4 Wall", unit: "LF", m: 4.5, l: 6.25, e: 0.3, factor: 1 },
       { code: "07.200.001", desc: "Batt Insulation, R-13", unit: "SF", m: 0.65, l: 0.55, e: 0, factor: 8 },
@@ -8403,7 +8403,7 @@ export const SEED_ASSEMBLIES = [
     id: "a02",
     code: "22.400.A01",
     name: "Bathroom Rough-In (Standard Full Bath)",
-    description: "Complete plumbing & fixture package for one full bathroom",
+    description: "Complete Plumbing & Fixture Package For One Full Bathroom",
     elements: [
       { code: "22.100.001", desc: "Plumbing Rough-In, Toilet", unit: "EA", m: 650, l: 850, e: 45, factor: 1 },
       { code: "22.100.001", desc: "Plumbing Rough-In, Lavatory", unit: "EA", m: 450, l: 650, e: 30, factor: 1 },
@@ -8416,7 +8416,7 @@ export const SEED_ASSEMBLIES = [
     id: "a03",
     code: "03.300.A01",
     name: 'Concrete Slab on Grade (4" w/ Vapor Barrier & Mesh)',
-    description: "Complete slab assembly per SF",
+    description: "Complete Slab Assembly Per SF",
     elements: [
       { code: "03.300.001", desc: 'Gravel Base, 6" Compacted', unit: "SF", m: 1.2, l: 0.8, e: 0.6, factor: 1 },
       { code: "03.300.001", desc: "Vapor Barrier, 10 mil Poly", unit: "SF", m: 0.15, l: 0.1, e: 0, factor: 1 },
@@ -8428,8 +8428,8 @@ export const SEED_ASSEMBLIES = [
   {
     id: "a04",
     code: "32.100.A01",
-    name: "Paver Patio / Walkway (Bluestone on Compacted Base)",
-    description: "Complete paver installation per SF",
+    name: "Paver Patio / Walkway (Bluestone On Compacted Base)",
+    description: "Complete Paver Installation Per SF",
     elements: [
       { code: "31.200.001", desc: 'Excavation, 8" Deep', unit: "SF", m: 0, l: 1.5, e: 1.8, factor: 1 },
       { code: "32.100.002", desc: 'Gravel Base, 6" Compacted', unit: "SF", m: 1.2, l: 0.8, e: 0.6, factor: 1 },

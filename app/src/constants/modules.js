@@ -29,7 +29,7 @@ export const MODULES = {
     id: "foundation",
     name: "Foundation",
     icon: "foundation",
-    description: "Footings, walls, slab on grade, waterproofing",
+    description: "Footings, Walls, Slab On Grade, Waterproofing",
     contextHelpers: [
       { id: "FtgRebarLbsPerFt", type: "rebarLineal", specId: "FtgRebar" },
       { id: "WallRebarLbsPerSF", type: "rebarArea", specId: "WallRebar" },
@@ -179,7 +179,7 @@ export const MODULES = {
         type: "measurement",
         multiInstance: true,
         drivingItemId: "fnd-walls",
-        mirrorSource: { categoryId: "strip-footings", label: "Same as Footings" },
+        mirrorSource: { categoryId: "strip-footings", label: "Same As Footings" },
         specs: [
           {
             id: "WallHeight",
@@ -439,7 +439,7 @@ export const MODULES = {
 
       {
         id: "slab-on-grade",
-        name: "Slab on Grade",
+        name: "Slab On Grade",
         type: "measurement",
         multiInstance: true,
         drivingItemId: "slab-area",
@@ -627,7 +627,7 @@ export const MODULES = {
             unit: "CY",
             type: "derived",
             formula: "StripLF * ((FtgWidth + 24) / 12) * ((FtgDepth + 12) / 12) / 27 + SlabSF * 0.5 / 27",
-            description: "2' over-dig + 1' below footing + 6\" under slab",
+            description: "2' Over-Dig + 1' Below Footing + 6\" Under Slab",
           },
           {
             id: "backfill",
@@ -636,7 +636,7 @@ export const MODULES = {
             unit: "CY",
             type: "derived",
             formula: "StructExcQty * 0.6",
-            description: "~60% of excavation returned",
+            description: "~60% Of Excavation Returned",
           },
           {
             id: "excess-fill",
@@ -646,7 +646,7 @@ export const MODULES = {
             type: "derived",
             formula: "StructExcQty * 0.4",
             condition: "ExcessFill === 'Stockpile On-Site'",
-            description: "~40% excess stockpiled on site",
+            description: "~40% Excess Stockpiled On Site",
           },
           {
             id: "export-fill",
@@ -656,7 +656,7 @@ export const MODULES = {
             type: "derived",
             formula: "StructExcQty * 0.4",
             condition: "ExcessFill === 'Export Off-Site'",
-            description: "~40% excess hauled off site",
+            description: "~40% Excess Hauled Off Site",
           },
         ],
       },
@@ -680,7 +680,7 @@ export const MODULES = {
     id: "walls",
     name: "Walls",
     icon: "walls",
-    description: "Exterior & interior walls — wood, metal stud, CMU, concrete",
+    description: "Exterior & Interior Walls — Wood, Metal Stud, CMU, Concrete",
     contextHelpers: [],
     categories: [
       // ── EXTERIOR WALLS (multi-instance) ──────────────────────────
@@ -1514,7 +1514,7 @@ export const MODULES = {
             min: 0,
             max: 40,
             step: 0.5,
-            description: "0 = same as Wall Height",
+            description: "0 = Same As Wall Height",
           },
           {
             id: "DwFinish",
@@ -2884,7 +2884,7 @@ export const MODULES = {
             min: 0,
             max: 40,
             step: 0.5,
-            description: "0 = same as Wall Height",
+            description: "0 = Same As Wall Height",
           },
           {
             id: "DwFinish",
@@ -3521,7 +3521,7 @@ export const MODULES = {
     name: "Levels",
     icon: "floors",
     description:
-      "Floor structure, floor finishes, and ceiling finishes — one module per horizontal plane to prevent double-counting framing",
+      "Floor Structure, Floor Finishes, And Ceiling Finishes — One Module Per Horizontal Plane To Prevent Double-Counting Framing",
     contextHelpers: [],
     categories: [
       // ── FLOOR STRUCTURE (multi-instance) ────────────────────────
@@ -3542,7 +3542,7 @@ export const MODULES = {
           },
           {
             id: "WallHeight",
-            label: "Floor-to-Floor Ht",
+            label: "Floor-To-Floor Ht",
             type: "number",
             unit: "ft",
             min: 6,
@@ -4383,7 +4383,7 @@ export const MODULES = {
     id: "ceilings",
     name: "Ceilings",
     icon: "ceilings",
-    description: "Ceiling finishes, suspension systems, and painting — including cathedral/vaulted",
+    description: "Ceiling Finishes, Suspension Systems, And Painting — Including Cathedral/Vaulted",
     contextHelpers: [],
     categories: [
       // ── CEILING FINISHES (multi-instance) ───────────────────────
@@ -4606,7 +4606,7 @@ export const MODULES = {
     id: "roof",
     name: "Roof",
     icon: "roof",
-    description: "Roof structure, roofing finishes, and gutters & drainage",
+    description: "Roof Structure, Roofing Finishes, And Gutters & Drainage",
     contextHelpers: [],
     categories: [
       // ── ROOF STRUCTURE (multi-instance) ─────────────────────────
@@ -5218,7 +5218,7 @@ export const MODULES = {
     id: "steel",
     name: "Steel",
     icon: "steel",
-    description: "Structural steel framing, joists, decking, and misc metals",
+    description: "Structural Steel Framing, Joists, Decking, And Misc Metals",
     contextHelpers: [],
     categories: [
       // ── STRUCTURAL FRAMING ─────────────────────────────────────
@@ -5635,7 +5635,7 @@ export const MODULES = {
     id: "sitework",
     name: "Sitework",
     icon: "sitework",
-    description: "Earthwork, utilities, paving, flatwork, landscaping, erosion control",
+    description: "Earthwork, Utilities, Paving, Flatwork, Landscaping, Erosion Control",
     categories: [
       // ── EARTHWORK ──────────────────────────────────────────────
       {
@@ -6359,7 +6359,7 @@ export const MODULES = {
     id: "mep",
     name: "MEP",
     icon: "mep",
-    description: "Plumbing, HVAC, electrical, and fire protection systems",
+    description: "Plumbing, HVAC, Electrical, And Fire Protection Systems",
     categories: [
       // ── PLUMBING ROUGH-IN ──────────────────────────────────────
       {
@@ -6764,7 +6764,7 @@ export const MODULES = {
     id: "exterior_surfaces",
     name: "Exterior Surfaces",
     icon: "patio",
-    description: "Patios, hardscape, and framed decks",
+    description: "Patios, Hardscape, And Framed Decks",
     categories: [
       {
         id: "framed-decks",
