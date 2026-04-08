@@ -183,6 +183,48 @@ export default function TakeoffControlRail({
     },
   ];
 
+  const isRectTool = tkTool === "rect" && tkMeasureState === "measuring";
+  const rectTool = {
+    id: "rect",
+    label: isRectTool ? "Rect Mode ON" : "Rectangle (2-click)",
+    active: isRectTool,
+    action: () => {
+      if (isRectTool) {
+        // Toggle off — revert to area
+        const s = useDrawingPipelineStore.getState();
+        if (s.tkActiveTakeoffId) {
+          s.setTkTool("area");
+        } else {
+          s.setTkTool("select");
+          s.setTkMeasureState("idle");
+        }
+        s.setTkActivePoints([]);
+      } else {
+        // Toggle on — need an active takeoff
+        const s = useDrawingPipelineStore.getState();
+        if (s.tkActiveTakeoffId) {
+          s.setTkTool("rect");
+          s.setTkActivePoints([]);
+        } else if (s.tkSelectedTakeoffId) {
+          // Auto-engage measuring with rect tool
+          s.setTkActiveTakeoffId(s.tkSelectedTakeoffId);
+          s.setTkTool("rect");
+          s.setTkMeasureState("measuring");
+          s.setTkActivePoints([]);
+        } else {
+          useUiStore.getState().showToast("Select a takeoff first", "warning");
+        }
+      }
+    },
+    icon: (
+      <svg {...ico(isRectTool)}>
+        <rect x="3" y="3" width="18" height="18" rx="1" fill="none" />
+        <circle cx="3" cy="3" r="2" fill="currentColor" />
+        <circle cx="21" cy="21" r="2" fill="currentColor" />
+      </svg>
+    ),
+  };
+
   /* ── ACTIVE TOOLS: Snap, Labels, Check Dim ── */
   const activeTools = [
     {
@@ -393,6 +435,7 @@ export default function TakeoffControlRail({
         {tkPanelTier !== "estimate" && (
           <>
             {modeTools.map(renderBtn)}
+            {renderBtn(rectTool)}
             <div style={sepStyle} />
             {activeTools.map(renderBtn)}
             <div style={sepStyle} />

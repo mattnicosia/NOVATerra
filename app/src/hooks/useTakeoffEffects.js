@@ -302,6 +302,25 @@ export default function useTakeoffEffects({
         return;
       }
 
+      // R key: toggle rect tool
+      if (e.key === "r" && !isTyping && !e.metaKey && !e.ctrlKey) {
+        const s = useDrawingPipelineStore.getState();
+        if (s.tkTool === "rect") {
+          // Toggle off
+          s.setTkTool(s.tkActiveTakeoffId ? "area" : "select");
+          s.setTkActivePoints([]);
+        } else if (s.tkActiveTakeoffId && s.tkMeasureState === "measuring") {
+          s.setTkTool("rect");
+          s.setTkActivePoints([]);
+        } else if (s.tkSelectedTakeoffId) {
+          s.setTkActiveTakeoffId(s.tkSelectedTakeoffId);
+          s.setTkTool("rect");
+          s.setTkMeasureState("measuring");
+          s.setTkActivePoints([]);
+        }
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === "d" && !isTyping) {
         if (tkSelectedTakeoffId) {
           e.preventDefault();

@@ -254,6 +254,57 @@ export default function useTakeoffCanvasRendering({
       const scaledPreviewW = brwPreview ? realToPx(selectedDrawingId, brwPreview.inches) : null;
       ctx.save();
 
+      // Filled rectangle preview for rect tool
+      if (tkTool === "rect" && tkActivePoints.length === 1 && tkCursorPt) {
+        const c1 = tkActivePoints[0];
+        const c2 = tkCursorPt;
+        ctx.fillStyle = color + "20";
+        ctx.fillRect(
+          Math.min(c1.x, c2.x), Math.min(c1.y, c2.y),
+          Math.abs(c2.x - c1.x), Math.abs(c2.y - c1.y),
+        );
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(
+          Math.min(c1.x, c2.x), Math.min(c1.y, c2.y),
+          Math.abs(c2.x - c1.x), Math.abs(c2.y - c1.y),
+        );
+        ctx.setLineDash([]);
+        // Corner dots
+        [c1, { x: c2.x, y: c1.y }, c2, { x: c1.x, y: c2.y }].forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        });
+        // Dimension label
+        if (hasScale && hasScale(selectedDrawingId)) {
+          const wPx = Math.abs(c2.x - c1.x);
+          const hPx = Math.abs(c2.y - c1.y);
+          const pxPerUnit = (() => {
+            try { return realToPx(selectedDrawingId, 12) / 12; } catch { return 0; }
+          })();
+          if (pxPerUnit > 0) {
+            const wFt = wPx / pxPerUnit;
+            const hFt = hPx / pxPerUnit;
+            const areaVal = wFt * hFt;
+            const du = getDisplayUnit ? getDisplayUnit(selectedDrawingId) : "ft";
+            const label = `${Math.round(wFt * 10) / 10} × ${Math.round(hFt * 10) / 10} ${du} = ${Math.round(areaVal * 100) / 100} ${du}²`;
+            const mx = (c1.x + c2.x) / 2;
+            const my = (c1.y + c2.y) / 2;
+            ctx.font = "bold 13px sans-serif";
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = "rgba(0,0,0,0.75)";
+            ctx.fillRect(mx - tw / 2 - 6, my - 10, tw + 12, 20);
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(label, mx, my);
+          }
+        }
+      }
+
       // Filled polygon preview for area tool
       if (tkTool === "area" && tkActivePoints.length >= 2 && tkCursorPt) {
         ctx.beginPath();
@@ -280,18 +331,20 @@ export default function useTakeoffCanvasRendering({
         ctx.lineJoin = "miter";
       }
 
-      // Dashed outline
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([6, 3]);
-      ctx.beginPath();
-      ctx.moveTo(tkActivePoints[0].x, tkActivePoints[0].y);
-      for (let i = 1; i < tkActivePoints.length; i++) ctx.lineTo(tkActivePoints[i].x, tkActivePoints[i].y);
-      if (tkCursorPt) ctx.lineTo(tkCursorPt.x, tkCursorPt.y);
-      if (tkTool === "area" && tkActivePoints.length >= 2 && tkCursorPt)
-        ctx.lineTo(tkActivePoints[0].x, tkActivePoints[0].y);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // Dashed outline (skip for rect — it renders its own preview)
+      if (tkTool !== "rect") {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.beginPath();
+        ctx.moveTo(tkActivePoints[0].x, tkActivePoints[0].y);
+        for (let i = 1; i < tkActivePoints.length; i++) ctx.lineTo(tkActivePoints[i].x, tkActivePoints[i].y);
+        if (tkCursorPt) ctx.lineTo(tkCursorPt.x, tkCursorPt.y);
+        if (tkTool === "area" && tkActivePoints.length >= 2 && tkCursorPt)
+          ctx.lineTo(tkActivePoints[0].x, tkActivePoints[0].y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
       // Vertex dots
       tkActivePoints.forEach(p => {

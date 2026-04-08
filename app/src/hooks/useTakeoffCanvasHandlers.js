@@ -616,6 +616,40 @@ Where confidence is "high", "medium", or "low".`,
         return;
       }
 
+      // RECT (2-click rectangle)
+      if (currentTool === "rect") {
+        if (tkActivePoints.length === 0) {
+          // First click: set corner 1
+          setTkActivePoints([snappedPt]);
+          return;
+        }
+        // Second click: generate 4-corner rectangle and finalize
+        const c1 = tkActivePoints[0];
+        const c2 = snappedPt;
+        const rectPoints = [
+          { x: c1.x, y: c1.y },
+          { x: c2.x, y: c1.y },
+          { x: c2.x, y: c2.y },
+          { x: c1.x, y: c2.y },
+        ];
+        addMeasurement(currentActiveTakeoffId, {
+          type: "area",
+          points: rectPoints,
+          value: 0,
+          sheetId: selectedDrawingId,
+          color: to.color,
+        });
+        if (hasScale(selectedDrawingId)) {
+          const area = calcPolygonArea(rectPoints, selectedDrawingId);
+          showToast(`Rectangle: ${Math.round(area * 100) / 100} ${getDisplayUnit(selectedDrawingId)}²`);
+        } else {
+          showToast("Rectangle saved — set scale to see value");
+        }
+        setTkActivePoints([]);
+        // Stay in rect mode for rapid rectangles (don't pause)
+        return;
+      }
+
       // AREA
       if (currentTool === "area") {
         if (tkActivePoints.length >= 3) {
