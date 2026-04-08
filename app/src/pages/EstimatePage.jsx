@@ -1576,6 +1576,12 @@ export default function EstimatePage() {
               // Also update the division field to match
               const divCode = code.split(".")[0];
               updateItem(codeEditItemId, "division", divCode);
+              // If filtering by division, switch to "All" so item doesn't vanish
+              if (estDivision !== "All") {
+                const newDiv = divFromCode(divCode) || divCode;
+                setEstDivision(newDiv);
+                showToast(`Moved to ${newDiv}`, "info");
+              }
               setCodeEditItemId(null);
             }}
             onClose={() => setCodeEditItemId(null)}
