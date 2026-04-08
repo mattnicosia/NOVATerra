@@ -465,10 +465,30 @@ Where confidence is "high", "medium", or "low".`,
       if (!to) return;
 
       // Apply snap angle when Shift is held or snap toggle is on (not for count tool or first point)
-      const snappedPt =
+      let snappedPt =
         (e.shiftKey || snapAngleOnRef.current) && tkActivePoints.length >= 1
           ? snapAngle(tkActivePoints[tkActivePoints.length - 1], pt)
           : pt;
+
+      // Snap to existing measurement endpoints (15px threshold)
+      if (currentTool !== "count") {
+        const SNAP_DIST = 15;
+        let bestDist = SNAP_DIST;
+        let bestPt = null;
+        for (const tk of takeoffs) {
+          for (const m of tk.measurements || []) {
+            if (m.sheetId !== selectedDrawingId) continue;
+            for (const p of m.points || []) {
+              const d = Math.sqrt((snappedPt.x - p.x) ** 2 + (snappedPt.y - p.y) ** 2);
+              if (d < bestDist) {
+                bestDist = d;
+                bestPt = p;
+              }
+            }
+          }
+        }
+        if (bestPt) snappedPt = { x: bestPt.x, y: bestPt.y };
+      }
 
       // COUNT
       if (currentTool === "count") {
@@ -647,6 +667,38 @@ Where confidence is "high", "medium", or "low".`,
         }
         setTkActivePoints([]);
         // Stay in rect mode for rapid rectangles (don't pause)
+        return;
+      }
+
+      // CIRCLE (2-click: center + edge)
+      if (currentTool === "circle") {
+        if (tkActivePoints.length === 0) {
+          setTkActivePoints([snappedPt]);
+          return;
+        }
+        // Second click: compute circle and finalize
+        const center = tkActivePoints[0];
+        const edge = snappedPt;
+        addMeasurement(currentActiveTakeoffId, {
+          type: "circle",
+          points: [center, edge],
+          value: 0,
+          sheetId: selectedDrawingId,
+          color: to.color,
+        });
+        if (hasScale(selectedDrawingId)) {
+          const dx = edge.x - center.x, dy = edge.y - center.y;
+          const rPx = Math.sqrt(dx * dx + dy * dy);
+          const pxPerUnit = realToPx(selectedDrawingId, 12) / 12;
+          if (pxPerUnit > 0) {
+            const rReal = rPx / pxPerUnit;
+            const area = Math.PI * rReal * rReal;
+            showToast(`Circle: ${Math.round(area * 100) / 100} ${getDisplayUnit(selectedDrawingId)}²`);
+          }
+        } else {
+          showToast("Circle saved — set scale to see value");
+        }
+        setTkActivePoints([]);
         return;
       }
 

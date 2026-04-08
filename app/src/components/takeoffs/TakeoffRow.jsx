@@ -421,6 +421,22 @@ export default function TakeoffRow({
                   borderRadius: 3,
                   transition: "color 300ms ease",
                 }}
+                title={(() => {
+                  const ms = to.measurements || [];
+                  const locs = {};
+                  const deducts = ms.filter(m => m.mode === "deduct").length;
+                  ms.forEach(m => {
+                    const loc = m.location || "Unassigned";
+                    locs[loc] = (locs[loc] || 0) + 1;
+                  });
+                  const parts = [];
+                  if (deducts > 0) parts.push(`${deducts} deduct(s)`);
+                  const locKeys = Object.keys(locs);
+                  if (locKeys.length > 1) {
+                    locKeys.forEach(k => parts.push(`${k}: ${locs[k]}`));
+                  }
+                  return parts.length ? `${ms.length} measurements\n${parts.join("\n")}` : `${ms.length} measurement(s)`;
+                })()}
               >
                 {displayQty}
               </div>
@@ -742,6 +758,35 @@ export default function TakeoffRow({
                         >
                           <span style={{ fontSize: 8, color: C.textDim, fontFamily: "monospace", minWidth: 16 }}>#{idx + 1}</span>
                           <span style={{ flex: 1, fontSize: 9 }}>{label}</span>
+                          {m.location && (
+                            <span style={{ fontSize: 7, color: C.accent, fontWeight: 500 }}>{m.location}</span>
+                          )}
+                          {m.mode === "deduct" && (
+                            <span style={{ fontSize: 7, color: C.red, fontWeight: 700 }}>DED</span>
+                          )}
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              // Toggle add/deduct mode on this measurement
+                              const newMode = m.mode === "deduct" ? "add" : "deduct";
+                              setTakeoffs(takeoffs.map(t =>
+                                t.id === to.id
+                                  ? { ...t, measurements: t.measurements.map(mm => mm.id === m.id ? { ...mm, mode: newMode } : mm) }
+                                  : t
+                              ));
+                            }}
+                            style={{
+                              background: "none", border: "none",
+                              color: m.mode === "deduct" ? C.green : C.orange,
+                              fontSize: 8, cursor: "pointer", padding: "2px 3px",
+                              opacity: 0.7, borderRadius: 3,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = "0.7")}
+                            title={m.mode === "deduct" ? "Switch to Add" : "Switch to Deduct"}
+                          >
+                            {m.mode === "deduct" ? "+" : "−"}
+                          </button>
                           <button
                             onClick={e => {
                               e.stopPropagation();

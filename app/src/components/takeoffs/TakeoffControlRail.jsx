@@ -225,8 +225,56 @@ export default function TakeoffControlRail({
     ),
   };
 
-  /* ── ACTIVE TOOLS: Snap, Labels, Check Dim ── */
+  const isCircleTool = tkTool === "circle" && tkMeasureState === "measuring";
+  const circleTool = {
+    id: "circle",
+    label: isCircleTool ? "Circle Mode ON" : "Circle (2-click)",
+    active: isCircleTool,
+    action: () => {
+      if (isCircleTool) {
+        const s = useDrawingPipelineStore.getState();
+        s.setTkTool(s.tkActiveTakeoffId ? "area" : "select");
+        s.setTkActivePoints([]);
+      } else {
+        const s = useDrawingPipelineStore.getState();
+        if (s.tkActiveTakeoffId) {
+          s.setTkTool("circle");
+          s.setTkActivePoints([]);
+        } else if (s.tkSelectedTakeoffId) {
+          s.setTkActiveTakeoffId(s.tkSelectedTakeoffId);
+          s.setTkTool("circle");
+          s.setTkMeasureState("measuring");
+          s.setTkActivePoints([]);
+        } else {
+          useUiStore.getState().showToast("Select a takeoff first", "warning");
+        }
+      }
+    },
+    icon: (
+      <svg {...ico(isCircleTool)}>
+        <circle cx="12" cy="12" r="9" fill="none" />
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+        <line x1="12" y1="12" x2="21" y2="12" strokeDasharray="2 2" />
+      </svg>
+    ),
+  };
+
+  const tkDeductMode = useDrawingPipelineStore(s => s.tkDeductMode);
+
+  /* ── ACTIVE TOOLS: Snap, Labels, Check Dim, Deduct ── */
   const activeTools = [
+    {
+      id: "deduct",
+      label: tkDeductMode ? "Deduct ON" : "Deduct Mode",
+      active: tkDeductMode,
+      action: () => useDrawingPipelineStore.getState().setTkDeductMode(!tkDeductMode),
+      icon: (
+        <svg {...ico(tkDeductMode)} style={{ color: tkDeductMode ? "#EF4444" : undefined }}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+        </svg>
+      ),
+    },
     {
       id: "snap",
       label: snapAngleOn ? "Snap ON" : "Snap Angle",
@@ -436,6 +484,7 @@ export default function TakeoffControlRail({
           <>
             {modeTools.map(renderBtn)}
             {renderBtn(rectTool)}
+            {renderBtn(circleTool)}
             <div style={sepStyle} />
             {activeTools.map(renderBtn)}
             <div style={sepStyle} />

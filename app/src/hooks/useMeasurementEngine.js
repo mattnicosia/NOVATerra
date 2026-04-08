@@ -187,9 +187,17 @@ export default function useMeasurementEngine() {
       if (m.type === "linear" && m.points?.length >= 2)
         return Math.round(calcPolylineLength(m.points, did) * 100) / 100;
       if (m.type === "area" && m.points?.length >= 3) return Math.round(calcPolygonArea(m.points, did) * 100) / 100;
+      if (m.type === "circle" && m.points?.length === 2) {
+        const dx = m.points[1].x - m.points[0].x, dy = m.points[1].y - m.points[0].y;
+        const rPx = Math.sqrt(dx * dx + dy * dy);
+        const ppu = getPxPerUnit(did);
+        if (!ppu) return null;
+        const rReal = rPx / ppu;
+        return Math.round(Math.PI * rReal * rReal * 100) / 100;
+      }
       return null;
     },
-    [hasScale, calcPolylineLength, calcPolygonArea],
+    [hasScale, calcPolylineLength, calcPolygonArea, getPxPerUnit],
   );
 
   /** Aggregate all measurements for a takeoff into a total quantity */
@@ -200,7 +208,7 @@ export default function useMeasurementEngine() {
       if (tool === "count") {
         return to.measurements.reduce((s, m) => s + nn(m.value || 1), 0);
       }
-      let total = 0;
+      let addTotal = 0, deductTotal = 0;
       let anyNull = false;
       for (const m of to.measurements) {
         const v = computeMeasurementValue(m, selectedDrawingId);
@@ -208,10 +216,11 @@ export default function useMeasurementEngine() {
           anyNull = true;
           continue;
         }
-        total += v;
+        if (m.mode === "deduct") deductTotal += v;
+        else addTotal += v;
       }
-      if (anyNull && total === 0) return null;
-      return Math.round(total * 100) / 100;
+      if (anyNull && addTotal === 0 && deductTotal === 0) return null;
+      return Math.round((addTotal - deductTotal) * 100) / 100;
     },
     [computeMeasurementValue, selectedDrawingId],
   );

@@ -233,6 +233,77 @@ export default function TakeoffContextMenu({
               </div>
             )}
 
+            {/* Copy measurement to another takeoff */}
+            {tkContextMenu.hitMeasurement && takeoffs.length > 1 && (
+              <div style={{ position: "relative" }} className="ctx-copy-wrap">
+                <div
+                  className="nav-item"
+                  style={menuItemStyle(C.text)}
+                  onMouseEnter={e => {
+                    const sub = e.currentTarget.parentElement.querySelector(".ctx-copy-sub");
+                    if (sub) sub.style.display = "block";
+                  }}
+                  onMouseLeave={e => {
+                    const sub = e.currentTarget.parentElement.querySelector(".ctx-copy-sub");
+                    if (sub) sub.style.display = "none";
+                  }}
+                >
+                  {ctxIcon("M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1 M16 3h2a2 2 0 012 2v7", C.textMuted)}
+                  Copy to...
+                  <span style={{ marginLeft: "auto", fontSize: 8, color: C.textDim }}>▸</span>
+                </div>
+                <div
+                  className="ctx-copy-sub"
+                  style={{
+                    display: "none",
+                    position: "absolute",
+                    left: "100%",
+                    top: 0,
+                    width: 180,
+                    maxHeight: 200,
+                    overflow: "auto",
+                    background: C.bg,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 6,
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                    zIndex: 100,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.display = "block")}
+                  onMouseLeave={e => (e.currentTarget.style.display = "none")}
+                >
+                  {takeoffs
+                    .filter(t => t.id !== tkContextMenu.hitMeasurement.takeoffId)
+                    .map(t => (
+                      <div
+                        key={t.id}
+                        className="nav-item"
+                        onClick={() => {
+                          const { takeoffId, measurementId } = tkContextMenu.hitMeasurement;
+                          useDrawingPipelineStore.getState().copyMeasurement(takeoffId, measurementId, t.id);
+                          useUiStore.getState().showToast(`Copied to "${t.description}"`, "info");
+                          setTkContextMenu(null);
+                        }}
+                        style={{
+                          padding: "5px 10px",
+                          fontSize: 10,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          color: C.text,
+                          borderBottom: `1px solid ${C.bg2}`,
+                        }}
+                      >
+                        <div style={{ width: 8, height: 8, borderRadius: 2, background: t.color, flexShrink: 0 }} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {t.description || "Untitled"}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
             {/* Delete Selected Takeoff */}
             {selectedTo && (
               <div

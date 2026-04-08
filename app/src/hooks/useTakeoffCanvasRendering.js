@@ -67,7 +67,8 @@ export default function useTakeoffCanvasRendering({
         if (m.sheetId !== selectedDrawingId) return;
         ctx.save();
         ctx.globalAlpha = isSelectedTo ? 1.0 : 0.28;
-        const color = m.color || to.color || "#5b8def";
+        const isDeduct = m.mode === "deduct";
+        const color = isDeduct ? "#EF4444" : (m.color || to.color || "#5b8def");
         if (m.type === "count") {
           const p = m.points[0];
           const brw = moduleRenderWidths[to.id];
@@ -138,6 +139,77 @@ export default function useTakeoffCanvasRendering({
           ctx.lineWidth = sw;
           ctx.stroke();
         }
+        if (m.type === "circle" && m.points.length === 2) {
+          const cx = m.points[0].x, cy = m.points[0].y;
+          const dx = m.points[1].x - cx, dy = m.points[1].y - cy;
+          const r = Math.sqrt(dx * dx + dy * dy);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fillStyle = color + fillHex;
+          ctx.fill();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = sw;
+          ctx.stroke();
+          // Center dot
+          ctx.beginPath();
+          ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+
+        // ── Persistent measurement label ──
+        if (showMeasureLabels && hasScale(selectedDrawingId)) {
+          let labelText = "";
+          let lx = 0, ly = 0;
+          const du = getDisplayUnit ? getDisplayUnit(selectedDrawingId) : "ft";
+          if (m.type === "count") {
+            lx = m.points[0].x;
+            ly = m.points[0].y - 14;
+            labelText = String(m.value || 1);
+          } else if (m.type === "linear" && m.points.length >= 2) {
+            const len = calcPolylineLength(m.points, selectedDrawingId);
+            if (len > 0) {
+              const mid = Math.floor(m.points.length / 2);
+              lx = (m.points[mid - 1].x + m.points[mid].x) / 2;
+              ly = (m.points[mid - 1].y + m.points[mid].y) / 2 - 10;
+              labelText = `${Math.round(len * 100) / 100} ${du}`;
+            }
+          } else if (m.type === "area" && m.points.length >= 3) {
+            const area = calcPolygonArea(m.points, selectedDrawingId);
+            if (area > 0) {
+              lx = m.points.reduce((s, p) => s + p.x, 0) / m.points.length;
+              ly = m.points.reduce((s, p) => s + p.y, 0) / m.points.length;
+              labelText = `${Math.round(area * 100) / 100} ${du}\u00B2`;
+            }
+          } else if (m.type === "circle" && m.points.length === 2) {
+            const dx = m.points[1].x - m.points[0].x;
+            const dy = m.points[1].y - m.points[0].y;
+            const rPx = Math.sqrt(dx * dx + dy * dy);
+            const pxPU = realToPx(selectedDrawingId, 12) / 12;
+            if (pxPU > 0) {
+              const rReal = rPx / pxPU;
+              const area = Math.PI * rReal * rReal;
+              lx = m.points[0].x;
+              ly = m.points[0].y;
+              labelText = `${Math.round(area * 100) / 100} ${du}\u00B2`;
+            }
+          }
+          if (labelText) {
+            ctx.save();
+            ctx.globalAlpha = isSelectedTo ? 0.9 : 0.55;
+            ctx.font = "bold 11px sans-serif";
+            const tw = ctx.measureText(labelText).width;
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            const px = 4, py = 3;
+            ctx.fillRect(lx - tw / 2 - px, ly - 7 - py, tw + px * 2, 14 + py * 2);
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(labelText, lx, ly);
+            ctx.restore();
+          }
+        }
+
         ctx.restore();
       });
     });
@@ -231,6 +303,7 @@ export default function useTakeoffCanvasRendering({
     drawingDpi,
     geoAnalysis,
     activeModule,
+    showMeasureLabels,
   ]);
 
   // ─── Overlay canvas: cursor-dependent content ───
@@ -253,6 +326,56 @@ export default function useTakeoffCanvasRendering({
       const brwPreview = moduleRenderWidths[tkActiveTakeoffId];
       const scaledPreviewW = brwPreview ? realToPx(selectedDrawingId, brwPreview.inches) : null;
       ctx.save();
+
+      // Filled circle preview for circle tool
+      if (tkTool === "circle" && tkActivePoints.length === 1 && tkCursorPt) {
+        const cx = tkActivePoints[0].x, cy = tkActivePoints[0].y;
+        const dx = tkCursorPt.x - cx, dy = tkCursorPt.y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        ctx.fillStyle = color + "20";
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        // Radius line
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(tkCursorPt.x, tkCursorPt.y);
+        ctx.strokeStyle = color + "80";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Dimension label
+        if (hasScale && hasScale(selectedDrawingId)) {
+          const pxPerUnit = (() => {
+            try { return realToPx(selectedDrawingId, 12) / 12; } catch { return 0; }
+          })();
+          if (pxPerUnit > 0) {
+            const rReal = r / pxPerUnit;
+            const area = Math.PI * rReal * rReal;
+            const du = getDisplayUnit ? getDisplayUnit(selectedDrawingId) : "ft";
+            const label = `r=${Math.round(rReal * 10) / 10} ${du} \u2022 ${Math.round(area * 100) / 100} ${du}\u00B2`;
+            ctx.font = "bold 12px sans-serif";
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = "rgba(0,0,0,0.75)";
+            ctx.fillRect(cx - tw / 2 - 6, cy + r + 10, tw + 12, 20);
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(label, cx, cy + r + 20);
+          }
+        }
+      }
 
       // Filled rectangle preview for rect tool
       if (tkTool === "rect" && tkActivePoints.length === 1 && tkCursorPt) {
@@ -332,7 +455,7 @@ export default function useTakeoffCanvasRendering({
       }
 
       // Dashed outline (skip for rect — it renders its own preview)
-      if (tkTool !== "rect") {
+      if (tkTool !== "rect" && tkTool !== "circle") {
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 3]);
@@ -485,7 +608,7 @@ export default function useTakeoffCanvasRendering({
     }
 
     // Always-visible crosshair
-    if (tkCursorPt && (tkTool === "area" || tkTool === "linear" || tkTool === "rect" || tkTool === "calibrate" || tkTool === "count")) {
+    if (tkCursorPt && (tkTool === "area" || tkTool === "linear" || tkTool === "rect" || tkTool === "circle" || tkTool === "calibrate" || tkTool === "count")) {
       ctx.save();
       ctx.strokeStyle = "rgba(255,0,255,0.5)";
       ctx.lineWidth = 1;

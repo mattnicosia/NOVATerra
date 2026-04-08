@@ -582,6 +582,7 @@ export const useDrawingPipelineStore = create((set, get) => ({
   tkNewInput: "",
   tkNewUnit: "SF",
   tkDbResults: [],
+  tkDeductMode: false,
 
   // ── Predictive takeoff state ──
   tkPredictions: null,
@@ -759,6 +760,7 @@ export const useDrawingPipelineStore = create((set, get) => ({
   setTkNewInput: v => set({ tkNewInput: v }),
   setTkNewUnit: v => set({ tkNewUnit: v }),
   setTkDbResults: v => set({ tkDbResults: v }),
+  setTkDeductMode: v => set({ tkDeductMode: v }),
 
   addTakeoff: (group, desc, unit, code, bidContext) => {
     const newId = uid();
@@ -867,7 +869,14 @@ export const useDrawingPipelineStore = create((set, get) => ({
 
   addMeasurement: (takeoffId, measurement) => {
     const newId = uid();
-    const newMeasurement = { id: newId, ...measurement };
+    const deduct = get().tkDeductMode;
+    const floorLabel = get().floorAssignments[measurement.sheetId] || "";
+    const newMeasurement = {
+      id: newId,
+      ...measurement,
+      ...(deduct ? { mode: "deduct" } : {}),
+      ...(floorLabel ? { location: floorLabel } : {}),
+    };
     set(s => ({
       takeoffs: s.takeoffs.map(t =>
         t.id === takeoffId ? { ...t, measurements: [...t.measurements, newMeasurement] } : t,
@@ -917,6 +926,33 @@ export const useDrawingPipelineStore = create((set, get) => ({
         timestamp: Date.now(),
       });
     }
+  },
+
+  copyMeasurement: (fromTakeoffId, measurementId, toTakeoffId) => {
+    const fromTk = get().takeoffs.find(t => t.id === fromTakeoffId);
+    const m = fromTk?.measurements?.find(m => m.id === measurementId);
+    if (!m) return;
+    const newId = uid();
+    const copy = { ...m, id: newId };
+    set(s => ({
+      takeoffs: s.takeoffs.map(t =>
+        t.id === toTakeoffId ? { ...t, measurements: [...t.measurements, copy] } : t,
+      ),
+    }));
+    useUndoStore.getState().push({
+      action: `Copy measurement`,
+      undo: () => set(s => ({
+        takeoffs: s.takeoffs.map(t =>
+          t.id === toTakeoffId ? { ...t, measurements: t.measurements.filter(m => m.id !== newId) } : t,
+        ),
+      })),
+      redo: () => set(s => ({
+        takeoffs: s.takeoffs.map(t =>
+          t.id === toTakeoffId ? { ...t, measurements: [...t.measurements, copy] } : t,
+        ),
+      })),
+      timestamp: Date.now(),
+    });
   },
 
   // ═══════════════════════════════════════════════════════════
