@@ -5275,7 +5275,7 @@ export const MODULES = {
           {
             id: "steel-tons",
             name: "Structural Steel",
-            code: "05.110",
+            code: "05.120",
             unit: "TON",
             type: "driving",
             tool: "count",
@@ -5294,7 +5294,7 @@ export const MODULES = {
           {
             id: "stl-bolts",
             name: "High-Strength Bolts",
-            code: "05.110",
+            code: "05.120",
             unit: "LBS",
             type: "derived",
             condition: "ConnectionType === 'Bolted' || ConnectionType === 'Hybrid (Bolted + Welded)'",
@@ -5312,7 +5312,7 @@ export const MODULES = {
           {
             id: "stl-shop-primer",
             name: "Shop Primer Paint",
-            code: "05.110",
+            code: "05.120",
             unit: "SF",
             type: "derived",
             formula: "SteelTON * SteelPrimerSFPerTon",
@@ -5330,7 +5330,7 @@ export const MODULES = {
           {
             id: "stl-anchor-bolts",
             name: "Anchor Bolts",
-            code: "05.110",
+            code: "05.120",
             unit: "EA",
             type: "derived",
             formula: "SteelTON * SteelAnchorBoltsPerTon",
@@ -5339,7 +5339,7 @@ export const MODULES = {
           {
             id: "stl-base-plates",
             name: "Base Plates",
-            code: "05.110",
+            code: "05.120",
             unit: "EA",
             type: "derived",
             formula: "SteelTON * SteelBasePlatesPerTon",
@@ -5963,7 +5963,7 @@ export const MODULES = {
           {
             id: "water-pipe-lf",
             name: "Water Line",
-            code: "33.110",
+            code: "33.140",
             unit: "LF",
             type: "driving",
             tool: "linear",
@@ -5995,9 +5995,9 @@ export const MODULES = {
             type: "derived",
             formula: "WaterLF * TrenchWidth * (TrenchDepth - BeddingDepth / 12) / 27",
           },
-          { id: "water-valves", name: "Gate Valves", code: "33.110", unit: "EA", type: "manual" },
-          { id: "water-hydrants", name: "Fire Hydrants", code: "33.110", unit: "EA", type: "manual" },
-          { id: "water-taps", name: "Taps / Connections", code: "33.110", unit: "EA", type: "manual" },
+          { id: "water-valves", name: "Gate Valves", code: "33.140", unit: "EA", type: "manual" },
+          { id: "water-hydrants", name: "Fire Hydrants", code: "33.140", unit: "EA", type: "manual" },
+          { id: "water-taps", name: "Taps / Connections", code: "33.140", unit: "EA", type: "manual" },
         ],
       },
 
@@ -6067,7 +6067,7 @@ export const MODULES = {
           {
             id: "pave-asphalt",
             name: "Asphalt Paving",
-            code: "32.121",
+            code: "32.120",
             unit: "TON",
             type: "derived",
             condition: "PaveType === 'Asphalt'",
@@ -6077,7 +6077,7 @@ export const MODULES = {
           {
             id: "pave-tack",
             name: "Tack Coat",
-            code: "32.121",
+            code: "32.120",
             unit: "GAL",
             type: "derived",
             condition: "PaveType === 'Asphalt'",
@@ -6478,7 +6478,7 @@ export const MODULES = {
           {
             id: "hvac-area",
             name: "Conditioned Area",
-            code: "23.000",
+            code: "23.050",
             unit: "SF",
             type: "driving",
             tool: "area",
@@ -6596,7 +6596,7 @@ export const MODULES = {
           {
             id: "elec-area",
             name: "Building Area",
-            code: "26.000",
+            code: "26.050",
             unit: "SF",
             type: "driving",
             tool: "area",

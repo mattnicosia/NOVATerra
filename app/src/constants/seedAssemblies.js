@@ -723,7 +723,7 @@ export const SEED_ELEMENTS = [
   // ── 05 Metals ─────────────────────────────────────────────────
   {
     id: "s013",
-    code: "05.110",
+    code: "05.120",
     name: "Structural Steel, Beams (W-Shapes)",
     unit: "TON",
     material: 3200.0,
@@ -733,7 +733,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s014",
-    code: "05.110",
+    code: "05.120",
     name: "Structural Steel, Columns (W-Shapes)",
     unit: "TON",
     material: 3400.0,
@@ -827,7 +827,7 @@ export const SEED_ELEMENTS = [
   // ── Drywall / Non-Structural Studs (20ga) ──
   {
     id: "s350",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 1-5/8" 20ga (Drywall)',
     unit: "LF",
     material: 0.33,
@@ -837,7 +837,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s351",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 1-5/8" 20ga',
     unit: "LF",
     material: 0.29,
@@ -847,7 +847,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s352",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 2-1/2" 20ga (Drywall)',
     unit: "LF",
     material: 0.39,
@@ -857,7 +857,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s353",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 2-1/2" 20ga',
     unit: "LF",
     material: 0.35,
@@ -867,7 +867,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s354",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 3-5/8" 20ga (Drywall)',
     unit: "LF",
     material: 0.45,
@@ -877,7 +877,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s355",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 3-5/8" 20ga',
     unit: "LF",
     material: 0.41,
@@ -887,7 +887,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s356",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 6" 20ga (Drywall)',
     unit: "LF",
     material: 0.6,
@@ -897,7 +897,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s357",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 6" 20ga',
     unit: "LF",
     material: 0.56,
@@ -908,7 +908,7 @@ export const SEED_ELEMENTS = [
   // ── Drywall / Non-Structural Studs (25ga) ──
   {
     id: "s358",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 3-5/8" 25ga (Drywall)',
     unit: "LF",
     material: 0.39,
@@ -918,7 +918,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s359",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 3-5/8" 25ga',
     unit: "LF",
     material: 0.36,
@@ -928,7 +928,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s360",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 6" 25ga (Drywall)',
     unit: "LF",
     material: 0.51,
@@ -938,7 +938,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s361",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 6" 25ga',
     unit: "LF",
     material: 0.48,
@@ -949,7 +949,7 @@ export const SEED_ELEMENTS = [
   // ── Structural Studs (18ga) ──
   {
     id: "s362",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 3-5/8" 18ga (Structural)',
     unit: "LF",
     material: 1.2,
@@ -959,7 +959,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s363",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 3-5/8" 18ga (Structural)',
     unit: "LF",
     material: 1.2,
@@ -969,7 +969,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s364",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 6" 18ga (Structural)',
     unit: "LF",
     material: 1.56,
@@ -979,7 +979,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s365",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 6" 18ga (Structural)',
     unit: "LF",
     material: 1.56,
@@ -989,7 +989,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s366",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 8" 18ga (Structural)',
     unit: "LF",
     material: 1.86,
@@ -999,7 +999,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s367",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 8" 18ga (Structural)',
     unit: "LF",
     material: 1.86,
@@ -1010,7 +1010,7 @@ export const SEED_ELEMENTS = [
   // ── Structural Studs (16ga) ──
   {
     id: "s368",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 3-5/8" 16ga (Structural)',
     unit: "LF",
     material: 1.48,
@@ -1020,7 +1020,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s369",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 3-5/8" 16ga (Structural)',
     unit: "LF",
     material: 1.48,
@@ -1030,7 +1030,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s370",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 6" 16ga (Structural)',
     unit: "LF",
     material: 1.94,
@@ -1040,7 +1040,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s371",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 6" 16ga (Structural)',
     unit: "LF",
     material: 1.94,
@@ -1050,7 +1050,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s372",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 8" 16ga (Structural)',
     unit: "LF",
     material: 2.31,
@@ -1060,7 +1060,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s373",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 8" 16ga (Structural)',
     unit: "LF",
     material: 2.31,
@@ -1071,7 +1071,7 @@ export const SEED_ELEMENTS = [
   // ── Structural Studs (14ga) ──
   {
     id: "s374",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 3-5/8" 14ga (Structural)',
     unit: "LF",
     material: 1.85,
@@ -1081,7 +1081,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s375",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 3-5/8" 14ga (Structural)',
     unit: "LF",
     material: 1.85,
@@ -1091,7 +1091,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s376",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 6" 14ga (Structural)',
     unit: "LF",
     material: 2.42,
@@ -1101,7 +1101,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s377",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 6" 14ga (Structural)',
     unit: "LF",
     material: 2.42,
@@ -1111,7 +1111,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s378",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 8" 14ga (Structural)',
     unit: "LF",
     material: 2.89,
@@ -1121,7 +1121,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s379",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 8" 14ga (Structural)',
     unit: "LF",
     material: 2.89,
@@ -1132,7 +1132,7 @@ export const SEED_ELEMENTS = [
   // ── Structural Studs (12ga — Heavy) ──
   {
     id: "s380",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 6" 12ga (Structural)',
     unit: "LF",
     material: 3.39,
@@ -1142,7 +1142,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s381",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 6" 12ga (Structural)',
     unit: "LF",
     material: 3.39,
@@ -1152,7 +1152,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s382",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud, 8" 12ga (Structural)',
     unit: "LF",
     material: 4.07,
@@ -1162,7 +1162,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s383",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Track, 8" 12ga (Structural)',
     unit: "LF",
     material: 4.07,
@@ -1173,7 +1173,7 @@ export const SEED_ELEMENTS = [
   // ── Metal Framing Accessories ──
   {
     id: "s384",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Furring Channel, 7/8" Hat (25ga)',
     unit: "LF",
     material: 0.22,
@@ -1183,7 +1183,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s385",
-    code: "05.400",
+    code: "05.410",
     name: "Metal Resilient Channel (RC-1)",
     unit: "LF",
     material: 0.3,
@@ -1193,7 +1193,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s386",
-    code: "05.400",
+    code: "05.410",
     name: "Metal Corner Bead",
     unit: "LF",
     material: 0.25,
@@ -1203,7 +1203,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s387",
-    code: "05.400",
+    code: "05.410",
     name: "Metal Framing Screws, #8 TEK (Box/1000)",
     unit: "EA",
     material: 35.0,
@@ -1213,7 +1213,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s388",
-    code: "05.400",
+    code: "05.410",
     name: "Metal Stud Bridging/Bracing, Flat Strap",
     unit: "LF",
     material: 0.18,
@@ -1223,7 +1223,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s389",
-    code: "05.400",
+    code: "05.410",
     name: "Metal Deflection Track (Slip Track)",
     unit: "LF",
     material: 0.85,
@@ -1234,7 +1234,7 @@ export const SEED_ELEMENTS = [
   // ── Composite Wall Assemblies (per SF of wall — for SF-based estimating) ──
   {
     id: "s390",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud Wall, 3-5/8" 20ga 16" o.c. (non-structural)',
     unit: "SF",
     material: 1.2,
@@ -1244,7 +1244,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s391",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud Wall, 3-5/8" 20ga 24" o.c. (non-structural)',
     unit: "SF",
     material: 0.95,
@@ -1254,7 +1254,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s392",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud Wall, 6" 20ga 16" o.c. (non-structural)',
     unit: "SF",
     material: 1.65,
@@ -1264,7 +1264,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s393",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud Wall, 3-5/8" 16ga 16" o.c. (structural)',
     unit: "SF",
     material: 2.8,
@@ -1274,7 +1274,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s394",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Stud Wall, 6" 16ga 16" o.c. (structural)',
     unit: "SF",
     material: 3.6,
@@ -1544,7 +1544,7 @@ export const SEED_ELEMENTS = [
   // ── Metal Stud Wall — Miscellaneous Accessories ──────────────
   {
     id: "s420",
-    code: "05.400",
+    code: "05.410",
     name: "Shaft Wall H-Stud, 25ga (For Shaftliner)",
     unit: "LF",
     material: 0.65,
@@ -1554,7 +1554,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s421",
-    code: "05.400",
+    code: "05.410",
     name: "Shaft Wall C-Track, 25ga (For Shaftliner)",
     unit: "LF",
     material: 0.48,
@@ -1564,7 +1564,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s422",
-    code: "05.400",
+    code: "05.410",
     name: "Aluminum Breakaway Clip (Area Sep Wall)",
     unit: "EA",
     material: 0.85,
@@ -1574,7 +1574,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s423",
-    code: "05.400",
+    code: "05.410",
     name: 'Metal Z-Furring Channel, 7/8" (for insulation)',
     unit: "LF",
     material: 0.35,
@@ -1962,7 +1962,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s058",
-    code: "06.190",
+    code: "06.170",
     name: 'LVL Beam, 1-3/4" x 11-7/8"',
     unit: "LF",
     material: 8.5,
@@ -1972,7 +1972,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s059",
-    code: "06.190",
+    code: "06.170",
     name: 'LVL Beam, 1-3/4" x 14"',
     unit: "LF",
     material: 11.0,
@@ -1982,7 +1982,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s060",
-    code: "06.190",
+    code: "06.170",
     name: 'Engineered I-Joist, 9-1/2"',
     unit: "LF",
     material: 3.8,
@@ -1992,7 +1992,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s061",
-    code: "06.190",
+    code: "06.170",
     name: 'Engineered I-Joist, 11-7/8"',
     unit: "LF",
     material: 4.8,
@@ -2002,7 +2002,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s062",
-    code: "06.190",
+    code: "06.170",
     name: 'Engineered I-Joist, 14"',
     unit: "LF",
     material: 5.6,
@@ -2753,7 +2753,7 @@ export const SEED_ELEMENTS = [
   // Gutters & downspouts
   {
     id: "s098",
-    code: "07.780",
+    code: "07.710",
     name: 'Gutters, Aluminum 5" K-style',
     unit: "LF",
     material: 4.5,
@@ -2763,7 +2763,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s099",
-    code: "07.780",
+    code: "07.710",
     name: "Downspouts, Aluminum 3x4",
     unit: "LF",
     material: 3.8,
@@ -2993,7 +2993,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s121",
-    code: "09.920",
+    code: "09.910",
     name: "Exterior Painting (2 Coats)",
     unit: "SF",
     material: 0.55,
@@ -3138,7 +3138,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s135",
-    code: "22.440",
+    code: "22.410",
     name: "Kitchen Sink, Double Bowl Stainless",
     unit: "EA",
     material: 350.0,
@@ -3335,7 +3335,7 @@ export const SEED_ELEMENTS = [
   // Controls
   {
     id: "s154",
-    code: "23.900",
+    code: "23.090",
     name: "Thermostat, Programmable",
     unit: "EA",
     material: 150.0,
@@ -5451,7 +5451,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s667",
-    code: "06.100",
+    code: "06.150",
     name: "Wood Ceiling, T&G Pine",
     unit: "SF",
     material: 4.5,
@@ -6057,7 +6057,7 @@ export const SEED_ELEMENTS = [
   // ── 05 Metals — Steel Module Supplemental Items ─────────────
   {
     id: "s800",
-    code: "05.110",
+    code: "05.120",
     name: "High-Strength Bolts, A325 (W/ Nut & Washer)",
     unit: "LBS",
     material: 3.5,
@@ -6077,7 +6077,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s802",
-    code: "05.110",
+    code: "05.120",
     name: "Shop Primer Paint, Structural Steel",
     unit: "SF",
     material: 0.35,
@@ -6107,7 +6107,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s805",
-    code: "05.110",
+    code: "05.120",
     name: 'Anchor Bolts w/ Nut & Washer, 3/4" x 18"',
     unit: "EA",
     material: 12.5,
@@ -6117,7 +6117,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s806",
-    code: "05.110",
+    code: "05.120",
     name: "Steel Base Plates, Fabricated",
     unit: "EA",
     material: 85.0,
@@ -6610,7 +6610,7 @@ export const SEED_ELEMENTS = [
   // LVL studs — 1-3/4\" wide, various depths (per LF pricing Feb 2026)
   {
     id: "s316",
-    code: "06.190",
+    code: "06.170",
     name: 'LVL Stud, 1-3/4" x 5-1/2"',
     unit: "LF",
     material: 4.25,
@@ -6620,7 +6620,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s317",
-    code: "06.190",
+    code: "06.170",
     name: 'LVL Stud, 1-3/4" x 7-1/4"',
     unit: "LF",
     material: 5.75,
@@ -6630,7 +6630,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s318",
-    code: "06.190",
+    code: "06.170",
     name: 'LVL Stud, 1-3/4" x 9-1/4"',
     unit: "LF",
     material: 7.25,
@@ -6640,7 +6640,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s319",
-    code: "06.190",
+    code: "06.170",
     name: 'LVL Stud, 1-3/4" x 9-1/2"',
     unit: "LF",
     material: 7.5,
@@ -6652,7 +6652,7 @@ export const SEED_ELEMENTS = [
   // PSL studs/columns — 3-1/2\" and 5-1/4\" wide (per LF pricing Feb 2026)
   {
     id: "s312",
-    code: "06.190",
+    code: "06.170",
     name: 'PSL Stud/Column, 3-1/2" x 5-1/2"',
     unit: "LF",
     material: 8.5,
@@ -6662,7 +6662,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s320",
-    code: "06.190",
+    code: "06.170",
     name: 'PSL Stud/Column, 3-1/2" x 7-1/4"',
     unit: "LF",
     material: 11.5,
@@ -6672,7 +6672,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s321",
-    code: "06.190",
+    code: "06.170",
     name: 'PSL Stud/Column, 5-1/4" x 5-1/2"',
     unit: "LF",
     material: 12.75,
@@ -6682,7 +6682,7 @@ export const SEED_ELEMENTS = [
   },
   {
     id: "s322",
-    code: "06.190",
+    code: "06.170",
     name: 'PSL Stud/Column, 5-1/4" x 7-1/4"',
     unit: "LF",
     material: 17.25,
@@ -8389,27 +8389,27 @@ export const SEED_ELEMENTS = [
 export const SEED_ASSEMBLIES = [
   {
     id: "a01",
-    code: "06.100.A01",
+    code: "06.110.A01",
     name: "Standard Interior Partition (2x4, Drywall Both Sides, Insulated, Painted)",
     description: "Complete Interior Wall Per LF, 8' Height",
     elements: [
-      { code: "06.100.001", desc: "Wood Framing, 2x4 Wall", unit: "LF", m: 4.5, l: 6.25, e: 0.3, factor: 1 },
-      { code: "07.200.001", desc: "Batt Insulation, R-13", unit: "SF", m: 0.65, l: 0.55, e: 0, factor: 8 },
-      { code: "09.200.001", desc: 'Drywall, 1/2" Both Sides', unit: "SF", m: 1.3, l: 3.7, e: 0.2, factor: 16 },
-      { code: "09.900.001", desc: "Paint, 2 Coats, Both Sides", unit: "SF", m: 0.9, l: 2.2, e: 0.1, factor: 16 },
+      { code: "06.110.001", desc: "Wood Framing, 2x4 Wall", unit: "LF", m: 4.5, l: 6.25, e: 0.3, factor: 1 },
+      { code: "07.210.001", desc: "Batt Insulation, R-13", unit: "SF", m: 0.65, l: 0.55, e: 0, factor: 8 },
+      { code: "09.290.001", desc: 'Drywall, 1/2" Both Sides', unit: "SF", m: 1.3, l: 3.7, e: 0.2, factor: 16 },
+      { code: "09.910.001", desc: "Paint, 2 Coats, Both Sides", unit: "SF", m: 0.9, l: 2.2, e: 0.1, factor: 16 },
     ],
   },
   {
     id: "a02",
-    code: "22.400.A01",
+    code: "22.410.A01",
     name: "Bathroom Rough-In (Standard Full Bath)",
     description: "Complete Plumbing & Fixture Package For One Full Bathroom",
     elements: [
-      { code: "22.100.001", desc: "Plumbing Rough-In, Toilet", unit: "EA", m: 650, l: 850, e: 45, factor: 1 },
-      { code: "22.100.001", desc: "Plumbing Rough-In, Lavatory", unit: "EA", m: 450, l: 650, e: 30, factor: 1 },
-      { code: "22.100.001", desc: "Plumbing Rough-In, Tub/Shower", unit: "EA", m: 550, l: 750, e: 40, factor: 1 },
-      { code: "22.400.001", desc: "Toilet, Standard", unit: "EA", m: 350, l: 280, e: 0, factor: 1 },
-      { code: "22.400.001", desc: "Vanity & Sink", unit: "EA", m: 550, l: 320, e: 0, factor: 1 },
+      { code: "22.110.001", desc: "Plumbing Rough-In, Toilet", unit: "EA", m: 650, l: 850, e: 45, factor: 1 },
+      { code: "22.110.001", desc: "Plumbing Rough-In, Lavatory", unit: "EA", m: 450, l: 650, e: 30, factor: 1 },
+      { code: "22.110.001", desc: "Plumbing Rough-In, Tub/Shower", unit: "EA", m: 550, l: 750, e: 40, factor: 1 },
+      { code: "22.410.001", desc: "Toilet, Standard", unit: "EA", m: 350, l: 280, e: 0, factor: 1 },
+      { code: "22.410.001", desc: "Vanity & Sink", unit: "EA", m: 550, l: 320, e: 0, factor: 1 },
     ],
   },
   {
