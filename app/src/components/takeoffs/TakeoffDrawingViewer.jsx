@@ -816,6 +816,7 @@ export default function TakeoffDrawingViewer({
                   detectedReferences={detectedReferences}
                   setRefPopover={setRefPopover}
                   refPopover={refPopover}
+                  setDetailOverlayId={setDetailOverlayId}
                 />
               </div>
             )}

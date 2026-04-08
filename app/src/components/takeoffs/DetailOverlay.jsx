@@ -69,6 +69,7 @@ export default function DetailOverlay({ drawingId, onClose }) {
         boxShadow: T.shadow.lg || "0 8px 32px rgba(0,0,0,0.3)",
         display: "flex",
         flexDirection: "column",
+        animation: "detailSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
       }}
     >
       {/* Header */}
@@ -144,6 +145,25 @@ export default function DetailOverlay({ drawingId, onClose }) {
           <path d="M0 4L4 0" />
         </svg>
       </div>
+      {/* Entrance animation */}
+      <style>{`
+        @keyframes detailSlideIn {
+          from {
+            opacity: 0;
+            transform: scale(0.6) translateY(20px);
+            box-shadow: 0 0 0 rgba(0,0,0,0);
+          }
+          60% {
+            opacity: 1;
+            transform: scale(1.02) translateY(-2px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+          }
+        }
+      `}</style>
     </div>
   );
 }
