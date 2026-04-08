@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -87,6 +88,7 @@ export default function EstimatePage() {
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [codeEditItemId, setCodeEditItemId] = useState(null);
   const [showNova, setShowNova] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(0); // 0 = idle, 1 = first confirm, 2 = second confirm
   const [leftPanelTab, setLeftPanelTab] = useState("estimate"); // "estimate" | "scenarios" | "notes" | "rfis"
@@ -1344,6 +1346,7 @@ export default function EstimatePage() {
                                   onFocusCostCell={setFocusedCostCell}
                                   onBlurCostCell={handleBlurCostCell}
                                   subFromCode={subFromCode}
+                                  onCodeClick={setCodeEditItemId}
                                 />
                               );
                             });
@@ -1551,6 +1554,135 @@ export default function EstimatePage() {
         setShowHistory={setShowHistory}
         activeEstimateId={activeEstimateId}
       />
+
+      {/* Inline code editor — appears when user clicks a code cell */}
+      {codeEditItemId && (() => {
+        const editItem = items.find(it => it.id === codeEditItemId);
+        if (!editItem) { setCodeEditItemId(null); return null; }
+        const el = document.querySelector(`[data-item-id="${codeEditItemId}"] .est-col`);
+        const rect = el?.getBoundingClientRect();
+        const divEntries = Object.entries(DIVISIONS);
+
+        return createPortal(
+          <CodeEditPopover
+            C={C}
+            T={T}
+            item={editItem}
+            rect={rect}
+            divisions={divEntries}
+            subFromCode={subFromCode}
+            onSelect={(code) => {
+              updateItem(codeEditItemId, "code", code);
+              // Also update the division field to match
+              const divCode = code.split(".")[0];
+              updateItem(codeEditItemId, "division", divCode);
+              setCodeEditItemId(null);
+            }}
+            onClose={() => setCodeEditItemId(null)}
+          />,
+          document.body
+        );
+      })()}
+    </div>
+  );
+}
+
+// ── Inline code edit popover ──
+function CodeEditPopover({ C, T, item, rect, divisions, subFromCode, onSelect, onClose }) {
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(null);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const searchLower = search.toLowerCase();
+  const filtered = divisions.filter(([code, name]) => {
+    if (!searchLower) return true;
+    return code.includes(searchLower) || name.toLowerCase().includes(searchLower);
+  });
+
+  const top = rect ? Math.min(rect.bottom + 4, window.innerHeight - 340) : 200;
+  const left = rect ? Math.min(rect.left, window.innerWidth - 260) : 200;
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "fixed",
+        top,
+        left,
+        zIndex: 9999,
+        width: 250,
+        maxHeight: 320,
+        background: C.bg1,
+        border: `1px solid ${C.border}`,
+        borderRadius: 10,
+        boxShadow: T.shadow.lg || "0 8px 24px rgba(0,0,0,0.3)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        animation: "refMenuIn 0.15s ease-out",
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div style={{ padding: "8px 10px 4px", fontSize: 9, fontWeight: 700, color: C.purple, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        Assign Code {item.code && <span style={{ color: C.textDim, fontWeight: 500 }}>· current: {item.code}</span>}
+      </div>
+      <div style={{ padding: "4px 8px 6px", borderBottom: `1px solid ${C.border}` }}>
+        <input
+          autoFocus
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search divisions..."
+          style={{
+            width: "100%", fontSize: 10, padding: "4px 6px",
+            background: C.bg2 || C.bg1, color: C.text,
+            border: `1px solid ${C.border}`, borderRadius: 5, outline: "none",
+          }}
+        />
+      </div>
+      <div style={{ flex: 1, overflow: "auto", padding: "2px 0" }}>
+        {filtered.map(([code, name]) => (
+          <button
+            key={code}
+            onClick={() => onSelect(code)}
+            style={{
+              width: "100%", padding: "5px 10px", border: "none",
+              background: item.code?.startsWith(code) ? `${C.accent}12` : "transparent",
+              color: C.text, display: "flex", alignItems: "center", gap: 6,
+              fontSize: 11, cursor: "pointer", textAlign: "left",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+            onMouseLeave={e => (e.currentTarget.style.background = item.code?.startsWith(code) ? `${C.accent}12` : "transparent")}
+          >
+            <span style={{ fontFamily: T.font.mono, fontSize: 9, color: C.purple, fontWeight: 700, minWidth: 22 }}>
+              {code}
+            </span>
+            <span style={{ flex: 1, fontSize: 10 }}>{name}</span>
+          </button>
+        ))}
+      </div>
+      {item.code && (
+        <div style={{ padding: "4px 10px", borderTop: `1px solid ${C.border}`, fontSize: 9, color: C.textDim, display: "flex", justifyContent: "space-between" }}>
+          <span>Current: <strong style={{ color: C.purple }}>{item.code}</strong></span>
+          <button
+            onClick={() => onSelect("")}
+            style={{ background: "none", border: "none", color: C.red, fontSize: 8, cursor: "pointer", padding: "2px 4px" }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   );
 }

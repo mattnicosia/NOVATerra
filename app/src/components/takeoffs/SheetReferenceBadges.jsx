@@ -7,7 +7,7 @@ export default function SheetReferenceBadges({
   detectedReferences,
   setRefPopover,
   refPopover,
-  setDetailOverlayId,
+  setDetailOverlay,
 }) {
   const C = useTheme();
   const T = C.T;
@@ -235,8 +235,8 @@ export default function SheetReferenceBadges({
             <button
               disabled={!hasTarget}
               onClick={() => {
-                if (!hasTarget || !setDetailOverlayId) return;
-                setDetailOverlayId(targetDId);
+                if (!hasTarget || !setDetailOverlay) return;
+                setDetailOverlay({ drawingId: targetDId, x: menuRef.x, y: menuRef.y });
                 setMenuRef(null);
               }}
               style={menuBtnStyle(!hasTarget)}

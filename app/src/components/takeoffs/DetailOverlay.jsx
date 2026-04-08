@@ -11,7 +11,7 @@ const MAX_SIZE = 600;
 const DEFAULT_W = 350;
 const DEFAULT_H = 350;
 
-export default function DetailOverlay({ drawingId, onClose }) {
+export default function DetailOverlay({ drawingId, anchorX, anchorY, onClose }) {
   const C = useTheme();
   const T = C.T;
   const drawings = useDrawingPipelineStore(s => s.drawings);
@@ -53,12 +53,23 @@ export default function DetailOverlay({ drawingId, onClose }) {
 
   if (!drawing || !imgSrc) return null;
 
-  return (
-    <div
-      style={{
+  // Position: above click point if coords provided, else top-right fallback
+  const posStyle = anchorX != null && anchorY != null
+    ? {
+        position: "fixed",
+        left: Math.max(12, Math.min(anchorX - size.w / 2, window.innerWidth - size.w - 12)),
+        top: Math.max(12, Math.min(anchorY - size.h - 20, window.innerHeight - size.h - 12)),
+      }
+    : {
         position: "absolute",
         top: 12,
         right: 12,
+      };
+
+  return (
+    <div
+      style={{
+        ...posStyle,
         width: size.w,
         height: size.h,
         zIndex: 50,

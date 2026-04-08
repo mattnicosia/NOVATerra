@@ -89,8 +89,8 @@ export default function TakeoffDrawingViewer({
   crossSheetScan,
   setCrossSheetScan,
   // Detail overlay & refs
-  detailOverlayId,
-  setDetailOverlayId,
+  detailOverlay,
+  setDetailOverlay,
   refPopover,
   setRefPopover,
   // Snap angle helper
@@ -816,7 +816,7 @@ export default function TakeoffDrawingViewer({
                   detectedReferences={detectedReferences}
                   setRefPopover={setRefPopover}
                   refPopover={refPopover}
-                  setDetailOverlayId={setDetailOverlayId}
+                  setDetailOverlay={setDetailOverlay}
                 />
               </div>
             )}
@@ -829,16 +829,21 @@ export default function TakeoffDrawingViewer({
               refPopover={refPopover}
               setRefPopover={setRefPopover}
               setSelectedDrawingId={setSelectedDrawingId}
-              setDetailOverlayId={setDetailOverlayId}
+              setDetailOverlay={setDetailOverlay}
             />
 
             {/* Detail Overlay — floating resizable panel showing referenced drawing */}
-            {detailOverlayId && (
-              <DetailOverlay drawingId={detailOverlayId} onClose={() => setDetailOverlayId(null)} />
+            {detailOverlay && (
+              <DetailOverlay
+                drawingId={detailOverlay.drawingId}
+                anchorX={detailOverlay.x}
+                anchorY={detailOverlay.y}
+                onClose={() => setDetailOverlay(null)}
+              />
             )}
 
             {/* Floating specs card — shows when measuring OR when module is active */}
-            <FloatingSpecsCard detectedReferences={detectedReferences} setDetailOverlayId={setDetailOverlayId} />
+            <FloatingSpecsCard detectedReferences={detectedReferences} setDetailOverlay={setDetailOverlay} />
 
             {/* (Prediction approval strip moved to unified HUD above toolbar) */}
 

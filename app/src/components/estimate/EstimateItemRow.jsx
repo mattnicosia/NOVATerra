@@ -28,6 +28,7 @@ const EstimateItemRow = memo(
     onFocusCostCell,
     onBlurCostCell,
     subFromCode,
+    onCodeClick,
   }) {
     const isZeroTotal = lineTotal === 0 || lineTotal === null || lineTotal === undefined;
 
@@ -100,19 +101,26 @@ const EstimateItemRow = memo(
           <Ic d={I.move} size={9} color={C.textDim} />
           <span>{globalIndex}</span>
         </div>
-        {/* Code */}
+        {/* Code — clickable to reassign division */}
         <div
           className="est-col"
+          onClick={e => {
+            e.stopPropagation();
+            if (onCodeClick) onCodeClick(item.id);
+          }}
           style={{
             width: 82,
             fontSize: T.fontSize.sm,
             fontWeight: T.fontWeight.semibold,
             color: item.code ? C.text : C.textDim,
             fontFeatureSettings: "'tnum'",
+            cursor: "pointer",
           }}
-          title={item.code ? subFromCode(item.code) : ""}
+          title={item.code ? `${subFromCode(item.code)} — click to change` : "Click to assign code"}
         >
-          {item.code || "\u2014"}
+          {item.code || (
+            <span style={{ fontSize: 9, opacity: 0.5 }}>+ code</span>
+          )}
           {item.code && (
             <div
               style={{

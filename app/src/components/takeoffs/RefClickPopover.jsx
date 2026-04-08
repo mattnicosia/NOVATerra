@@ -15,7 +15,7 @@ const SCHEDULE_TYPE_LABELS = {
   "finish-detail": "Finish Detail Schedule",
 };
 
-export default function RefClickPopover({ refPopover, setRefPopover, setSelectedDrawingId, setDetailOverlayId }) {
+export default function RefClickPopover({ refPopover, setRefPopover, setSelectedDrawingId, setDetailOverlay }) {
   const C = useTheme();
   const scanResults = useDrawingPipelineStore(s => s.scanResults);
 
@@ -150,7 +150,7 @@ export default function RefClickPopover({ refPopover, setRefPopover, setSelected
           </button>
           <button
             onClick={() => {
-              setDetailOverlayId(targetDId);
+              setDetailOverlay({ drawingId: targetDId, x: refPopover?.x, y: refPopover?.y });
               setRefPopover(null);
             }}
             style={{

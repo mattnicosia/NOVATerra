@@ -4,7 +4,7 @@ import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { MODULES } from "@/constants/modules";
 import { evalCondition } from "@/utils/moduleCalc";
 
-export default function FloatingSpecsCard({ detectedReferences, setDetailOverlayId }) {
+export default function FloatingSpecsCard({ detectedReferences, setDetailOverlay }) {
   const C = useTheme();
   const T = C.T;
 
@@ -191,7 +191,7 @@ export default function FloatingSpecsCard({ detectedReferences, setDetailOverlay
                   onClick={e => {
                     e.stopPropagation();
                     if (targetDId) {
-                      setDetailOverlayId(targetDId);
+                      setDetailOverlay({ drawingId: targetDId });
                     }
                   }}
                   style={{

@@ -113,7 +113,7 @@ export default function TakeoffsPage() {
   }, [selectedDrawingId, drawings]);
 
   // Detail overlay & reference detection
-  const [detailOverlayId, setDetailOverlayId] = useState(null);
+  const [detailOverlay, setDetailOverlay] = useState(null); // { drawingId, x?, y? } or null
   const [refPopover, setRefPopover] = useState(null);
 
   // Measurement engine
@@ -584,8 +584,8 @@ export default function TakeoffsPage() {
         setLeftPanelTab={setLeftPanelTab}
         crossSheetScan={crossSheetScan}
         setCrossSheetScan={setCrossSheetScan}
-        detailOverlayId={detailOverlayId}
-        setDetailOverlayId={setDetailOverlayId}
+        detailOverlay={detailOverlay}
+        setDetailOverlay={setDetailOverlay}
         refPopover={refPopover}
         setRefPopover={setRefPopover}
         snapAngle={snapAngle}
