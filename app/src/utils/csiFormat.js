@@ -15,6 +15,24 @@
  *   ""        → ""
  */
 
+// ── Legacy code migration map ──────────────────────────────
+// Codes that were invalid or parent-level before the CSI expansion.
+// Applied automatically during normalization so existing estimate
+// items migrate to the correct MasterFormat codes on load.
+const CODE_MIGRATIONS = {
+  "05.110": "05.120",  // → Structural Steel Framing
+  "06.190": "06.170",  // → Shop-Fabricated Structural Wood
+  "07.780": "07.710",  // → Roof Specialties
+  "09.920": "09.910",  // → Painting
+  "22.440": "22.410",  // → Residential Plumbing Fixtures
+  "23.900": "23.090",  // → Instrumentation & Control For HVAC
+  "23.000": "23.050",  // → Common Work Results For HVAC
+  "26.000": "26.050",  // → Common Work Results For Electrical
+  "32.121": "32.120",  // → Flexible Paving
+  "33.110": "33.140",  // → Water Utility Transmission & Distribution
+  "05.400": "05.410",  // → Structural Metal Stud Framing
+};
+
 export function normalizeCode(raw) {
   if (!raw || typeof raw !== "string") return "";
   const trimmed = raw.trim();
@@ -32,11 +50,17 @@ export function normalizeCode(raw) {
   // Subdivision: pad to 3 digits
   const sub = parts[1].padStart(3, "0");
 
-  if (parts.length === 2) return `${div}.${sub}`;
+  // Build the base code (DD.SSS) for migration lookup
+  const base = `${div}.${sub}`;
 
-  // Sub-subdivision: pad to 2 digits
+  // Apply legacy code migrations
+  const migrated = CODE_MIGRATIONS[base] || base;
+
+  if (parts.length === 2) return migrated;
+
+  // Sub-subdivision: pad to 2 digits, attached to migrated base
   const subsub = parts[2].padStart(2, "0");
-  return `${div}.${sub}.${subsub}`;
+  return `${migrated}.${subsub}`;
 }
 
 /**
