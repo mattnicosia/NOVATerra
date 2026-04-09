@@ -14,6 +14,7 @@ import { buildCoverageGrid, testCoverage, computeCoverageStats } from "@/utils/c
 import { bt, card, accentButton } from "@/utils/styles";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
+import { generateTakeoffsFromIFC } from "@/utils/ifcToTakeoff";
 import SceneViewer from "./SceneViewer";
 import ModelSidebar from "./ModelSidebar";
 
@@ -536,6 +537,26 @@ export default function ModelTab() {
             <Ic d={I.plans} size={12} color="#fff" />
             {analyzingPlans ? "Analyzing..." : "Analyze Plans"}
           </button>
+          {ifcLoaded && (
+            <button
+              onClick={() => generateTakeoffsFromIFC()}
+              title="Auto-generate takeoff items from IFC model elements"
+              style={{
+                ...bt(C),
+                padding: "6px 10px",
+                fontSize: T.fontSize.xs,
+                background: "rgba(0,212,170,0.7)",
+                color: "#fff",
+                borderRadius: T.radius.sm,
+                backdropFilter: "blur(8px)",
+                gap: 4,
+                fontWeight: 600,
+              }}
+            >
+              <Ic d={I.layers} size={12} color="#fff" />
+              Generate Takeoffs
+            </button>
+          )}
           <input ref={fileRef} type="file" accept=".ifc" style={{ display: "none" }} onChange={handleIFCImport} />
 
           {/* Coverage summary chip */}
