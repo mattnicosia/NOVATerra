@@ -558,8 +558,8 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     // Confidence-adaptive: stronger data = tighter (more credible) range.
     const hasTPI = tpi?.lump_sum_per_sf?.sampleCount >= 3;
     if (!hasTPI && mid > 0 && low <= mid && mid <= high) {
-      const tighten = confLevel === "strong" ? 0.40
-                    : confLevel === "moderate" ? 0.30 : 0.15;
+      const tighten = confLevel === "strong" ? 0.65
+                    : confLevel === "moderate" ? 0.50 : 0.35;
       low = low + (mid - low) * tighten;
       high = high - (high - mid) * tighten;
     }
