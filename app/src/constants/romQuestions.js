@@ -103,9 +103,9 @@ export const ROM_TYPE_QUESTIONS = {
       label: "Office Class",
       type: "select",
       options: [
-        { value: "A", label: "Class A", multipliers: { _global: 1.15 } },
-        { value: "B", label: "Class B", multipliers: {} },
-        { value: "C", label: "Class C", multipliers: { _global: 0.85 } },
+        { value: "A", label: "Class A (High-End / Institutional)", multipliers: { _global: 1.15 } },
+        { value: "B", label: "Class B (Mid-Tier / Professional)", multipliers: {} },
+        { value: "C", label: "Class C (Basic / Value / Turnover)", multipliers: { _global: 0.85 } },
       ],
       default: "B",
     },

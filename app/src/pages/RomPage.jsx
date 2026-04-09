@@ -1369,67 +1369,80 @@ function RomPageInner() {
       {/* Pulse animation for scan progress */}
       <style>{`@keyframes romPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }`}</style>
 
-      {/* Atmospheric gradient */}
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${C.accentBg} 0%, transparent 60%)` }} />
+      {/* Atmospheric gradient — more dramatic on landing */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+        <div style={{
+          position: "absolute", inset: 0,
+          background: path || romResult
+            ? `radial-gradient(ellipse 60% 40% at 50% 0%, ${C.accentBg || "rgba(139,92,246,0.08)"} 0%, transparent 50%)`
+            : `radial-gradient(ellipse 90% 60% at 50% -10%, rgba(139,92,246,0.12) 0%, transparent 50%),
+               radial-gradient(ellipse 50% 30% at 30% 10%, rgba(77,166,255,0.05) 0%, transparent 40%),
+               radial-gradient(ellipse 50% 30% at 70% 10%, rgba(0,212,170,0.04) 0%, transparent 40%)`,
+          transition: "opacity 0.5s",
+        }} />
+      </div>
 
       <div style={{ position: "relative", zIndex: 1 }}>
         {/* Header */}
         <header style={{ padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontWeight: 500, fontSize: 18, color: "rgba(238,237,245,0.5)", letterSpacing: -0.3, ...ff }}>NOVATERRA</div>
-          <div style={{ fontSize: 10, color: "rgba(238,237,245,0.2)", textTransform: "uppercase", letterSpacing: 2, ...ff }}>Free Estimate Tool</div>
+          <div style={{ fontWeight: 600, fontSize: 15, color: "rgba(238,237,245,0.35)", letterSpacing: 1.5, textTransform: "uppercase", ...ff }}>NOVATerra</div>
+          <div style={{ fontSize: 10, color: "rgba(238,237,245,0.15)", textTransform: "uppercase", letterSpacing: 2, ...ff }}>Free Estimate Tool</div>
         </header>
 
         {/* Hero — collapses when user selects a path */}
         <section style={{
           display: "flex", flexDirection: "column", alignItems: "center",
-          padding: romResult ? "32px 24px 24px" : path ? "32px 24px 20px" : "60px 24px 48px",
+          padding: romResult ? "32px 24px 24px" : path ? "24px 24px 16px" : "80px 24px 48px",
           textAlign: "center", transition: "padding 0.4s cubic-bezier(0.25,1,0.5,1)",
         }}>
+          {/* Collapsed state — minimal brand mark */}
+          {path && !romResult && !thinking && (
+            <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(139,92,246,0.4)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, transition: "all 0.4s", ...ff }}>
+              NOVATerra
+            </div>
+          )}
+
           <h1 style={{
-            fontWeight: 300,
-            fontSize: romResult ? 32 : path ? 20 : 48,
-            color: path && !romResult ? "rgba(238,237,245,0.4)" : "#EEEDF5",
-            margin: 0, marginBottom: romResult ? 4 : path ? 4 : 12,
-            letterSpacing: path ? -0.5 : -1.5, lineHeight: 1.05,
+            fontWeight: romResult || path ? 300 : 200,
+            fontSize: romResult ? 32 : path ? 0 : 52,
+            color: "#EEEDF5",
+            margin: 0, marginBottom: romResult ? 4 : path ? 0 : 16,
+            letterSpacing: -2, lineHeight: 1.0,
+            maxWidth: 700, overflow: "hidden", height: path && !romResult ? 0 : "auto",
             transition: "all 0.4s cubic-bezier(0.25,1,0.5,1)", ...ff,
           }}>
-            {romResult ? "Your Estimate" : path ? "NOVATerra" : (<>Construction budgets in 60 seconds —<br /><span style={{ color: C.accent || "#00D4AA" }}>backed by real bid data, not AI guesses.</span></>)}
+            {romResult ? "Your Estimate" : (<>Construction budgets<br />in <span style={{ fontWeight: 400 }}>60 seconds</span></>)}
           </h1>
 
           {!romResult && !path && (
             <>
-              <p style={{ fontSize: 16, color: "rgba(238,237,245,0.45)", margin: "0 0 24px 0", maxWidth: 560, lineHeight: 1.7, ...ff }}>
-                Preliminary estimates shouldn't cost $5K or take 3 weeks. NOVATerra calibrates against <strong style={{ color: "#EEEDF5" }}>actual contractor proposals</strong> from real projects — not LLM training data. Free. Instant. Traceable.
+              <p style={{
+                fontSize: 17, fontWeight: 300, color: "rgba(238,237,245,0.5)", margin: "0 0 32px 0",
+                maxWidth: 480, lineHeight: 1.6, letterSpacing: -0.2, ...ff,
+              }}>
+                Calibrated against <strong style={{ color: "#EEEDF5", fontWeight: 500 }}>real contractor proposals</strong> — not AI training data.
               </p>
 
-              {/* How it works — compact inline steps */}
-              <div style={{
-                display: "flex", gap: 40, maxWidth: 600, margin: "0 auto 36px",
-                justifyContent: "center",
-              }}>
+              {/* How it works — minimal dots */}
+              <div style={{ display: "flex", gap: 48, margin: "0 auto 40px", justifyContent: "center" }}>
                 {[
-                  { step: "1", label: "Tell us about your project" },
-                  { step: "2", label: "NOVA analyzes the scope" },
-                  { step: "3", label: "Get your budget estimate" },
+                  { label: "Describe", sub: "your project" },
+                  { label: "Analyze", sub: "with NOVA" },
+                  { label: "Receive", sub: "your budget" },
                 ].map((s, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{
-                      width: 24, height: 24, borderRadius: "50%",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 11, fontWeight: 700, color: "rgba(238,237,245,0.4)", flexShrink: 0, ...ff,
-                    }}>{s.step}</div>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: "rgba(238,237,245,0.4)", whiteSpace: "nowrap", ...ff }}>{s.label}</div>
+                  <div key={i} style={{ textAlign: "center" }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(139,92,246,0.4)", margin: "0 auto 10px" }} />
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(238,237,245,0.6)", letterSpacing: -0.2, ...ff }}>{s.label}</div>
+                    <div style={{ fontSize: 11, color: "rgba(238,237,245,0.25)", marginTop: 2, ...ff }}>{s.sub}</div>
                   </div>
                 ))}
               </div>
 
               <div style={{
-                fontSize: 10, color: "rgba(238,237,245,0.18)", marginBottom: 32,
-                textTransform: "uppercase", letterSpacing: "0.15em", ...ff,
+                fontSize: 9, color: "rgba(238,237,245,0.15)", marginBottom: 36,
+                textTransform: "uppercase", letterSpacing: "0.2em", ...ff,
               }}>
-                Free · No credit card · Results in seconds
+                Free · Instant · Traceable
               </div>
             </>
           )}
