@@ -47,6 +47,8 @@ export const useSubdivisionStore = create((set, get) => ({
       },
     })),
 
+  setUserOverrides: overrides => set({ userOverrides: overrides || {} }),
+
   removeUserOverride: subCode =>
     set(s => {
       const next = { ...s.userOverrides };

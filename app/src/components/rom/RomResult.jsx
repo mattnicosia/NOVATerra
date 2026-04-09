@@ -239,6 +239,7 @@ export default function RomResult({ rom, email }) {
     if (rom.laborMultiplier && rom.laborMultiplier !== 1.0) adjNotes.push(`${rom.laborType === "prevailing" ? "Prevailing wage" : "Union"} labor (+${Math.round((rom.laborMultiplier - 1) * 100)}%)`);
     if (rom.marketMultiplier && rom.marketMultiplier !== 1.0) adjNotes.push(`${rom.marketRegion?.label || "Market"} location adjustment (${rom.marketMultiplier > 1 ? "+" : ""}${Math.round((rom.marketMultiplier - 1) * 100)}%)`);
     if (rom.workMultiplier && rom.workMultiplier !== 1.0) adjNotes.push(`${rom.workType || "Work type"} scope adjustment (${rom.workMultiplier > 1 ? "+" : ""}${Math.round((rom.workMultiplier - 1) * 100)}%)`);
+    if (rom.typeAdjustments) rom.typeAdjustments.forEach(a => adjNotes.push(a));
 
     const adjustedDivs = Object.entries(divisionAdjustments).filter(([, m]) => m !== 1.0);
     const divAdjNote = adjustedDivs.length > 0 ? `User adjustments have been applied to ${adjustedDivs.length} division(s).` : "";

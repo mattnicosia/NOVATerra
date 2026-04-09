@@ -31,7 +31,6 @@ import { CSI } from "@/constants/csi";
 import { normalizeCode, subdivisionFromCode, sortDivisionNames, sortCodes } from "@/utils/csiFormat";
 import EstimateTotalsBar from "@/components/estimate/EstimateTotalsBar";
 import EstimateModals from "@/components/estimate/EstimateModals";
-import SpatialTreemap from "@/components/estimate/SpatialTreemap";
 
 export default function EstimatePage() {
   const C = useTheme();
@@ -144,7 +143,7 @@ export default function EstimatePage() {
 
   // Normalize view mode — map old values to current modes
   const viewMode =
-    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level" || estViewMode === "spatial"
+    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level"
       ? estViewMode
       : estViewMode === "pricing" || estViewMode === "detailed" || estViewMode === "both"
         ? "detail"
@@ -841,56 +840,6 @@ export default function EstimatePage() {
               </button>
             )}
 
-            {/* Table / Spatial toggle */}
-            {viewMode !== "level" && (
-              <div
-                style={{
-                  display: "flex",
-                  background: dk ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.10)",
-                  borderRadius: T.radius.sm,
-                  overflow: "hidden",
-                  border: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)"}`,
-                  marginLeft: 4,
-                  flexShrink: 0,
-                }}
-              >
-                {[
-                  { key: "table", label: "Table", icon: "≡" },
-                  { key: "spatial", label: "Spatial", icon: "⬡" },
-                ].map(v => {
-                  const isActive = v.key === "spatial" ? viewMode === "spatial" : viewMode !== "spatial";
-                  return (
-                    <button
-                      key={v.key}
-                      onClick={() => {
-                        if (v.key === "spatial") setEstViewMode("spatial");
-                        else if (viewMode === "spatial") setEstViewMode("scope");
-                      }}
-                      style={{
-                        padding: "4px 8px",
-                        fontSize: 9,
-                        fontWeight: 600,
-                        border: "none",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                        background: isActive
-                          ? v.key === "spatial"
-                            ? `${C.accent}25`
-                            : dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.40)"
-                          : "transparent",
-                        color: isActive ? (v.key === "spatial" ? C.accent : C.text) : C.textMuted,
-                        fontFamily: T.font.sans,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 3,
-                      }}
-                    >
-                      <span style={{ fontSize: 10 }}>{v.icon}</span> {v.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
             <div style={{ flex: 1 }} />
 
@@ -1134,11 +1083,9 @@ export default function EstimatePage() {
             )}
           </div>
 
-          {/* Content area — grid, leveling, or spatial */}
+          {/* Content area — grid or leveling */}
           {viewMode === "level" ? (
             <LevelingView />
-          ) : viewMode === "spatial" ? (
-            <SpatialTreemap />
           ) : (
             <div
               style={{

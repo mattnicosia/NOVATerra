@@ -124,8 +124,8 @@ export async function saveBidPackagePresets() {
 
 // Save subdivision engine config (global — persists across estimates)
 export async function saveSubdivisionConfig() {
-  const { engineConfig, calibrationFactors } = useSubdivisionStore.getState();
-  const data = { engineConfig, calibrationFactors };
+  const { engineConfig, calibrationFactors, userOverrides } = useSubdivisionStore.getState();
+  const data = { engineConfig, calibrationFactors, userOverrides };
   const ok = await storage.set(idbKey("bldg-subdivision-config"), JSON.stringify(data));
   if (!ok) {
     console.error("[usePersistence] Failed to save subdivision config");

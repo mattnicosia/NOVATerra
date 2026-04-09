@@ -42,7 +42,11 @@ export default function DivisionNavigator({ activeDivision, onSelectDivision }) 
                 ? "partial"
                 : "empty",
       }))
-      .sort((a, b) => a.code.localeCompare(b.code));
+      .sort((a, b) => {
+        const aNum = parseInt((a.code.match(/^\d+/) || ["99"])[0], 10);
+        const bNum = parseInt((b.code.match(/^\d+/) || ["99"])[0], 10);
+        return aNum - bNum;
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 

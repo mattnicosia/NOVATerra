@@ -14,6 +14,9 @@ import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { normalizeCSI } from "@/utils/scopeGapEngine";
 import { validateProposal } from "@/utils/proposalValidation";
+import { computeSubdivisionCalibration } from "@/utils/confidenceEngine";
+import { useSubdivisionStore } from "@/stores/subdivisionStore";
+import { DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
 
 /**
  * Generate a learning record from a completed estimate's final bid values.
@@ -80,6 +83,44 @@ export async function generateLearningFromEstimate(estimateId) {
   // ── 5. Compute calibration ratios (actual / predicted per division) ──
   const calibration = computeCalibration(romPrediction, { divisions: divisionTotals });
 
+  // ── 5b. Compute subdivision-level calibration ──
+  const predictedSubdivisions = {};
+  Object.entries(romPrediction.divisions).forEach(([divCode, divData]) => {
+    const baseSubs = DEFAULT_SUBDIVISIONS[divCode];
+    if (!baseSubs?.length) return;
+    const divTotal = divData.total?.mid || 0;
+    if (divTotal <= 0) return;
+    predictedSubdivisions[divCode] = baseSubs.map(sub => ({
+      code: sub.code,
+      pctOfDiv: sub.pctOfDiv,
+      total: { mid: divTotal * sub.pctOfDiv },
+    }));
+  });
+
+  const subCalibration = computeSubdivisionCalibration(predictedSubdivisions, items);
+  const subCalibCount = Object.keys(subCalibration).length;
+
+  if (subCalibCount > 0) {
+    const store = useSubdivisionStore.getState();
+    const existing = store.calibrationFactors || {};
+    // Merge: average with existing factors if they exist
+    const merged = { ...existing };
+    Object.entries(subCalibration).forEach(([code, data]) => {
+      if (merged[code]) {
+        const prev = merged[code];
+        const totalSamples = (prev.sampleCount || 1) + (data.sampleCount || 1);
+        merged[code] = {
+          pctOfDiv: (prev.pctOfDiv * (prev.sampleCount || 1) + data.pctOfDiv * (data.sampleCount || 1)) / totalSamples,
+          factor: (prev.factor * (prev.sampleCount || 1) + data.factor * (data.sampleCount || 1)) / totalSamples,
+          sampleCount: totalSamples,
+        };
+      } else {
+        merged[code] = data;
+      }
+    });
+    store.setCalibrationFactors(merged);
+  }
+
   // ── 6. Validate through existing gates ──
   const estimateName = useEstimatesStore.getState().estimatesIndex
     .find(e => e.id === estimateId)?.name || "Estimate";
@@ -119,6 +160,8 @@ export async function generateLearningFromEstimate(estimateId) {
     },
     actuals: { divisions: divisionTotals },
     calibration,
+    subdivisionCalibration: subCalibration,
+    subdivisionCalibrationCount: subCalibCount,
     validationStatus: validation.overallStatus,
     timestamp: Date.now(),
   };
@@ -128,7 +171,7 @@ export async function generateLearningFromEstimate(estimateId) {
 
   console.log(
     `[NOVA Feedback] ✓ Learning record from "${estimateName}": ` +
-    `${divCount} divisions, $${(totalCost / sf).toFixed(0)}/SF, ` +
+    `${divCount} divisions, ${subCalibCount} subdivisions, $${(totalCost / sf).toFixed(0)}/SF, ` +
     `type=${jobType}, validation=${validation.overallStatus}`
   );
 

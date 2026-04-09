@@ -450,7 +450,6 @@ function KnowledgeTab() {
     { name: "Embodied Carbon DB", files: 1, items: "100+ materials", source: "Athena/NIST", confidence: "Deterministic", color: "#00D4AA" },
     { name: "Labor Productivity", files: 1, items: "2,000+ task definitions", source: "RSMeans historical", confidence: "Calibrated", color: "#4DA6FF" },
     { name: "Cost Index", files: 1, items: "Annual inflation factors", source: "BLS PPI", confidence: "Annual update", color: "#FFB020" },
-    { name: "NAHB Residential", files: 1, items: "Residential cost data", source: "NAHB research", confidence: "Annual update", color: "#FFB020" },
   ];
 
   return (

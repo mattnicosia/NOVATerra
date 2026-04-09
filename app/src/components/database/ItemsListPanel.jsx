@@ -49,9 +49,12 @@ export default function ItemsListPanel({
   // Dismiss row action menu on outside click
   useEffect(() => {
     if (!menuOpenId) return;
-    const handler = () => setMenuOpenId(null);
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+    const handler = e => {
+      if (e.target.closest(".icon-btn")) return;
+      setMenuOpenId(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [menuOpenId]);
 
   return (
@@ -574,9 +577,7 @@ export default function ItemsListPanel({
                         fontSize: 10,
                         color: C.purple,
                         fontWeight: 600,
-                        cursor: "pointer",
                       }}
-                      onClick={() => addFromDB(el)}
                     >
                       {el.code}
                     </div>
@@ -615,9 +616,7 @@ export default function ItemsListPanel({
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        cursor: "pointer",
                       }}
-                      onClick={() => addFromDB(el)}
                     >
                       {titleCase(el.name)}
                       {el.source === "user" && el.masterItemId && (
@@ -735,7 +734,33 @@ export default function ItemsListPanel({
                       <div>{el.addedBy || "—"}</div>
                       <div>{el.addedDate || ""}</div>
                     </div>
-                    <div style={{ position: "relative", display: "flex", justifyContent: "flex-end" }}>
+                    <div style={{ position: "relative", display: "flex", justifyContent: "flex-end", gap: 2, zIndex: menuOpenId === el.id ? 9999 : "auto" }}>
+                      <button
+                        className="icon-btn"
+                        title="Add to Estimate"
+                        onClick={e => {
+                          e.stopPropagation();
+                          addFromDB(el);
+                        }}
+                        style={{
+                          width: 22,
+                          height: 22,
+                          border: "none",
+                          background: "transparent",
+                          borderRadius: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          opacity: 0.7,
+                          color: C.accent,
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2.5" strokeLinecap="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </button>
                       <button
                         className="icon-btn"
                         title="Actions"
@@ -768,13 +793,14 @@ export default function ItemsListPanel({
                           <circle cx="12" cy="19" r="2" />
                         </svg>
                       </button>
-                      {menuOpenId === el.id && menuPos && (
+                      {menuOpenId === el.id && (
                         <div
                           onClick={e => e.stopPropagation()}
                           style={{
-                            position: "fixed",
-                            right: menuPos.right,
-                            top: menuPos.top,
+                            position: "absolute",
+                            right: 0,
+                            bottom: "100%",
+                            marginBottom: 4,
                             zIndex: 9999,
                             background: C.glassBgDark || C.bg,
                             border: `1px solid ${C.glassBorder || C.border}`,

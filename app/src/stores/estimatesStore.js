@@ -632,8 +632,9 @@ export const useEstimatesStore = create((set, get) => ({
             if (record) {
               get().updateIndexEntry(id, { feedbackGenerated: true });
               const divs = Object.keys(record.calibration || {}).length;
+              const subs = record.subdivisionCalibrationCount || 0;
               useUiStore.getState().showToast(
-                `NOVA learned from this bid — ${divs} calibration points added`,
+                `NOVA learned from this bid — ${divs} divisions, ${subs} subdivisions calibrated`,
                 "success"
               );
             }

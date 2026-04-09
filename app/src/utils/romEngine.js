@@ -8,6 +8,7 @@ import { getWorkTypeMultiplier, getLaborTypeMultiplier, getMarketMultiplier, det
 import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
 import { computeSubdivisionBreakdown } from "@/utils/confidenceEngine";
 import { generateAllSubdivisions } from "@/utils/subdivisionAI";
+import { computeTypeMultipliers } from "@/constants/romQuestions";
 
 // ─── ROM Cache — fingerprint-based deduplication ─────────────────────
 // Same project params → same ROM result. Saves computation + API costs.
@@ -54,6 +55,7 @@ export function romFingerprint(projectSF, buildingType, workType, buildingParams
     (buildingParams?.quality || "").toString(),
     (buildingParams?.complexity || "").toString(),
     (buildingParams?.condition || "").toString(),
+    JSON.stringify(buildingParams?.typeAnswers || {}),
   ];
   return parts.join("|");
 }
@@ -504,8 +506,12 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
   const marketMultiplier = params.location ? getMarketMultiplier(params.location) : 1.0;
   const bpMults = getBuildingParamMultipliers(params);
 
+  // Per-type question multipliers (quality tier, finish level, etc.)
+  const { divisionMults: typeMults, globalMult: typeGlobalMult, labels: typeLabels } =
+    computeTypeMultipliers(buildingType, params.typeAnswers || {});
+
   // Combined multiplier applied to every division
-  const combinedMultiplier = workMultiplier * laborMultiplier * marketMultiplier;
+  const combinedMultiplier = workMultiplier * laborMultiplier * marketMultiplier * typeGlobalMult;
 
   // Detect market region for display
   const marketRegion = params.location ? detectMarketRegion(params.location) : null;
@@ -520,7 +526,7 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     // calibrationFactors[div] can be a number (legacy) or { factor, count, confidence } (new)
     const calEntry = calibrationFactors[div];
     const calFactor = typeof calEntry === "number" ? calEntry : (calEntry?.factor || 1);
-    const factor = calFactor * combinedMultiplier * (bpMults[div] || 1);
+    const factor = calFactor * combinedMultiplier * (bpMults[div] || 1) * (typeMults[div] || 1);
     let low = range.low * factor;
     let mid = range.mid * factor;
     let high = range.high * factor;
@@ -589,6 +595,8 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     marketMultiplier,
     combinedMultiplier,
     marketRegion: marketRegion ? { key: marketRegion.key, label: marketRegion.label, multiplier: marketRegion.multiplier } : null,
+    typeMultiplier: typeGlobalMult !== 1.0 ? typeGlobalMult : null,
+    typeAdjustments: typeLabels.length > 0 ? typeLabels : null,
     divisions,
     totals: {
       low: Math.round(totalLow),

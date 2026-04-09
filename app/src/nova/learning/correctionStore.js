@@ -1,3 +1,3 @@
 // SHIM — consolidated into novaStore. Use useNovaStore directly.
-import { useNovaStore } from "@/stores/novaStore";
-export const useCorrectionStore = useNovaStore;
+// Lazy re-export avoids HMR temporal dead zone when Vite evaluates this before novaStore.
+export { useNovaStore as useCorrectionStore } from "@/stores/novaStore";

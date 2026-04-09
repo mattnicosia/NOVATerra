@@ -80,7 +80,7 @@ export default function DivisionTree({
           All Items ({elements.length})
         </div>
         {Object.entries(dbTree)
-          .sort(([a], [b]) => a.localeCompare(b))
+          .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
           .map(([dc, div], dIdx) => (
             <div
               key={dc}
@@ -149,7 +149,7 @@ export default function DivisionTree({
               {dbExpandedDivs.has(dc) && (
                 <>
                   {Object.entries(div.subs)
-                    .sort(([a], [b]) => a.localeCompare(b))
+                    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
                     .map(([subKey, sub], sIdx) => {
                       const isActive = dbSelectedSub === subKey;
                       const hasItems = sub.count > 0;

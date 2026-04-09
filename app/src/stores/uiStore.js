@@ -111,7 +111,7 @@ export const useUiStore = create((set, _get) => ({
   estShowVars: null,
   estShowSpec: null,
   estShowAllowance: null,
-  estViewMode: "scope", // "scope" | "detail" | "level"
+  estViewMode: "detail", // "scope" | "detail" | "level"
   activeGroupId: "base",
   expandedDivs: new Set(),
 

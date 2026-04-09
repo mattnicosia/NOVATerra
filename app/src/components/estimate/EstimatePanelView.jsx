@@ -15,7 +15,6 @@ import { VIRTUAL_THRESHOLD } from "@/hooks/useVirtualList";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import LevelingView from "@/components/estimate/LevelingView";
-import SpatialTreemap from "@/components/estimate/SpatialTreemap";
 
 // ── Source pill color mapping ──
 const SOURCE_COLORS = {
@@ -106,7 +105,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
   const [focusedCostCell, setFocusedCostCell] = useState(null);
 
   const viewMode =
-    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level" || estViewMode === "spatial"
+    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level"
       ? estViewMode
       : estViewMode === "pricing" || estViewMode === "detailed" || estViewMode === "both"
         ? "detail"
@@ -236,7 +235,6 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
             { key: "scope", label: "Scope" },
             { key: "detail", label: "Detail" },
             { key: "level", label: "Level" },
-            { key: "spatial", label: "Spatial" },
           ].map(v => (
             <button
               key={v.key}
@@ -309,13 +307,11 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
         )}
       </div>
 
-      {/* Grid, Leveling, or Spatial */}
+      {/* Grid or Leveling */}
       {viewMode === "level" ? (
         <div style={{ flex: 1, overflow: "auto" }}>
           <LevelingView />
         </div>
-      ) : viewMode === "spatial" ? (
-        <SpatialTreemap />
       ) : (
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minHeight: 0 }}>
           <div style={{ padding: "4px 6px" }}>
@@ -451,7 +447,6 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                         return (
                           <div
                             key={item.id}
-                            onClick={() => onSelectItem?.(item.id)}
                             onMouseEnter={e => {
                               if (!isSelected) e.currentTarget.style.background = hoverBg;
                             }}
@@ -544,7 +539,10 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                                 const cellKey = `${item.id}-${f}`;
                                 const isFocused = focusedCostCell === cellKey;
                                 const rawVal = item[f];
-                                const displayVal = isFocused ? rawVal : nn(rawVal) ? formatCurrency(rawVal) : rawVal;
+                                // Strip any existing $ or commas from stored values to prevent double-formatting
+                                const cleaned = typeof rawVal === "string" ? rawVal.replace(/[$,]/g, "") : rawVal;
+                                const num = nn(cleaned);
+                                const displayVal = isFocused ? (num || "") : num ? formatCurrency(num) : "";
                                 return (
                                   <div key={f} style={{ width: 56 }} onClick={e => e.stopPropagation()}>
                                     <input
@@ -554,13 +552,14 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                                       onFocus={() => setFocusedCostCell(cellKey)}
                                       onBlur={() => setFocusedCostCell(null)}
                                       onChange={e => updateItem(item.id, f, e.target.value.replace(/[$,]/g, ""))}
-                                      placeholder="0"
+                                      placeholder="—"
                                       style={nInp(C, {
-                                        background: "transparent",
-                                        border: "1px solid transparent",
+                                        background: isFocused ? `${C.accent}08` : num ? "transparent" : `${C.text}04`,
+                                        border: isFocused ? `1px solid ${C.accent}40` : `1px solid ${num ? "transparent" : C.border}`,
                                         padding: "2px 1px",
                                         fontSize: 9,
                                         textAlign: "right",
+                                        color: num ? C.text : C.textDim,
                                       })}
                                     />
                                   </div>

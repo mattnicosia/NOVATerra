@@ -63,39 +63,40 @@ export default function ConfidenceEngineAdmin() {
   const isAdmin = user?.email === "matt@bldgestimating.com";
   if (!isAdmin) return null;
 
+  const w = engineConfig.weights || { baseline: 0.6, userHistorical: 0.3, llm: 0.1 };
+
   // When one weight changes, redistribute the difference proportionally among the other two
   const handleWeightChange = (key, newVal) => {
-    const keys = ["baselineWeight", "userHistoricalWeight", "llmWeight"];
+    const keys = ["baseline", "userHistorical", "llm"];
     const others = keys.filter(k => k !== key);
-    const oldVal = engineConfig[key];
+    const oldVal = w[key];
     const diff = newVal - oldVal;
-    const othersSum = others.reduce((s, k) => s + engineConfig[k], 0);
+    const othersSum = others.reduce((s, k) => s + w[k], 0);
 
-    const newWeights = { ...engineConfig };
-    newWeights[key] = newVal;
+    const newW = { ...w };
+    newW[key] = newVal;
 
     if (othersSum > 0) {
       others.forEach(k => {
-        const proportion = engineConfig[k] / othersSum;
-        newWeights[k] = Math.max(0, engineConfig[k] - diff * proportion);
+        const proportion = w[k] / othersSum;
+        newW[k] = Math.max(0, w[k] - diff * proportion);
       });
     } else {
-      // Edge case: split remainder equally
       const remainder = (1 - newVal) / others.length;
       others.forEach(k => {
-        newWeights[k] = Math.max(0, remainder);
+        newW[k] = Math.max(0, remainder);
       });
     }
 
     // Normalize to exactly 1.0
-    const total = keys.reduce((s, k) => s + newWeights[k], 0);
+    const total = keys.reduce((s, k) => s + newW[k], 0);
     if (total > 0) {
       keys.forEach(k => {
-        newWeights[k] = newWeights[k] / total;
+        newW[k] = newW[k] / total;
       });
     }
 
-    updateWeights(newWeights.baselineWeight, newWeights.userHistoricalWeight, newWeights.llmWeight);
+    updateWeights(newW);
   };
 
   return (
@@ -175,22 +176,22 @@ export default function ConfidenceEngineAdmin() {
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <SliderRow
                 label="Baseline"
-                value={engineConfig.baselineWeight}
-                onChange={v => handleWeightChange("baselineWeight", v)}
+                value={w.baseline}
+                onChange={v => handleWeightChange("baseline", v)}
                 C={C}
                 T={T}
               />
               <SliderRow
                 label="User Historical"
-                value={engineConfig.userHistoricalWeight}
-                onChange={v => handleWeightChange("userHistoricalWeight", v)}
+                value={w.userHistorical}
+                onChange={v => handleWeightChange("userHistorical", v)}
                 C={C}
                 T={T}
               />
               <SliderRow
                 label="LLM"
-                value={engineConfig.llmWeight}
-                onChange={v => handleWeightChange("llmWeight", v)}
+                value={w.llm}
+                onChange={v => handleWeightChange("llm", v)}
                 C={C}
                 T={T}
               />

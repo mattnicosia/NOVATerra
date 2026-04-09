@@ -503,6 +503,8 @@ export function usePersistenceLoad() {
           if (subConfig.engineConfig) useSubdivisionStore.getState().updateEngineConfig(subConfig.engineConfig);
           if (subConfig.calibrationFactors)
             useSubdivisionStore.getState().setCalibrationFactors(subConfig.calibrationFactors);
+          if (subConfig.userOverrides)
+            useSubdivisionStore.getState().setUserOverrides(subConfig.userOverrides);
         } catch (err) {
           console.warn("[usePersistence] Failed to parse subdivision config:", err);
         }
@@ -515,6 +517,8 @@ export function usePersistenceLoad() {
               useSubdivisionStore.getState().updateEngineConfig(cloudSubConfig.engineConfig);
             if (cloudSubConfig.calibrationFactors)
               useSubdivisionStore.getState().setCalibrationFactors(cloudSubConfig.calibrationFactors);
+            if (cloudSubConfig.userOverrides)
+              useSubdivisionStore.getState().setUserOverrides(cloudSubConfig.userOverrides);
             await storage.set(idbKey("bldg-subdivision-config"), JSON.stringify(cloudSubConfig));
           }
         } catch (err) {

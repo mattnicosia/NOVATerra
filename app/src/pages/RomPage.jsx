@@ -15,6 +15,7 @@ import RomUpsell from "@/components/rom/RomUpsell";
 import RomChat from "@/components/rom/RomChat";
 import { useGuidedWizard } from "@/hooks/useGuidedWizard";
 import NOVAThinking from "@/components/rom/NOVAThinking";
+import { ROM_TYPE_QUESTIONS, computeTypeMultipliers } from "@/constants/romQuestions";
 
 const BUILDING_TYPES = [
   { value: "commercial-office", label: "Commercial Office" },
@@ -134,13 +135,16 @@ const inputStyle = {
   padding: "14px 16px",
   fontSize: 15,
   ...ff,
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: 12,
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 10,
   color: "#EEEDF5",
   outline: "none",
-  transition: "border 0.2s",
+  transition: "border 0.2s, background 0.2s, box-shadow 0.2s",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03)",
 };
+
+const inputFocusStyle = "border-color: rgba(139,92,246,0.5); background: rgba(255,255,255,0.07); box-shadow: 0 0 0 3px rgba(139,92,246,0.12), 0 1px 3px rgba(0,0,0,0.2);";
 
 /* ════════════════════════════════════════════════════════════════
    PATH SELECTOR — Three cards
@@ -205,54 +209,43 @@ function PathSelector({ onSelect }) {
   ];
 
   return (
-    <div style={{ display: "flex", gap: 16, maxWidth: 900, width: "100%", flexWrap: "wrap", justifyContent: "center" }}>
+    <div style={{ display: "flex", gap: 12, maxWidth: 720, width: "100%", justifyContent: "center" }}>
       {paths.map(p => (
         <button
           key={p.id}
           onClick={() => onSelect(p.id)}
           style={{
-            flex: "1 1 260px",
-            maxWidth: 300,
-            padding: "28px 24px",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 16,
+            flex: "1 1 0",
+            padding: "24px 20px 20px",
+            background: "rgba(255,255,255,0.025)",
+            border: `1.5px solid rgba(255,255,255,0.06)`,
+            borderRadius: 14,
             cursor: "pointer",
-            textAlign: "left",
-            transition: "all 0.3s cubic-bezier(0.25,1,0.5,1)",
+            textAlign: "center",
+            transition: "all 0.25s cubic-bezier(0.25,1,0.5,1)",
             position: "relative",
             overflow: "hidden",
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.borderColor = `${p.accent}40`;
-            e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = `0 8px 32px rgba(0,0,0,0.3), 0 0 20px ${p.accent}10`;
+            e.currentTarget.style.borderColor = `${p.accent}50`;
+            e.currentTarget.style.background = `${p.accent}08`;
+            e.currentTarget.style.transform = "translateY(-3px) scale(1.02)";
+            e.currentTarget.style.boxShadow = `0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px ${p.accent}20`;
           }}
           onMouseLeave={e => {
             e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-            e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.025)";
+            e.currentTarget.style.transform = "translateY(0) scale(1)";
             e.currentTarget.style.boxShadow = "none";
           }}
         >
-          {/* Tag */}
-          <div
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: "0.15em",
-              color: p.accent,
-              marginBottom: 12,
-              ...ff,
-            }}
-          >
-            {p.tag}
-          </div>
-          {/* Geometric icon */}
-          <div style={{ marginBottom: 10 }}><GeoIcon type={p.iconType} color={p.accent} /></div>
-          <div style={{ fontSize: 17, fontWeight: 600, color: "#EEEDF5", marginBottom: 8, ...ff }}>{p.title}</div>
-          <div style={{ fontSize: 13, color: "rgba(238,237,245,0.4)", lineHeight: 1.5, ...ff }}>{p.desc}</div>
+          <div style={{ marginBottom: 12, opacity: 0.9 }}><GeoIcon type={p.iconType} color={p.accent} size={28} /></div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#EEEDF5", marginBottom: 6, letterSpacing: -0.2, ...ff }}>{p.title}</div>
+          <div style={{ fontSize: 11.5, color: "rgba(238,237,245,0.35)", lineHeight: 1.5, ...ff }}>{p.desc}</div>
+          <div style={{
+            marginTop: 12, fontSize: 9, fontWeight: 700, letterSpacing: "0.12em",
+            color: p.accent, opacity: 0.7, ...ff,
+          }}>{p.tag}</div>
         </button>
       ))}
     </div>
@@ -948,97 +941,181 @@ function BasicInfoPath({ onResult, onBack }) {
   const [floors, setFloors] = useState("");
   const [location, setLocation] = useState("");
   const [error, setError] = useState("");
+  const [typeAnswers, setTypeAnswers] = useState({});
+
+  // Reset type answers when building type changes
+  const handleBuildingTypeChange = v => {
+    setBuildingType(v);
+    setTypeAnswers({});
+  };
 
   function handleSubmit(e) {
     e.preventDefault();
     if (!projectSF || parseFloat(projectSF) <= 0) { setError("Enter square footage"); return; }
     setError("");
     const sf = parseFloat(projectSF);
+
+    // Build roomCounts from type questions that have paramKey
+    const roomCounts = {};
+    const typeQuestions = ROM_TYPE_QUESTIONS[buildingType] || [];
+    typeQuestions.forEach(q => {
+      if (q.type === "number" && q.paramKey && typeAnswers[q.key]) {
+        const parts = q.paramKey.split(".");
+        if (parts[0] === "roomCounts") roomCounts[parts[1]] = parseInt(typeAnswers[q.key]) || 0;
+      }
+    });
+
     const params = {
       ...(floors ? { floorCount: parseInt(floors) } : {}),
+      ...(Object.keys(roomCounts).length > 0 ? { roomCounts } : {}),
       laborType,
       location: location || undefined,
+      typeAnswers,
     };
     const result = generateBaselineROM(sf, buildingType, workType, null, params);
     result.source = "basics";
     onResult(result);
   }
 
+  const labelStyle = { fontSize: 10, fontWeight: 600, color: "rgba(238,237,245,0.3)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff };
+  const selectStyle = { ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23555' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", paddingRight: 36,
+  };
+  const typeQuestions = ROM_TYPE_QUESTIONS[buildingType] || [];
+
   return (
-    <div style={{ width: "100%", maxWidth: 420 }}>
+    <div style={{ width: 480, maxWidth: "90vw", textAlign: "left" }}>
+      {/* Focus style injection */}
+      <style>{`
+        .rom-input:focus { ${inputFocusStyle} }
+        .rom-type-section { animation: romTypeIn 0.3s cubic-bezier(0.25,1,0.5,1) both; }
+        @keyframes romTypeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
       <button onClick={onBack} style={{
-        background: "none", border: "none", color: "rgba(238,237,245,0.4)", fontSize: 13,
-        cursor: "pointer", marginBottom: 24, padding: 0, ...ff,
+        background: "none", border: "none", color: "rgba(238,237,245,0.3)", fontSize: 12,
+        cursor: "pointer", marginBottom: 16, padding: 0, ...ff,
       }}>← Back</button>
 
-      <h2 style={{ fontSize: 24, fontWeight: 300, color: "#EEEDF5", margin: "0 0 8px 0", ...ff }}>Project details</h2>
-      <p style={{ fontSize: 14, color: "rgba(238,237,245,0.35)", margin: "0 0 32px 0", ...ff }}>
-        The more you share, the more accurate the estimate.
-      </p>
+      <form onSubmit={handleSubmit}>
+        {/* PRIMARY — Building Type (largest, most prominent) */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ ...labelStyle, fontSize: 11, color: "rgba(238,237,245,0.45)" }}>Building Type</label>
+          <select value={buildingType} onChange={e => handleBuildingTypeChange(e.target.value)}
+            className="rom-input"
+            style={{ ...selectStyle, fontSize: 16, padding: "16px 18px", fontWeight: 500 }}>
+            {BUILDING_TYPES.map(bt => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
+          </select>
+        </div>
 
-      {/* Auth gate removed — let users fill form freely */}
-      {(
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Building Type</label>
-            <select value={buildingType} onChange={e => setBuildingType(e.target.value)} style={{
-              ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center", paddingRight: 40,
-            }}>
-              {BUILDING_TYPES.map(bt => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
+        {/* PRIMARY — Square Footage */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ ...labelStyle, fontSize: 11, color: "rgba(238,237,245,0.45)" }}>Square Footage</label>
+          <input type="number" placeholder="e.g. 5,000" min="1" value={projectSF}
+            onChange={e => setProjectSF(e.target.value)}
+            className="rom-input"
+            style={{ ...inputStyle, fontSize: 16, padding: "16px 18px", fontWeight: 500 }} />
+          {error && <div style={{ color: "#FB7185", fontSize: 12, marginTop: 6, ...ff }}>{error}</div>}
+        </div>
+
+        {/* PRIMARY — Location (prominent) */}
+        <div style={{ marginBottom: 24 }}>
+          <label style={{ ...labelStyle, fontSize: 11, color: "rgba(238,237,245,0.45)" }}>Location</label>
+          <input type="text" placeholder="City, State or ZIP" value={location}
+            onChange={e => setLocation(e.target.value)}
+            className="rom-input"
+            style={{ ...inputStyle, fontSize: 16, padding: "16px 18px", fontWeight: 500 }} />
+          <div style={{ fontSize: 10, color: "rgba(238,237,245,0.2)", marginTop: 5, ...ff }}>
+            Adjusts to local market rates — 70+ metros supported
+          </div>
+        </div>
+
+        {/* TYPE-SPECIFIC QUESTIONS — animated, visual separation */}
+        {typeQuestions.length > 0 && (
+          <div className="rom-type-section" key={buildingType} style={{
+            marginBottom: 24, padding: "16px 18px 14px", borderRadius: 12,
+            background: "linear-gradient(135deg, rgba(139,92,246,0.05) 0%, rgba(77,166,255,0.03) 100%)",
+            border: "1px solid rgba(139,92,246,0.12)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <circle cx="6" cy="6" r="5" stroke="rgba(139,92,246,0.5)" strokeWidth="1" />
+                <circle cx="6" cy="6" r="2" fill="rgba(139,92,246,0.6)" />
+              </svg>
+              <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(139,92,246,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", ...ff }}>
+                Refine Your Estimate
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: typeQuestions.length <= 2 ? "1fr" : "1fr 1fr", gap: 10 }}>
+              {typeQuestions.map(q => (
+                <div key={q.key}>
+                  <label style={{ ...labelStyle, fontSize: 9, marginBottom: 4 }}>{q.label}</label>
+                  {q.type === "select" ? (
+                    <select
+                      value={typeAnswers[q.key] || q.default || ""}
+                      onChange={e => setTypeAnswers(prev => ({ ...prev, [q.key]: e.target.value }))}
+                      className="rom-input"
+                      style={{ ...selectStyle, fontSize: 13, padding: "10px 12px" }}
+                    >
+                      {q.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      type="number"
+                      placeholder={q.placeholder || ""}
+                      value={typeAnswers[q.key] || ""}
+                      onChange={e => setTypeAnswers(prev => ({ ...prev, [q.key]: e.target.value }))}
+                      className="rom-input"
+                      style={{ ...inputStyle, fontSize: 13, padding: "10px 12px" }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SECONDARY — Work Type, Labor Type, Floors */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 28 }}>
+          <div>
+            <label style={labelStyle}>Work Type</label>
+            <select value={workType} onChange={e => setWorkType(e.target.value)}
+              className="rom-input" style={{ ...selectStyle, fontSize: 13, padding: "11px 12px" }}>
+              {WORK_TYPES.map(wt => <option key={wt.value} value={wt.value}>{wt.label}</option>)}
             </select>
           </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Square Footage *</label>
-            <input type="number" placeholder="e.g. 5000" min="1" value={projectSF}
-              onChange={e => setProjectSF(e.target.value)} style={inputStyle} />
-            {error && <div style={{ color: "#FB7185", fontSize: 12, marginTop: 6, ...ff }}>{error}</div>}
+          <div>
+            <label style={labelStyle}>Labor Type</label>
+            <select value={laborType} onChange={e => setLaborType(e.target.value)}
+              className="rom-input" style={{ ...selectStyle, fontSize: 13, padding: "11px 12px" }}>
+              <option value="open-shop">Open Shop</option>
+              <option value="prevailing">Prevailing Wage</option>
+              <option value="union">Union</option>
+            </select>
           </div>
-
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Work Type</label>
-              <select value={workType} onChange={e => setWorkType(e.target.value)} style={{
-                ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
-              }}>
-                {WORK_TYPES.map(wt => <option key={wt.value} value={wt.value}>{wt.label}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Labor Type</label>
-              <select value={laborType} onChange={e => setLaborType(e.target.value)} style={{
-                ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
-              }}>
-                <option value="open-shop">Open Shop</option>
-                <option value="prevailing">Prevailing Wage</option>
-                <option value="union">Union</option>
-              </select>
-            </div>
+          <div>
+            <label style={labelStyle}>Floors</label>
+            <input type="number" placeholder="e.g. 3" min="1" value={floors}
+              onChange={e => setFloors(e.target.value)}
+              className="rom-input" style={{ ...inputStyle, fontSize: 13, padding: "11px 12px" }} />
           </div>
+        </div>
 
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Floors</label>
-              <input type="number" placeholder="e.g. 3" min="1" value={floors}
-                onChange={e => setFloors(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Location</label>
-              <input type="text" placeholder="City, State or ZIP" value={location}
-                onChange={e => setLocation(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-
-          <button type="submit" style={{
-            width: "100%", padding: "15px 24px", borderRadius: 12, border: "none",
-            background: C.accent, color: "#fff", cursor: "pointer", fontSize: 15, fontWeight: 600, ...ff,
-          }}>
-            Generate Estimate
-          </button>
-        </form>
-      )}
+        <button type="submit" style={{
+          width: "100%", padding: "16px 24px", borderRadius: 12, border: "none",
+          background: `linear-gradient(135deg, ${C.accent}, ${C.accent}DD)`,
+          color: "#fff", cursor: "pointer", fontSize: 15, fontWeight: 600,
+          boxShadow: `0 4px 16px ${C.accent}30`,
+          transition: "transform 0.15s, box-shadow 0.15s",
+          ...ff,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 6px 24px ${C.accent}40`; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = `0 4px 16px ${C.accent}30`; }}
+        >
+          Generate Estimate
+        </button>
+      </form>
     </div>
   );
 }
@@ -1303,18 +1380,21 @@ function RomPageInner() {
           <div style={{ fontSize: 10, color: "rgba(238,237,245,0.2)", textTransform: "uppercase", letterSpacing: 2, ...ff }}>Free Estimate Tool</div>
         </header>
 
-        {/* Hero */}
+        {/* Hero — collapses when user selects a path */}
         <section style={{
           display: "flex", flexDirection: "column", alignItems: "center",
-          padding: romResult ? "32px 24px 24px" : "60px 24px 48px",
-          textAlign: "center", transition: "padding 0.5s ease",
+          padding: romResult ? "32px 24px 24px" : path ? "32px 24px 20px" : "60px 24px 48px",
+          textAlign: "center", transition: "padding 0.4s cubic-bezier(0.25,1,0.5,1)",
         }}>
           <h1 style={{
-            fontWeight: 300, fontSize: romResult ? 32 : 48, color: "#EEEDF5",
-            margin: 0, marginBottom: romResult ? 4 : 12, letterSpacing: -1.5, lineHeight: 1.05,
-            transition: "font-size 0.5s ease", ...ff,
+            fontWeight: 300,
+            fontSize: romResult ? 32 : path ? 20 : 48,
+            color: path && !romResult ? "rgba(238,237,245,0.4)" : "#EEEDF5",
+            margin: 0, marginBottom: romResult ? 4 : path ? 4 : 12,
+            letterSpacing: path ? -0.5 : -1.5, lineHeight: 1.05,
+            transition: "all 0.4s cubic-bezier(0.25,1,0.5,1)", ...ff,
           }}>
-            {romResult ? "Your Estimate" : (<>Construction budgets in 60 seconds —<br /><span style={{ color: C.accent || "#00D4AA" }}>backed by real bid data, not AI guesses.</span></>)}
+            {romResult ? "Your Estimate" : path ? "NOVATerra" : (<>Construction budgets in 60 seconds —<br /><span style={{ color: C.accent || "#00D4AA" }}>backed by real bid data, not AI guesses.</span></>)}
           </h1>
 
           {!romResult && !path && (
@@ -1323,32 +1403,31 @@ function RomPageInner() {
                 Preliminary estimates shouldn't cost $5K or take 3 weeks. NOVATerra calibrates against <strong style={{ color: "#EEEDF5" }}>actual contractor proposals</strong> from real projects — not LLM training data. Free. Instant. Traceable.
               </p>
 
-              {/* How it works */}
+              {/* How it works — compact inline steps */}
               <div style={{
-                display: "flex", gap: 32, maxWidth: 600, margin: "0 auto 40px",
-                justifyContent: "center", flexWrap: "wrap",
+                display: "flex", gap: 40, maxWidth: 600, margin: "0 auto 36px",
+                justifyContent: "center",
               }}>
                 {[
-                  { step: "1", label: "Tell us about your project", sub: "Upload drawings or enter basics" },
-                  { step: "2", label: "NOVA analyzes the scope", sub: "AI + calibrated benchmarks" },
-                  { step: "3", label: "Get your budget estimate", sub: "With data source & confidence" },
+                  { step: "1", label: "Tell us about your project" },
+                  { step: "2", label: "NOVA analyzes the scope" },
+                  { step: "3", label: "Get your budget estimate" },
                 ].map((s, i) => (
-                  <div key={i} style={{ textAlign: "center", flex: "1 1 140px" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{
-                      width: 28, height: 28, borderRadius: "50%", margin: "0 auto 8px",
-                      border: "1px solid rgba(255,255,255,0.12)", display: "flex",
-                      alignItems: "center", justifyContent: "center",
-                      fontSize: 12, fontWeight: 700, color: "rgba(238,237,245,0.5)", ...ff,
+                      width: 24, height: 24, borderRadius: "50%",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 700, color: "rgba(238,237,245,0.4)", flexShrink: 0, ...ff,
                     }}>{s.step}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#EEEDF5", marginBottom: 3, ...ff }}>{s.label}</div>
-                    <div style={{ fontSize: 11, color: "rgba(238,237,245,0.3)", ...ff }}>{s.sub}</div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "rgba(238,237,245,0.4)", whiteSpace: "nowrap", ...ff }}>{s.label}</div>
                   </div>
                 ))}
               </div>
 
               <div style={{
-                fontSize: 11, color: "rgba(238,237,245,0.2)", marginBottom: 36,
-                textTransform: "uppercase", letterSpacing: "0.12em", ...ff,
+                fontSize: 10, color: "rgba(238,237,245,0.18)", marginBottom: 32,
+                textTransform: "uppercase", letterSpacing: "0.15em", ...ff,
               }}>
                 Free · No credit card · Results in seconds
               </div>
