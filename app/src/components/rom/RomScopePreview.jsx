@@ -53,26 +53,51 @@ export default function RomScopePreview({ rom, scopeItems = [], C, T, onCreateAc
     const sf = rom?.projectSF || 2000;
     const floors = rom?.floors || rom?.buildingParams?.floorCount || 1;
 
+    // Build set of excluded divisions from wizard scope exclusions + zeroed ROM divisions
+    const excludedDivs = new Set();
+    // From wizard scopeExclusions (e.g. "demolition" -> div "02")
+    const SCOPE_TO_DIVS = {
+      demolition: ["02"], sitework: ["31"], sitedemo: ["31"], asbestos: ["02"],
+      kitchenequip: ["11"], av: ["27"], security: ["28"], windowtreatments: ["12"],
+      furniture: ["12"], signage: ["10"], landscaping: ["32"], lowvoltage: ["27"],
+      fireprotection: ["21"], elevator: ["14"],
+    };
+    if (rom?.scopeExclusions?.length) {
+      for (const ex of rom.scopeExclusions) {
+        (SCOPE_TO_DIVS[ex] || []).forEach(d => excludedDivs.add(d));
+      }
+    }
+    // Also check ROM divisions for excluded or zeroed ones
+    if (rom?.divisions) {
+      for (const [code, div] of Object.entries(rom.divisions)) {
+        if (div.excluded || (div.total?.mid === 0 && div.total?.low === 0 && div.total?.high === 0)) {
+          excludedDivs.add(code);
+        }
+      }
+    }
+
     // Generate full template for all trades
     let allItems = [];
     try {
       const tpl = generateScopeTemplate(jobType, sf, { floors, workType: rom?.workType || "" });
       if (tpl?.items?.length) {
-        allItems = tpl.items.map((item, i) => ({
-          id: `tpl_${i}`,
-          code: item.code || "",
-          description: item.description || "",
-          division: DIV_LABELS[item.division] || `${item.division} - Unknown`,
-          divCode: item.division,
-          quantity: item.qty || 0,
-          unit: item.unit || "",
-          confidence: 0.7, // template baseline
-          source: "template",
-          midCost: item.midCost || 0,
-          lowCost: item.lowCost || 0,
-          highCost: item.highCost || 0,
-          note: item.note || null,
-        }));
+        allItems = tpl.items
+          .filter(item => !excludedDivs.has(item.division))
+          .map((item, i) => ({
+            id: `tpl_${i}`,
+            code: item.code || "",
+            description: item.description || "",
+            division: DIV_LABELS[item.division] || `${item.division} - Unknown`,
+            divCode: item.division,
+            quantity: item.qty || 0,
+            unit: item.unit || "",
+            confidence: 0.7, // template baseline
+            source: "template",
+            midCost: item.midCost || 0,
+            lowCost: item.lowCost || 0,
+            highCost: item.highCost || 0,
+            note: item.note || null,
+          }));
       }
     } catch (e) {
       console.warn("[RomScopePreview] Template generation failed:", e.message);
