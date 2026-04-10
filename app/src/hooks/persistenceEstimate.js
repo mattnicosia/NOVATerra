@@ -378,7 +378,8 @@ export async function loadEstimate(id) {
 }
 
 // Save the active estimate
-export async function saveEstimate(overrideId) {
+export async function saveEstimate(overrideId, options = {}) {
+  const { allowInactiveCloudPush = false } = options;
   const id = overrideId || useEstimatesStore.getState().activeEstimateId;
   if (!id) return;
 
@@ -720,13 +721,13 @@ export async function saveEstimate(overrideId) {
   }
   // Guard 2: Check if this estimate was deleted during the save window.
   // This prevents a race where auto-save fires → user deletes → push un-deletes.
-  const pushId = useEstimatesStore.getState().activeEstimateId;
-  if (pushId === id && useEstimatesStore.getState().estimatesIndex.some(e => e.id === id)) {
+  const existsInIndexForPush = useEstimatesStore.getState().estimatesIndex.some(e => e.id === id);
+  const activeIdForPush = useEstimatesStore.getState().activeEstimateId;
+  const shouldPushCloud = existsInIndexForPush && (allowInactiveCloudPush || activeIdForPush === id);
+  if (shouldPushCloud) {
     // Push estimate data (RPC writes blob + normalized columns atomically).
     // Index blob no longer pushed — normalized columns on user_estimates are authoritative.
-    Promise.all([
-      cloudSync.pushEstimate(id, data),
-    ])
+    cloudSync.pushEstimate(id, data)
       .then(() => {
         clearDirtyEstimate(id);
       })
@@ -735,6 +736,8 @@ export async function saveEstimate(overrideId) {
         markDirtyEstimate(id);
       });
   } else {
-    console.warn("[usePersistence] Estimate deleted during save — skipping cloud push for", id);
+    console.warn(
+      `[usePersistence] Skipping cloud push for ${id} — existsInIndex=${existsInIndexForPush} activeEstimateId=${activeIdForPush} allowInactive=${allowInactiveCloudPush}`,
+    );
   }
 }

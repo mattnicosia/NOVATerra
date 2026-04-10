@@ -58,6 +58,20 @@ function buildMockSupabase() {
         remove: vi.fn(() => Promise.resolve({ error: null })),
       })),
     },
+    rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    auth: {
+      onAuthStateChange: vi.fn(callback => {
+        const subscription = { unsubscribe: vi.fn() };
+        callback("INITIAL_SESSION", { access_token: "token-123" });
+        return { data: { subscription } };
+      }),
+      getSession: vi.fn(() =>
+        Promise.resolve({
+          data: { session: { access_token: "token-123" } },
+          error: null,
+        }),
+      ),
+    },
   };
   return mockSupabase;
 }
@@ -111,8 +125,7 @@ beforeEach(async () => {
   const supabaseMod = await import("@/utils/supabase");
   const fresh = buildMockSupabase();
   Object.assign(supabaseMod.supabase, fresh);
-  // Re-assign our local reference
-  Object.assign(mockSupabase, fresh);
+  mockSupabase = supabaseMod.supabase;
 
   // Reset store mocks
   mockAuthState.user = { id: "user-123" };
@@ -154,35 +167,21 @@ describe("cloudSync", () => {
 
   // ---- deleteEstimate (soft-delete) ----
   describe("deleteEstimate — soft-delete", () => {
-    it("updates deleted_at instead of deleting the row", async () => {
+    it("calls the soft_delete_estimate RPC", async () => {
       const { deleteEstimate } = await import("@/utils/cloudSync");
-
-      // Make the update chain resolve successfully
-      mockQuery._resolve({ data: null, error: null });
 
       await deleteEstimate("est-abc");
 
-      // Should call from("user_estimates")
-      expect(mockSupabase.from).toHaveBeenCalledWith("user_estimates");
-      // Should call .update() (not .delete())
-      expect(mockQuery.update).toHaveBeenCalled();
-      // The update payload should include deleted_at
-      const updateArg = mockQuery.update.mock.calls[0][0];
-      expect(updateArg).toHaveProperty("deleted_at");
-      expect(typeof updateArg.deleted_at).toBe("string");
-      // Should filter by estimate_id and user_id
-      expect(mockQuery.eq).toHaveBeenCalledWith("estimate_id", "est-abc");
-      expect(mockQuery.eq).toHaveBeenCalledWith("user_id", "user-123");
+      expect(mockSupabase.rpc).toHaveBeenCalledWith("soft_delete_estimate", {
+        p_estimate_id: "est-abc",
+        p_org_id: null,
+      });
     });
 
     it("calls markError on failure", async () => {
       const { deleteEstimate } = await import("@/utils/cloudSync");
 
-      // Make the chain throw
-      mockQuery._resolve({ data: null, error: { message: "Network error" } });
-      // Override: the awaited query needs to reject or return error
-      // The function does `const { error } = await query` then `if (error) throw error`
-      // Our chain's then() resolves with { error: ... }, so the throw will fire.
+      mockSupabase.rpc = vi.fn(() => Promise.resolve({ data: null, error: { message: "Network error" } }));
 
       await deleteEstimate("est-fail");
 
@@ -347,49 +346,34 @@ describe("cloudSync", () => {
 
   // ---- pushEstimate — zombie resurrection prevention ----
   describe("pushEstimate — zombie resurrection prevention", () => {
-    it("does not include deleted_at in the upsert payload", async () => {
+    it("does not include deleted_at in the save_estimate payload", async () => {
       const { pushEstimate } = await import("@/utils/cloudSync");
-
-      // Mock: no existing row, insert succeeds
-      mockQuery.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
-      mockQuery._resolve({ data: null, error: null });
 
       await pushEstimate("est-1", { project: { name: "Test" } });
 
-      // Check upsert was called (new path) or insert/update (legacy path)
-      if (mockQuery.upsert.mock.calls.length > 0) {
-        const upsertPayload = mockQuery.upsert.mock.calls[0][0];
-        const payload = Array.isArray(upsertPayload) ? upsertPayload[0] : upsertPayload;
-        expect(payload).not.toHaveProperty("deleted_at");
-      } else if (mockQuery.insert.mock.calls.length > 0) {
-        const insertPayload = mockQuery.insert.mock.calls[0][0];
-        expect(insertPayload).not.toHaveProperty("deleted_at");
-      }
-      // Check update was called (for existing row path)
-      if (mockQuery.update.mock.calls.length > 0) {
-        const updatePayload = mockQuery.update.mock.calls[0][0];
-        expect(updatePayload).not.toHaveProperty("deleted_at");
-      }
+      expect(mockSupabase.rpc).toHaveBeenCalledWith(
+        "save_estimate",
+        expect.objectContaining({
+          p_estimate_id: "est-1",
+          p_data: expect.not.objectContaining({ deleted_at: expect.anything() }),
+        }),
+      );
     });
 
     it("extracts assignedTo from estimate data", async () => {
       const { pushEstimate } = await import("@/utils/cloudSync");
 
-      mockQuery.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
-      mockQuery._resolve({ data: null, error: null });
-
       await pushEstimate("est-2", {
         project: { name: "Test", assignedTo: "user-456" },
       });
 
-      if (mockQuery.upsert.mock.calls.length > 0) {
-        const upsertPayload = mockQuery.upsert.mock.calls[0][0];
-        const payload = Array.isArray(upsertPayload) ? upsertPayload[0] : upsertPayload;
-        expect(payload.assigned_to).toBe("user-456");
-      } else if (mockQuery.insert.mock.calls.length > 0) {
-        const payload = mockQuery.insert.mock.calls[0][0];
-        expect(payload.assigned_to).toBe("user-456");
-      }
+      expect(mockSupabase.rpc).toHaveBeenCalledWith(
+        "save_estimate",
+        expect.objectContaining({
+          p_estimate_id: "est-2",
+          p_assigned_to: "user-456",
+        }),
+      );
     });
   });
 

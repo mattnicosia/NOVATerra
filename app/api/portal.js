@@ -3,6 +3,7 @@
 
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
+import { isPastDueDate, isPortalSubmissionLocked } from "./lib/portalAccess.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -31,6 +32,9 @@ export default async function handler(req, res) {
     }
 
     const pkg = inv.bid_packages;
+    if (isPastDueDate(pkg?.due_date) && !isPortalSubmissionLocked(inv.status)) {
+      return res.status(410).json({ error: "This bid invitation has passed its due date" });
+    }
 
     // Update opened_at timestamp (first open only)
     if (!inv.opened_at) {
@@ -97,6 +101,7 @@ export default async function handler(req, res) {
         subCompany: inv.sub_company,
         subContact: inv.sub_contact,
         status: inv.status,
+        intent: inv.intent || null,
       },
       package: {
         id: pkg.id,

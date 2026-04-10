@@ -18,32 +18,61 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const user = await verifyUser(req);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
-
-  const { allowed, retryAfter } = checkRateLimit(`parse_proposal_${user.id}`);
-  if (!allowed) {
-    return res.status(429).json({ error: "Rate limited — too many parse requests", retryAfter });
-  }
-
   if (!supabaseAdmin) return res.status(500).json({ error: "Database not configured" });
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) return res.status(500).json({ error: "AI service not configured" });
 
-  const { proposalId } = req.body || {};
+  const { proposalId, token } = req.body || {};
   if (!proposalId) return res.status(400).json({ error: "Missing proposalId" });
 
   try {
     // Fetch proposal record
     const { data: proposal, error: propErr } = await supabaseAdmin
       .from("bid_proposals")
-      .select("*")
+      .select("id, invitation_id, package_id, storage_path")
       .eq("id", proposalId)
       .single();
 
     if (propErr || !proposal) {
       return res.status(404).json({ error: "Proposal not found" });
+    }
+
+    const { data: pkg, error: pkgErr } = await supabaseAdmin
+      .from("bid_packages")
+      .select("id, user_id")
+      .eq("id", proposal.package_id)
+      .single();
+
+    if (pkgErr || !pkg) {
+      return res.status(404).json({ error: "Proposal owner not found" });
+    }
+
+    let requesterUserId = null;
+    const user = await verifyUser(req);
+    if (user) {
+      if (pkg.user_id !== user.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      requesterUserId = user.id;
+    } else if (token) {
+      const { data: invitation, error: invErr } = await supabaseAdmin
+        .from("bid_invitations")
+        .select("id, user_id")
+        .eq("token", token)
+        .single();
+
+      if (invErr || !invitation || invitation.id !== proposal.invitation_id) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      requesterUserId = invitation.user_id;
+    } else {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { allowed, retryAfter } = checkRateLimit(`parse_proposal_${requesterUserId}`);
+    if (!allowed) {
+      return res.status(429).json({ error: "Rate limited — too many parse requests", retryAfter });
     }
 
     // Update status to parsing
@@ -96,7 +125,7 @@ export default async function handler(req, res) {
       // Try to extract JSON from the response (handle markdown code blocks)
       const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
       parsedData = JSON.parse(jsonMatch[1].trim());
-    } catch (parseErr) {
+    } catch {
       // Fallback: try to find JSON object with balanced brackets
       const start = text.indexOf("{");
       const end = text.lastIndexOf("}");

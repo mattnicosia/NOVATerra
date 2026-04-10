@@ -3,6 +3,7 @@
 
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
+import { isPastDueDate, isPortalSubmissionLocked } from "./lib/portalAccess.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -23,12 +24,18 @@ export default async function handler(req, res) {
     // Verify token + proposal ownership
     const { data: inv, error: invErr } = await supabaseAdmin
       .from("bid_invitations")
-      .select("id, package_id, user_id, sub_company, sub_contact, sub_email, sub_trade, created_at")
+      .select("id, package_id, user_id, sub_company, sub_contact, sub_email, sub_trade, created_at, status, bid_packages(due_date)")
       .eq("token", token)
       .single();
 
     if (invErr || !inv) {
       return res.status(404).json({ error: "Invalid token" });
+    }
+    if (isPortalSubmissionLocked(inv.status)) {
+      return res.status(400).json({ error: "This invitation has already been submitted" });
+    }
+    if (isPastDueDate(inv.bid_packages?.due_date)) {
+      return res.status(410).json({ error: "This bid invitation has passed its due date" });
     }
 
     const { data: proposal, error: propErr } = await supabaseAdmin
@@ -99,7 +106,7 @@ export default async function handler(req, res) {
     fetch(`${appUrl}/api/parse-proposal`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ proposalId: proposal.id }),
+      body: JSON.stringify({ proposalId: proposal.id, token }),
     }).catch(err => {
       console.warn("[portal-confirm] Parse trigger failed:", err.message);
     });

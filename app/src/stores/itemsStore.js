@@ -202,6 +202,10 @@ export const useItemsStore = create((set, get) => ({
   },
 
   updateItem: (id, field, value) => {
+    // Signal to cloudSync that the user is actively editing — prevents Realtime
+    // bounce from overwriting in-flight changes (see cloudSync._reloadActiveEstimate)
+    import("@/utils/cloudSync").then(m => m.markItemEdited?.()).catch(() => {});
+
     // Flush any pending edit for a DIFFERENT id/field
     if (_lastEdit.timer && (_lastEdit.id !== id || _lastEdit.field !== field)) {
       _flushEditUndo(get, set);

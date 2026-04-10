@@ -4,8 +4,8 @@
  */
 
 import { supabase } from "./supabase";
-import { getUserId, getScope, applyScope, isReady, markSynced, markError, markSyncing } from "./cloudSync-auth";
-import { withRetry } from "./cloudSync-retry";
+import { getUserId, getScope, isReady, markSynced, markError, markSyncing } from "./cloudSync-auth";
+import { isDeferredSyncError, SyncDeferredError, withRetry } from "./cloudSync-retry";
 import { stripAndUploadBlobs, stripMasterBlobs } from "./cloudSync-blobs";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 
@@ -16,7 +16,9 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
  * Used for: settings, master, assemblies, index
  */
 export const pushData = async (key, data) => {
-  if (!isReady()) return;
+  if (!isReady()) {
+    throw new SyncDeferredError(`[cloudSync] pushData("${key}") skipped — sync not ready`, "not_ready");
+  }
 
   // ─── DATA LOSS PREVENTION: Never push empty index to cloud ───
   if (key === "index" && Array.isArray(data) && data.length === 0) {
@@ -88,9 +90,15 @@ export const pushData = async (key, data) => {
       if (error) throw error;
     });
     markSynced();
+    return true;
   } catch (err) {
+    if (isDeferredSyncError(err)) {
+      console.warn(err.message);
+      throw err;
+    }
     console.warn(`[cloudSync] pushData("${key}") failed:`, err.message || err);
     markError(err.message);
+    throw err;
   }
 };
 
@@ -100,8 +108,10 @@ export const pushData = async (key, data) => {
  */
 export const pushEstimate = async (estimateId, data) => {
   if (!isReady()) {
-    console.warn(`[cloudSync] pushEstimate("${estimateId}") SKIPPED — not ready (supabase: ${!!supabase}, userId: ${getUserId()?.slice(0,8) || 'null'})`);
-    return;
+    throw new SyncDeferredError(
+      `[cloudSync] pushEstimate("${estimateId}") skipped — not ready (supabase: ${!!supabase}, userId: ${getUserId()?.slice(0, 8) || "null"})`,
+      "not_ready",
+    );
   }
   console.log(`[cloudSync] pushEstimate("${estimateId}") — pushing to cloud...`);
   markSyncing();
@@ -162,9 +172,15 @@ export const pushEstimate = async (estimateId, data) => {
       }
     });
     markSynced();
+    return true;
   } catch (err) {
+    if (isDeferredSyncError(err)) {
+      console.warn(err.message);
+      throw err;
+    }
     console.warn(`[cloudSync] pushEstimate("${estimateId}") failed:`, err.message || err);
     markError(err.message);
+    throw err;
   }
 };
 

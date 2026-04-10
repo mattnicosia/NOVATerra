@@ -4,10 +4,12 @@
  * In serverless environments, this resets per cold start. That's acceptable
  * because it primarily prevents burst abuse within a single function invocation.
  *
- * Uses a sliding window approach per key (provider, user, endpoint).
+ * Uses a fixed-window counter per key (provider, user, endpoint).
  */
 
 const buckets = new Map();
+const SWEEP_INTERVAL = 100;
+let requestCount = 0;
 
 // Requests per minute by key prefix
 const MAX_REQUESTS = {
@@ -30,31 +32,63 @@ const MAX_REQUESTS = {
   send_bid_invite: 20,
   send_team_invite: 10,
   award_bid: 10,
+  // Public endpoints
+  rom: 5,
+  rom_ip: 12,
+  rom_recipient: 10,
+  rom_project: 3,
+  portal: 20,
 };
 
 const WINDOW_MS = 60_000; // 1 minute
 
+function sweepExpiredBuckets(now) {
+  for (const [key, bucket] of buckets.entries()) {
+    if (!bucket || now - bucket.windowStart > bucket.windowMs) {
+      buckets.delete(key);
+    }
+  }
+}
+
+function resolveLimit(bucketKey) {
+  if (MAX_REQUESTS[bucketKey]) return MAX_REQUESTS[bucketKey];
+
+  const parts = String(bucketKey || "generic").split("_");
+  for (let i = parts.length - 1; i > 0; i -= 1) {
+    const prefix = parts.slice(0, i).join("_");
+    if (MAX_REQUESTS[prefix]) return MAX_REQUESTS[prefix];
+  }
+
+  return MAX_REQUESTS[parts[0]] || MAX_REQUESTS.generic;
+}
+
 /**
  * Check if a request is allowed for the given key.
  * @param {string} key - Rate limit key (e.g., "ai_userId", "dropbox", etc.)
+ * @param {{ maxRequests?: number, windowMs?: number }} options
  * @returns {{ allowed: boolean, retryAfter?: number }}
  */
-export function checkRateLimit(key) {
+export function checkRateLimit(key, options = {}) {
   const now = Date.now();
   const bucketKey = key || "generic";
-  let bucket = buckets.get(bucketKey);
+  const windowMs = Number.isFinite(options.windowMs) ? options.windowMs : WINDOW_MS;
 
-  if (!bucket || now - bucket.windowStart > WINDOW_MS) {
-    // Start new window
-    bucket = { count: 0, windowStart: now };
+  requestCount += 1;
+  if (requestCount % SWEEP_INTERVAL === 0 || buckets.size > 5000) {
+    sweepExpiredBuckets(now);
   }
 
-  // Extract prefix for limit lookup (e.g., "ai_abc123" → "ai")
-  const prefix = bucketKey.split("_")[0];
-  const limit = MAX_REQUESTS[bucketKey] || MAX_REQUESTS[prefix] || MAX_REQUESTS.generic;
+  let bucket = buckets.get(bucketKey);
+
+  if (!bucket || bucket.windowMs !== windowMs || now - bucket.windowStart > windowMs) {
+    // Start new window
+    bucket = { count: 0, windowStart: now, windowMs };
+  }
+
+  const limit = Number.isFinite(options.maxRequests) ? options.maxRequests : resolveLimit(bucketKey);
 
   if (bucket.count >= limit) {
-    const retryAfter = Math.ceil((bucket.windowStart + WINDOW_MS - now) / 1000);
+    const retryAfter = Math.ceil((bucket.windowStart + windowMs - now) / 1000);
     return { allowed: false, retryAfter };
   }
 

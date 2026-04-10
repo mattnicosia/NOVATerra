@@ -69,6 +69,54 @@ export { saveAtomically, pullProfiles, pullContacts } from "./cloudSyncProfiles"
 // ---------- Realtime sync helpers ----------
 // These are used by useRealtimeSync to apply incoming changes from other devices.
 
+const _corruptLocalEstimateWarnings = new Set();
+
+/**
+ * Read a local estimate blob from IndexedDB with corruption guards.
+ * Returns whether the record exists and whether it was parseable.
+ */
+export const readLocalEstimateRecord = async estimateId => {
+  if (!estimateId) return { exists: false, corrupted: false, data: null };
+
+  const { storage } = await import("@/utils/storage");
+  const { idbKey } = await import("@/utils/idbKey");
+  const raw = await storage.get(idbKey(`bldg-est-${estimateId}`));
+  if (!raw) return { exists: false, corrupted: false, data: null };
+
+  const value = raw.value;
+  if (value == null) {
+    if (!_corruptLocalEstimateWarnings.has(estimateId)) {
+      _corruptLocalEstimateWarnings.add(estimateId);
+      console.warn(`[cloudSync] Local estimate "${estimateId}" is missing its IndexedDB payload`);
+    }
+    return { exists: true, corrupted: true, data: null };
+  }
+
+  if (typeof value !== "string") {
+    if (typeof value === "object") {
+      _corruptLocalEstimateWarnings.delete(estimateId);
+      return { exists: true, corrupted: false, data: value };
+    }
+    if (!_corruptLocalEstimateWarnings.has(estimateId)) {
+      _corruptLocalEstimateWarnings.add(estimateId);
+      console.warn(`[cloudSync] Local estimate "${estimateId}" has an unsupported IndexedDB payload type`);
+    }
+    return { exists: true, corrupted: true, data: null };
+  }
+
+  try {
+    const data = JSON.parse(value);
+    _corruptLocalEstimateWarnings.delete(estimateId);
+    return { exists: true, corrupted: false, data };
+  } catch (err) {
+    if (!_corruptLocalEstimateWarnings.has(estimateId)) {
+      _corruptLocalEstimateWarnings.add(estimateId);
+      console.warn(`[cloudSync] Local estimate "${estimateId}" is corrupted in IndexedDB:`, err.message || err);
+    }
+    return { exists: true, corrupted: true, data: null };
+  }
+};
+
 /**
  * Pull a single estimate from cloud, hydrate blobs, write to IDB, and
  * optionally reload into Zustand stores if it's the active estimate.
@@ -80,20 +128,31 @@ export const pullAndApplyEstimate = async estimateId => {
     let cloudData = await pullEstimate(estimateId);
     if (!cloudData) return null;
 
+    // ── Timestamp guard: never let stale cloud data overwrite newer local data ──
+    // This prevents the "save bounce" race: user saves → cloud writes → Realtime
+    // fires before cloud write confirms → pullEstimate returns old version → overwrites.
+    const { storage } = await import("@/utils/storage");
+    const { idbKey } = await import("@/utils/idbKey");
+    const localRecord = await readLocalEstimateRecord(estimateId);
+    const localTime = localRecord.data?._savedAt || null;
+    const cloudTime = cloudData._savedAt;
+    if (localTime && cloudTime && new Date(cloudTime) <= new Date(localTime)) {
+      console.log(`[cloudSync] pullAndApplyEstimate: local is current (${localTime} >= ${cloudTime}), skipping reload`);
+      return cloudData;
+    }
+
     // Hydrate blobs (drawings, documents, specPdf)
     cloudData = await hydrateBlobs(cloudData);
     delete cloudData._hydrationStats;
 
-    // Write to IDB
-    const { storage } = await import("@/utils/storage");
-    const { idbKey } = await import("@/utils/idbKey");
+    // Write to IDB — only reaches here when cloud is confirmed newer
     await storage.set(idbKey(`bldg-est-${estimateId}`), JSON.stringify(cloudData));
 
     // If this is the active estimate, reload into stores
     const { useEstimatesStore } = await import("@/stores/estimatesStore");
     const activeId = useEstimatesStore.getState().activeEstimateId;
     if (activeId === estimateId) {
-      await _reloadActiveEstimate(cloudData);
+      await _reloadActiveEstimate(cloudData, estimateId);
     }
 
     return cloudData;
@@ -129,8 +188,13 @@ export const pullAndApplyData = async key => {
   }
 };
 
+// Track last time user edited items in this session (module-level, reset on load)
+let _lastItemEditMs = 0;
+export const markItemEdited = () => { _lastItemEditMs = Date.now(); };
+const EDIT_SAFE_WINDOW_MS = 10_000; // 10s — safely covers the 1.5s auto-save debounce
+
 /** Reload the currently active estimate's stores from fresh data */
-async function _reloadActiveEstimate(data) {
+async function _reloadActiveEstimate(data, estimateId) {
   try {
     const { useProjectStore } = await import("@/stores/projectStore");
     const { useItemsStore } = await import("@/stores/itemsStore");
@@ -141,6 +205,22 @@ async function _reloadActiveEstimate(data) {
     const { useAlternatesStore } = await import("@/stores/alternatesStore");
     const { useCollaborationStore: useCorrespondenceStore } = await import("@/stores/collaborationStore");
     const { useModuleStore } = await import("@/stores/moduleStore");
+
+    // ── Edit recency guard ───────────────────────────────────────────────
+    // If the user touched items within the last 10s, defer this reload until
+    // the auto-save debounce (1.5s) has had time to flush. This prevents a
+    // Realtime bounce from wiping unsaved pricing changes.
+    // On retry we re-pull fresh data rather than applying the stale closure.
+    const msSinceEdit = Date.now() - _lastItemEditMs;
+    if (_lastItemEditMs > 0 && msSinceEdit < EDIT_SAFE_WINDOW_MS) {
+      const delay = EDIT_SAFE_WINDOW_MS - msSinceEdit + 500;
+      console.log(`[cloudSync] Recent edit detected (${Math.round(msSinceEdit)}ms ago) — deferring reload by ${delay}ms`);
+      if (estimateId) {
+        // Re-pull fresh data after delay — don't apply the now-stale closure data
+        setTimeout(() => pullAndApplyEstimate(estimateId), delay);
+      }
+      return;
+    }
 
     if (data.project) useProjectStore.getState().setProject(data.project);
     if (data.items !== undefined) useItemsStore.getState().setItems(data.items || []);

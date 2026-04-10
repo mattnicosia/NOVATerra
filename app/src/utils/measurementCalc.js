@@ -3,6 +3,7 @@
 // scaleCtx = { calibrations, scales, dpi, drawings }
 
 import { nn } from '@/utils/format';
+import { evalFormula } from "@/utils/formula";
 import { PDF_RENDER_DPI, DEFAULT_IMAGE_DPI } from '@/constants/scales';
 
 const unitToTool = (unit) => {
@@ -104,23 +105,9 @@ export function getMeasuredQtyCtx(to, scaleCtx) {
   return Math.round(total * 100) / 100;
 }
 
-// Formula evaluation
-function evalFormulaLocal(formula, variables, measured) {
-  if (!formula || !formula.trim()) return measured;
-  try {
-    let expr = formula.trim();
-    const vars = [{ key: "Measured", value: measured }, { key: "Qty", value: measured }, ...(variables || [])];
-    vars.sort((a, b) => (b.key || "").length - (a.key || "").length);
-    vars.forEach(v => { if (v.key) { const re = new RegExp(v.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"); expr = expr.replace(re, String(nn(v.value))); } });
-    const safe = expr.replace(/[^0-9.+\-*/()% ]/g, "");
-    if (!safe.trim()) return measured;
-    return Function('"use strict";return (' + safe + ")")();
-  } catch { return measured; }
-}
-
 export function getComputedQtyCtx(to, scaleCtx) {
   const measured = getMeasuredQtyCtx(to, scaleCtx);
   if (measured === null) return null;
   if (!to.formula || !to.formula.trim()) return measured;
-  return evalFormulaLocal(to.formula, to.variables, measured);
+  return evalFormula(to.formula, to.variables, measured);
 }

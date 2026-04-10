@@ -1,29 +1,70 @@
 // Vercel Serverless Function — Send ROM estimate results via email + store lead
 // No auth required — this is the lead-gen capture endpoint
 
+import crypto from "crypto";
 import { Resend } from "resend";
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
+import { checkRateLimit } from "./lib/rateLimiter.js";
+
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>"']/g, char => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]
+  ));
+}
+
+function buildProjectFingerprint({ buildingType, projectSF, source }) {
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify({
+      buildingType: String(buildingType || "").trim().toLowerCase(),
+      projectSF: String(projectSF || "").trim(),
+      source: String(source || "").trim().toLowerCase(),
+    }))
+    .digest("hex")
+    .slice(0, 16);
+}
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { email, buildingType, projectSF, totalLow, totalMid, totalHigh, perSFLow, perSFMid, perSFHigh, tradeCount, itemCount, source } = req.body || {};
+  const normalizedEmail = String(email || "").toLowerCase().trim();
 
-  if (!email || !email.includes("@")) {
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
     return res.status(400).json({ error: "Valid email required" });
+  }
+
+  const clientIp = String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown")
+    .split(",")[0]
+    .trim();
+  const projectFingerprint = buildProjectFingerprint({ buildingType, projectSF, source });
+  const ipRate = checkRateLimit(`rom_ip_${clientIp}`);
+  const recipientRate = checkRateLimit(`rom_recipient_${normalizedEmail}`);
+  const projectRate = checkRateLimit(`rom_project_${normalizedEmail}_${projectFingerprint}`);
+  if (!ipRate.allowed || !recipientRate.allowed || !projectRate.allowed) {
+    return res.status(429).json({
+      error: "Rate limited",
+      retryAfter: Math.max(ipRate.retryAfter || 0, recipientRate.retryAfter || 0, projectRate.retryAfter || 0),
+    });
   }
 
   const apiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://app-nova-42373ca7.vercel.app");
+  const displayBuildingType = buildingType
+    ? String(buildingType).replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+    : "Construction Project";
+  const safeBuildingType = buildingType
+    ? escapeHtml(displayBuildingType)
+    : "Construction Project";
 
   // 1. Store lead in Supabase (no auth needed — service role)
   if (supabaseAdmin) {
     try {
       await supabaseAdmin.from("rom_leads").upsert({
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         building_type: buildingType || null,
         project_sf: projectSF || null,
         total_mid: totalMid || null,
@@ -55,7 +96,7 @@ export default async function handler(req, res) {
 
         <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 20px; margin-bottom: 16px;">
           <div style="font-size: 11px; color: rgba(232,232,240,0.4); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;">Project</div>
-          <div style="font-size: 16px; font-weight: 600; color: #e8e8f0;">${buildingType ? buildingType.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Construction Project"}</div>
+          <div style="font-size: 16px; font-weight: 600; color: #e8e8f0;">${safeBuildingType}</div>
           <div style="font-size: 13px; color: rgba(232,232,240,0.5); margin-top: 4px;">${projectSF ? Number(projectSF).toLocaleString() + " SF" : ""}</div>
         </div>
 
@@ -99,8 +140,8 @@ export default async function handler(req, res) {
 
     await resend.emails.send({
       from: `NOVATerra <${fromEmail}>`,
-      to: email.toLowerCase().trim(),
-      subject: `Your ${buildingType ? buildingType.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Construction"} Estimate — ${fmt(totalMid)}`,
+      to: normalizedEmail,
+      subject: `Your ${displayBuildingType} Estimate — ${fmt(totalMid)}`,
       html,
     });
 

@@ -48,6 +48,7 @@ export default function EstimatePage() {
   const setItems = useItemsStore(s => s.setItems);
   const addElement = useItemsStore(s => s.addElement);
   const updateItem = useItemsStore(s => s.updateItem);
+  const removeItem = useItemsStore(s => s.removeItem);
   const getTotals = useItemsStore(s => s.getTotals);
   const markup = useItemsStore(s => s.markup);
 
@@ -1280,30 +1281,60 @@ export default function EstimatePage() {
                               const focusedField = focusedCostCell?.startsWith(item.id + "-")
                                 ? focusedCostCell.slice(item.id.length + 1)
                                 : null;
+                              const isRowSelected = selectedItemId === item.id;
+                              const rowSubItems = item.subItems || [];
                               return (
-                                <EstimateItemRow
-                                  key={item.id}
-                                  item={item}
-                                  rowIdx={rowIdx + rowOffset}
-                                  globalIndex={gi}
-                                  lineTotal={lt}
-                                  animKey={itemTotalKeys.current[item.id].k}
-                                  isSelected={selectedItemId === item.id}
-                                  isDragging={dragItemId === item.id}
-                                  isOddRow={(rowIdx + rowOffset) % 2 === 1}
-                                  isPricing={isPricing}
-                                  focusedField={focusedField}
-                                  C={C}
-                                  T={T}
-                                  updateItem={updateItem}
-                                  onDragStart={setDragItemId}
-                                  onDragEnd={handleDragEnd}
-                                  onRowClick={handleRowClick}
-                                  onFocusCostCell={setFocusedCostCell}
-                                  onBlurCostCell={handleBlurCostCell}
-                                  subFromCode={subFromCode}
-                                  onCodeClick={setCodeEditItemId}
-                                />
+                                <div key={item.id}>
+                                  <EstimateItemRow
+                                    item={item}
+                                    rowIdx={rowIdx + rowOffset}
+                                    globalIndex={gi}
+                                    lineTotal={lt}
+                                    animKey={itemTotalKeys.current[item.id].k}
+                                    isSelected={isRowSelected}
+                                    isDragging={dragItemId === item.id}
+                                    isOddRow={(rowIdx + rowOffset) % 2 === 1}
+                                    isPricing={isPricing}
+                                    focusedField={focusedField}
+                                    C={C}
+                                    T={T}
+                                    updateItem={updateItem}
+                                    onDelete={removeItem}
+                                    onDragStart={setDragItemId}
+                                    onDragEnd={handleDragEnd}
+                                    onRowClick={handleRowClick}
+                                    onFocusCostCell={setFocusedCostCell}
+                                    onBlurCostCell={handleBlurCostCell}
+                                    subFromCode={subFromCode}
+                                    onCodeClick={setCodeEditItemId}
+                                    hasSubItems={rowSubItems.length > 0}
+                                  />
+                                  {/* Sub-items inline panel — shows what's included in this module */}
+                                  {isRowSelected && rowSubItems.length > 0 && (
+                                    <div style={{
+                                      background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+                                      borderBottom: `1px solid ${C.border}`,
+                                      borderLeft: `3px solid ${C.accent}40`,
+                                      padding: "6px 12px 6px 48px",
+                                    }}>
+                                      <div style={{ fontSize: 9, fontWeight: 600, color: C.textDim, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+                                        Included ({rowSubItems.length})
+                                      </div>
+                                      {rowSubItems.map(si => {
+                                        const siTotal = (nn(si.m) + nn(si.l) + nn(si.e)) * nn(si.factor || 1);
+                                        return (
+                                          <div key={si.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0", fontSize: T.fontSize.sm, color: C.textDim }}>
+                                            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{si.desc || "—"}</span>
+                                            <span style={{ fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>{si.unit || ""}</span>
+                                            <span style={{ fontSize: T.fontSize.sm, color: C.text, fontFeatureSettings: "'tnum'", minWidth: 72, textAlign: "right" }}>
+                                              {siTotal > 0 ? fmt(siTotal) : "—"}
+                                            </span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               );
                             });
 

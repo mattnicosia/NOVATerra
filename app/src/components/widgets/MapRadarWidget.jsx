@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { useNavigate } from "react-router-dom";
 
 /* ────────────────────────────────────────────────────────
    MapRadarWidget — Mapbox dark map with radar ping markers
@@ -59,6 +58,44 @@ function guessLocation(name) {
   return [-74.0 + (hash % 50) * 0.008 - 0.2, 40.7 + (hash % 30) * 0.01 - 0.15];
 }
 
+function buildRing({ inset, color, speed, delay = "0s" }) {
+  const ring = document.createElement("div");
+  ring.style.position = "absolute";
+  ring.style.inset = inset;
+  ring.style.borderRadius = "50%";
+  ring.style.border = `1px solid ${color}`;
+  ring.style.opacity = "0";
+  ring.style.animation = `mrp ${speed} ease-out infinite ${delay}`;
+  return ring;
+}
+
+function createRadarMarker({ size, color, speed, title }) {
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+  wrapper.style.width = `${size}px`;
+  wrapper.style.height = `${size}px`;
+  wrapper.style.cursor = "pointer";
+  wrapper.title = title;
+
+  wrapper.appendChild(buildRing({ inset: "0", color, speed }));
+  wrapper.appendChild(buildRing({ inset: "12%", color, speed, delay: "0.25s" }));
+  wrapper.appendChild(buildRing({ inset: "24%", color, speed, delay: "0.5s" }));
+
+  const core = document.createElement("div");
+  core.style.position = "absolute";
+  core.style.left = "50%";
+  core.style.top = "50%";
+  core.style.width = "5px";
+  core.style.height = "5px";
+  core.style.margin = "-2.5px";
+  core.style.borderRadius = "50%";
+  core.style.background = color;
+  core.style.boxShadow = `0 0 6px ${color},0 0 12px ${color}40`;
+  wrapper.appendChild(core);
+
+  return wrapper;
+}
+
 // Expand icon
 const ExpandIcon = ({ color }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth="1.3" strokeLinecap="round">
@@ -75,8 +112,6 @@ const CollapseIcon = ({ color }) => (
 export default function MapRadarWidget() {
   const C = useTheme();
   const T = C.T;
-  const dk = C.isDark;
-  const navigate = useNavigate();
   const { estimatesList } = useDashboardData();
   const estimates = estimatesList;
 
@@ -156,20 +191,13 @@ export default function MapRadarWidget() {
       const [lng, lat] = guessLocation(name);
 
       // Create radar ping element
-      const el = document.createElement("div");
       const sz = Math.max(40, Math.min(80, 40 + (value / 500000) * 30));
-      el.innerHTML = `
-        <div style="position:relative;width:${sz}px;height:${sz}px;cursor:pointer;" title="${name}\n${status} · ${value ? "$" + (value / 1000).toFixed(0) + "K" : "No value"}">
-          <div style="position:absolute;inset:0;border-radius:50%;border:1px solid ${color};opacity:0;
-            animation:mrp ${speed} ease-out infinite;"></div>
-          <div style="position:absolute;inset:12%;border-radius:50%;border:1px solid ${color};opacity:0;
-            animation:mrp ${speed} ease-out infinite 0.25s;"></div>
-          <div style="position:absolute;inset:24%;border-radius:50%;border:1px solid ${color};opacity:0;
-            animation:mrp ${speed} ease-out infinite 0.5s;"></div>
-          <div style="position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;
-            background:${color};box-shadow:0 0 6px ${color},0 0 12px ${color}40;"></div>
-        </div>
-      `;
+      const el = createRadarMarker({
+        size: sz,
+        color,
+        speed,
+        title: `${name}\n${status} · ${value ? "$" + (value / 1000).toFixed(0) + "K" : "No value"}`,
+      });
 
       el.onclick = () => {
         mapRef.current.flyTo({ center: [lng, lat], zoom: 14, pitch: 55, duration: 1500 });

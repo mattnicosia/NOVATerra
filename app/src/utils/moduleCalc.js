@@ -4,18 +4,7 @@
 import { nn } from "@/utils/format";
 import { parseRebarSpec } from "@/constants/modules";
 import { getMeasuredQtyCtx } from "@/utils/measurementCalc";
-
-// ── Performance: cached regex objects per variable key ──────
-const _regexCache = new Map();
-function getCachedRegex(key) {
-  let re = _regexCache.get(key);
-  if (!re) {
-    re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
-    _regexCache.set(key, re);
-  }
-  re.lastIndex = 0; // reset for global flag
-  return re;
-}
+import { evaluateArithmeticExpression, evaluateBooleanExpression } from "@/utils/safeExpression";
 
 // Parse framing-specific spec strings into numeric formula variables
 // Called per-instance since each wall type has its own specs
@@ -420,16 +409,7 @@ function computeSteelContext(ctx, specs) {
 export function evalModuleFormula(formula, context) {
   if (!formula || !formula.trim()) return 0;
   try {
-    let expr = formula.trim();
-    // Sort keys by length descending to avoid partial replacements
-    const keys = Object.keys(context).sort((a, b) => b.length - a.length);
-    keys.forEach(k => {
-      expr = expr.replace(getCachedRegex(k), String(nn(context[k])));
-    });
-    // Strip anything that's not math-safe
-    const safe = expr.replace(/[^0-9.+\-*/()% ]/g, "");
-    if (!safe.trim()) return 0;
-    return Function('"use strict";return (' + safe + ")")();
+    return evaluateArithmeticExpression(formula, context);
   } catch {
     return 0;
   }
@@ -439,13 +419,7 @@ export function evalModuleFormula(formula, context) {
 export function evalCondition(condition, context) {
   if (!condition) return true;
   try {
-    let expr = condition.trim();
-    const keys = Object.keys(context).sort((a, b) => b.length - a.length);
-    keys.forEach(k => {
-      const val = context[k];
-      expr = expr.replace(getCachedRegex(k), typeof val === "string" ? `'${val}'` : String(nn(val)));
-    });
-    return Function('"use strict";return (' + expr + ")")();
+    return evaluateBooleanExpression(condition, context);
   } catch {
     return false; // If we can't evaluate (missing variables), hide the item
   }

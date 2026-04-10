@@ -76,9 +76,14 @@ export function useAutoSave() {
     let drawTimer = null;
 
     const scheduleEstSave = () => {
-      const { activeEstimateId, draftId } = useEstimatesStore.getState();
+      const { activeEstimateId, draftId, clearDraft } = useEstimatesStore.getState();
       if (!activeEstimateId) return;
-      if (draftId && activeEstimateId === draftId) return;
+      // Draft guard: skip save on blank new estimates (no project info filled yet).
+      // But if items exist the user has done real work — clear draft and save.
+      if (draftId && activeEstimateId === draftId) {
+        if (useItemsStore.getState().items.length === 0) return;
+        clearDraft(); // estimate has content — promote from draft to saved
+      }
       // In CRDT mode, all org users can save concurrently (no lock guard).
       // In legacy mode, only the lock holder can save.
       if (!CRDT_ENABLED && useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
@@ -98,7 +103,7 @@ export function useAutoSave() {
     const scheduleDrawSave = () => {
       const { activeEstimateId, draftId } = useEstimatesStore.getState();
       if (!activeEstimateId) return;
-      if (draftId && activeEstimateId === draftId) return;
+      if (draftId && activeEstimateId === draftId) return; // drawings don't promote draft
 
       if (drawTimer) clearTimeout(drawTimer);
       drawTimer = setTimeout(() => {
@@ -137,7 +142,6 @@ export function useAutoSave() {
       // Flush pending save for outgoing estimate, then cancel timers
       useEstimatesStore.subscribe((state, prev) => {
         if (state.activeEstimateId !== prev.activeEstimateId) {
-          const hadPending = !!(estTimer || drawTimer);
           if (estTimer) clearTimeout(estTimer);
           if (drawTimer) clearTimeout(drawTimer);
           estTimer = null;
@@ -146,7 +150,7 @@ export function useAutoSave() {
           // At this point stores still contain the outgoing estimate's data
           // (loading the new estimate is async), so we can safely save it.
           if (prev.activeEstimateId) {
-            saveEstimate(prev.activeEstimateId).catch(err => {
+            saveEstimate(prev.activeEstimateId, { allowInactiveCloudPush: true }).catch(err => {
               console.error("[autoSave] Flush on estimate switch failed:", err);
             });
           }

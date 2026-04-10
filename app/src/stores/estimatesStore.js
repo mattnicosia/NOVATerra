@@ -36,6 +36,53 @@ export const hydrateDeletedIds = ids => {
   if (Array.isArray(ids)) ids.forEach(id => _deletedIds.add(id));
 };
 
+function markDirtyEstimateLocal(estimateId) {
+  try {
+    const raw = localStorage.getItem("bldg-dirty-estimates");
+    const ids = raw ? JSON.parse(raw) : [];
+    if (!ids.includes(estimateId)) {
+      ids.push(estimateId);
+      localStorage.setItem("bldg-dirty-estimates", JSON.stringify(ids));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function pushEstimateWithTracking(estimateId, data, reason) {
+  if (!estimateId || !data) return;
+  if (useUiStore.getState().cloudSyncInProgress) {
+    markDirtyEstimateLocal(estimateId);
+    return;
+  }
+  cloudSync.pushEstimate(estimateId, data).catch(err => {
+    markDirtyEstimateLocal(estimateId);
+    console.warn(`[estimatesStore] Cloud push failed during ${reason} for ${estimateId}:`, err?.message || err);
+  });
+}
+
+async function persistEstimateBlobAndPush(estimateId, mutate, reason) {
+  const localRecord = await cloudSync.readLocalEstimateRecord(estimateId);
+  if (!localRecord.exists) return false;
+  if (!localRecord.data) {
+    markDirtyEstimateLocal(estimateId);
+    console.warn(`[estimatesStore] Skipping ${reason} cloud push for ${estimateId} — local blob is corrupted`);
+    return false;
+  }
+
+  const nextData = localRecord.data;
+  mutate(nextData);
+  nextData._savedAt = new Date().toISOString();
+  const stored = await storage.set(idbKey(`bldg-est-${estimateId}`), JSON.stringify(nextData));
+  if (stored === false) {
+    markDirtyEstimateLocal(estimateId);
+    return false;
+  }
+
+  pushEstimateWithTracking(estimateId, nextData, reason);
+  return true;
+}
+
 export const useEstimatesStore = create((set, get) => ({
   estimatesIndex: [],
   activeEstimateId: null,
@@ -264,11 +311,7 @@ export const useEstimatesStore = create((set, get) => ({
     }
 
     // Cloud sync estimate data (non-blocking)
-    // Guard: skip if startup cloud sync hasn't finished yet (prevents race where
-    // a partial local index overwrites the complete cloud index)
-    if (!useUiStore.getState().cloudSyncInProgress) {
-      cloudSync.pushEstimate(id, data).catch(() => {});
-    }
+    pushEstimateWithTracking(id, data, "createEstimate");
 
     return id;
   },
@@ -460,10 +503,7 @@ export const useEstimatesStore = create((set, get) => ({
       /* quota exceeded */
     }
 
-    // Cloud sync (non-blocking)
-    if (!useUiStore.getState().cloudSyncInProgress) {
-      cloudSync.pushEstimate(newId, data).catch(() => {});
-    }
+    pushEstimateWithTracking(newId, data, "duplicateEstimate");
 
     return newId;
   },
@@ -571,10 +611,7 @@ export const useEstimatesStore = create((set, get) => ({
       /* quota exceeded */
     }
 
-    // Cloud sync (non-blocking)
-    if (!useUiStore.getState().cloudSyncInProgress) {
-      cloudSync.pushEstimate(newId, clonedData).catch(() => {});
-    }
+    pushEstimateWithTracking(newId, clonedData, "createRevision");
 
     return { id: newId, revisionNumber };
   },
@@ -658,35 +695,29 @@ export const useEstimatesStore = create((set, get) => ({
     const updates = { assignedTo: userIds, ...(autoVisibility ? { visibility: autoVisibility } : {}) };
     // Use updateIndexEntry for proper IDB + cloud sync
     get().updateIndexEntry(estimateId, updates);
-    // Also push the estimate itself so assigned_to column updates on user_estimates row
-    storage.get(idbKey(`bldg-est-${estimateId}`)).then(raw => {
-      if (raw) {
-        try {
-          const estData = typeof raw === "string" ? JSON.parse(raw) : raw;
-          if (estData?.project) {
-            estData.project.assignedTo = userIds;
-            if (autoVisibility) estData.project.visibility = autoVisibility;
-          }
-          cloudSync.pushEstimate(estimateId, estData).catch(() => {});
-        } catch { /* non-critical */ }
-      }
-    }).catch(() => {});
+    persistEstimateBlobAndPush(
+      estimateId,
+      estData => {
+        if (!estData.project) estData.project = {};
+        estData.project.assignedTo = userIds;
+        if (autoVisibility) estData.project.visibility = autoVisibility;
+      },
+      "assignEstimate",
+    ).catch(() => {});
   },
 
   setVisibility: (estimateId, visibility) => {
     const entry = get().estimatesIndex.find(e => e.id === estimateId);
     if (!entry || entry.visibility === visibility) return;
     get().updateIndexEntry(estimateId, { visibility });
-    // Push estimate row so visibility column updates on user_estimates
-    storage.get(idbKey(`bldg-est-${estimateId}`)).then(raw => {
-      if (raw) {
-        try {
-          const estData = typeof raw === "string" ? JSON.parse(raw) : raw;
-          if (estData?.project) estData.project.visibility = visibility;
-          cloudSync.pushEstimate(estimateId, estData).catch(() => {});
-        } catch { /* non-critical */ }
-      }
-    }).catch(() => {});
+    persistEstimateBlobAndPush(
+      estimateId,
+      estData => {
+        if (!estData.project) estData.project = {};
+        estData.project.visibility = visibility;
+      },
+      "setVisibility",
+    ).catch(() => {});
   },
 
   // Import a pre-built estimate from an RFP
@@ -753,10 +784,7 @@ export const useEstimatesStore = create((set, get) => ({
       /* quota exceeded */
     }
 
-    // Cloud sync (non-blocking)
-    if (!useUiStore.getState().cloudSyncInProgress) {
-      cloudSync.pushEstimate(id, data).catch(() => {});
-    }
+    pushEstimateWithTracking(id, data, "importFromRfp");
 
     return id;
   },

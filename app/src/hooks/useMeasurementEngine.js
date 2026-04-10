@@ -10,6 +10,9 @@ import { useCallback, useMemo } from "react";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { PDF_RENDER_DPI, DEFAULT_IMAGE_DPI } from "@/constants/scales";
 import { nn } from "@/utils/format";
+import { evalFormula } from "@/utils/formula";
+
+export { evalFormula };
 
 // ─── Pure helpers (no store deps) ─────────────
 
@@ -42,27 +45,6 @@ const scaleCodeToPxPerUnit = (code, dpi) => {
     return ((dpi / 25.4) * 1000) / ratio;
   }
   return null;
-};
-
-/** Evaluate a user-defined formula with variable substitution */
-export const evalFormula = (formula, variables, measured) => {
-  if (!formula || !formula.trim()) return measured;
-  try {
-    let expr = formula.trim();
-    const vars = [{ key: "Measured", value: measured }, { key: "Qty", value: measured }, ...(variables || [])];
-    vars.sort((a, b) => (b.key || "").length - (a.key || "").length);
-    vars.forEach(v => {
-      if (v.key) {
-        const re = new RegExp(v.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-        expr = expr.replace(re, String(nn(v.value)));
-      }
-    });
-    const safe = expr.replace(/[^0-9.+\-*/()% ]/g, "");
-    if (!safe.trim()) return measured;
-    return Function('"use strict";return (' + safe + ")")();
-  } catch {
-    return measured;
-  }
 };
 
 // ─── Hook ─────────────

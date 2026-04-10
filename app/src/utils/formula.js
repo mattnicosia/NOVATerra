@@ -1,4 +1,5 @@
 import { nn } from './format';
+import { evaluateArithmeticExpression } from "./safeExpression";
 
 /**
  * Evaluate a user-defined formula with variable substitution.
@@ -8,26 +9,15 @@ import { nn } from './format';
 export const evalFormula = (formula, variables, measured) => {
   if (!formula || !formula.trim()) return measured;
   try {
-    let expr = formula.trim();
-    // Build variable list: always include Qty/Measured as built-ins
-    const vars = [
-      { key: "Measured", value: measured },
-      { key: "Qty", value: measured },
-      ...(variables || []),
-    ];
-    // Sort longest key first to prevent partial matches (e.g. "Height" before "He")
-    vars.sort((a, b) => ((b.key || b.name || "").length) - ((a.key || a.name || "").length));
-    vars.forEach(v => {
-      const k = v.key || v.name;
-      if (k) {
-        const re = new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-        expr = expr.replace(re, String(nn(v.value)));
-      }
+    const scope = {
+      Measured: measured,
+      Qty: measured,
+    };
+    (variables || []).forEach(variable => {
+      const key = variable?.key || variable?.name;
+      if (key) scope[key] = nn(variable.value);
     });
-    // Safe math evaluation — only numbers and basic operators
-    const safe = expr.replace(/[^0-9.+\-*/()% ]/g, "");
-    if (!safe.trim()) return measured;
-    return nn(Function('"use strict"; return (' + safe + ')')());
+    return nn(evaluateArithmeticExpression(formula, scope));
   } catch {
     return measured;
   }

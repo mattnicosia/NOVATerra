@@ -6,11 +6,14 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useCalendarStore } from "@/stores/calendarStore";
-import { resetAllStores, getDirtyEstimates, clearDirtyEstimate } from "@/hooks/usePersistence";
+import { resetAllStores, getDirtyEstimates, clearDirtyEstimate, markDirtyEstimate } from "@/hooks/usePersistence";
 import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
 import { useOrgStore } from "@/stores/orgStore";
 import * as nova from "@/utils/novaLogger";
+
+const DIRTY_RETRY_INTERVAL_MS = 30_000;
+let _dirtyFlushPromise = null;
 
 /**
  * Bidirectional cloud sync on every app startup.
@@ -34,6 +37,54 @@ export async function retryCloudSync() {
   const user = useAuthStore.getState().user;
   if (!user) return;
   await runCloudSync();
+}
+
+export async function flushDirtyEstimates({ source = "manual" } = {}) {
+  if (_dirtyFlushPromise) return _dirtyFlushPromise;
+
+  _dirtyFlushPromise = (async () => {
+    if (useUiStore.getState().cloudSyncInProgress) {
+      return { attempted: 0, flushed: 0, failed: 0, skipped: true };
+    }
+
+    const dirtyIds = getDirtyEstimates();
+    if (dirtyIds.length === 0) {
+      return { attempted: 0, flushed: 0, failed: 0, skipped: false };
+    }
+
+    let flushed = 0;
+    let failed = 0;
+    nova.sync.info(`Flushing ${dirtyIds.length} dirty estimate(s)`, { source, count: dirtyIds.length });
+
+    for (const estimateId of dirtyIds) {
+      try {
+        const localRecord = await cloudSync.readLocalEstimateRecord(estimateId);
+        if (!localRecord.exists) {
+          clearDirtyEstimate(estimateId);
+          nova.orphan.warn(`Dirty estimate ${estimateId.slice(0, 8)} has no IDB data — cleared from queue`);
+          continue;
+        }
+        if (!localRecord.data) {
+          failed++;
+          nova.sync.warn(`Dirty estimate ${estimateId.slice(0, 8)} has corrupted local data`, { source });
+          continue;
+        }
+
+        await cloudSync.pushEstimate(estimateId, localRecord.data);
+        clearDirtyEstimate(estimateId);
+        flushed++;
+      } catch (err) {
+        failed++;
+        nova.sync.warn(`Failed to push dirty estimate ${estimateId.slice(0, 8)}`, { error: err, source });
+      }
+    }
+
+    return { attempted: dirtyIds.length, flushed, failed, skipped: false };
+  })().finally(() => {
+    _dirtyFlushPromise = null;
+  });
+
+  return _dirtyFlushPromise;
 }
 
 async function runCloudSync() {
@@ -78,25 +129,7 @@ async function runCloudSync() {
 
   // ── Flush dirty estimates first (failed/deferred pushes from last session) ──
   await trySync("Dirty estimates", async () => {
-    const dirtyIds = getDirtyEstimates();
-    if (dirtyIds.length === 0) return;
-    nova.sync.info(`Flushing ${dirtyIds.length} dirty estimate(s) from last session`, { count: dirtyIds.length });
-    for (const did of dirtyIds) {
-      try {
-        const raw = await storage.get(idbKey(`bldg-est-${did}`));
-        if (raw) {
-          const data = JSON.parse(raw.value);
-          await cloudSync.pushEstimate(did, data);
-          clearDirtyEstimate(did);
-          nova.sync.info(`Dirty estimate ${did.slice(0, 8)} pushed successfully`);
-        } else {
-          clearDirtyEstimate(did); // Data gone, can't push
-          nova.orphan.warn(`Dirty estimate ${did.slice(0, 8)} has no IDB data — cleared from queue`);
-        }
-      } catch (err) {
-        nova.sync.warn(`Failed to push dirty estimate ${did.slice(0, 8)}`, { error: err });
-      }
-    }
+    await flushDirtyEstimates({ source: "startup" });
   });
 
   await trySync("Master data", syncMasterData);
@@ -186,6 +219,25 @@ export function useCloudSync() {
       await runCloudSync();
       console.log("[cloudSync] ✅ Sync complete — status:", useUiStore.getState().cloudSyncStatus);
     })();
+  }, [persistenceLoaded, user, orgReady]);
+
+  useEffect(() => {
+    if (!persistenceLoaded || !user || !orgReady) return undefined;
+
+    const flush = () => {
+      flushDirtyEstimates({ source: "interval" }).catch(err => {
+        console.warn("[cloudSync] Dirty retry loop failed:", err.message || err);
+      });
+    };
+
+    const intervalId = setInterval(flush, DIRTY_RETRY_INTERVAL_MS);
+    const handleOnline = () => flush();
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("online", handleOnline);
+    };
   }, [persistenceLoaded, user, orgReady]);
 
   // ── beforeunload guard: warn if cloud sync hasn't completed ──
@@ -552,14 +604,9 @@ async function syncEstimates() {
       const cloudTime = ce.updated_at ? new Date(ce.updated_at).getTime() : 0;
       if (cloudTime > 0) {
         let localTime = 0;
-        try {
-          const localRaw = await storage.get(idbKey(`bldg-est-${ce.estimate_id}`));
-          if (localRaw) {
-            const localData = JSON.parse(localRaw.value);
-            localTime = localData._savedAt ? new Date(localData._savedAt).getTime() : 0;
-          }
-        } catch {
-          /* parse error — treat as no local timestamp */
+        const localRecord = await cloudSync.readLocalEstimateRecord(ce.estimate_id);
+        if (localRecord.data?._savedAt) {
+          localTime = new Date(localRecord.data._savedAt).getTime();
         }
 
         // Cloud is newer — fetch full data and overwrite local
@@ -696,7 +743,12 @@ async function syncEstimates() {
         } catch {
           continue;
         } // Skip corrupted
-        await cloudSync.pushEstimate(entry.id, estData);
+        try {
+          await cloudSync.pushEstimate(entry.id, estData);
+        } catch (err) {
+          markDirtyEstimate(entry.id);
+          throw err;
+        }
         pushed = true;
       } else {
         // No IDB data under current key — but data may exist under a different
@@ -1025,10 +1077,10 @@ async function runBlobMigration() {
     if (deletedSet.has(entry.id)) continue;
 
     try {
-      const raw = await storage.get(idbKey(`bldg-est-${entry.id}`));
-      if (!raw) continue;
+      const localRecord = await cloudSync.readLocalEstimateRecord(entry.id);
+      if (!localRecord.data) continue;
 
-      const data = JSON.parse(raw.value);
+      const data = localRecord.data;
       let hasUnuploadedBlobs = false;
 
       // Check drawings for blobs without storagePath
@@ -1046,7 +1098,12 @@ async function runBlobMigration() {
 
       if (hasUnuploadedBlobs) {
         console.log(`[cloudSync] Blob migration: re-pushing estimate ${entry.id}`);
-        await cloudSync.pushEstimate(entry.id, data);
+        try {
+          await cloudSync.pushEstimate(entry.id, data);
+        } catch (err) {
+          markDirtyEstimate(entry.id);
+          throw err;
+        }
         migrated++;
         // Small delay between pushes to avoid hammering the API
         await new Promise(r => setTimeout(r, 500));

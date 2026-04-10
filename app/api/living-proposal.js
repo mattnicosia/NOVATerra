@@ -1,6 +1,10 @@
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
-import crypto from "crypto";
+import {
+  readProposalPassword,
+  upgradeLegacyProposalPasswordHash,
+  verifyProposalPassword,
+} from "./lib/livingProposalAuth.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -27,26 +31,38 @@ export default async function handler(req, res) {
     }
 
     // Check password
+    let pwd = "";
     if (proposal.password_hash) {
-      const pwd = req.query.pwd || req.headers["x-proposal-password"];
+      pwd = readProposalPassword(req);
       if (!pwd) return res.status(403).json({ error: "Password required", passwordRequired: true });
-      const hashB64 = crypto.createHash("sha256").update(pwd).digest("base64");
-      if (hashB64 !== proposal.password_hash) {
+      if (!verifyProposalPassword(pwd, proposal.password_hash)) {
         return res.status(403).json({ error: "Incorrect password", passwordRequired: true });
       }
     }
 
     // Increment view count
+    const updates = {
+      view_count: (proposal.view_count || 0) + 1,
+      last_viewed_at: new Date().toISOString(),
+    };
+
     await supabaseAdmin
       .from("living_proposals")
-      .update({
-        view_count: (proposal.view_count || 0) + 1,
-        last_viewed_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("id", proposal.id);
 
+    if (proposal.password_hash) {
+      await upgradeLegacyProposalPasswordHash({
+        supabase: supabaseAdmin,
+        proposalId: proposal.id,
+        storedHash: proposal.password_hash,
+        password: pwd,
+        logLabel: "living-proposal",
+      });
+    }
+
     // Return data (strip sensitive fields)
-    const { user_id, org_id, password_hash, ...publicData } = proposal;
+    const { user_id: _userId, org_id: _orgId, password_hash: _passwordHash, ...publicData } = proposal;
     return res.status(200).json(publicData);
   } catch (err) {
     console.error("[living-proposal]", err);

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, Component } from "react";
 import { buildProposalStyles, loadProposalFont } from "@/constants/proposalStyles";
 import ProposalSection from "@/components/proposal/ProposalSection";
-import CostTreemap from "@/components/proposal/CostTreemap";
 
 // Simple error boundary for individual sections — prevents one bad section from crashing entire viewer
 class SectionErrorBoundary extends Component {
@@ -29,7 +28,6 @@ export default function ProposalViewerPage() {
   const [error, setError] = useState(null);
   const [passwordRequired, setPasswordRequired] = useState(false);
   const [password, setPassword] = useState("");
-  const [activeSection, setActiveSection] = useState(null);
   const [acceptForm, setAcceptForm] = useState({ name: "", title: "" });
   const [accepted, setAccepted] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -66,10 +64,9 @@ export default function ProposalViewerPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const url = pwd
-        ? `/api/living-proposal?token=${token}&pwd=${encodeURIComponent(pwd)}`
-        : `/api/living-proposal?token=${token}`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/living-proposal?token=${token}`, {
+        headers: pwd ? { "x-proposal-password": pwd } : {},
+      });
       const json = await res.json();
       if (res.status === 403 && json.passwordRequired) {
         setPasswordRequired(true);
@@ -120,7 +117,10 @@ export default function ProposalViewerPage() {
     try {
       const res = await fetch("/api/accept-living-proposal", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(password ? { "x-proposal-password": password } : {}),
+        },
         body: JSON.stringify({ token, acceptedName: acceptForm.name, acceptedTitle: acceptForm.title }),
       });
       if (res.ok) {
@@ -267,7 +267,6 @@ export default function ProposalViewerPage() {
                 key={id}
                 id={`section-${id}`}
                 onMouseEnter={() => {
-                  setActiveSection(id);
                   trackEvent(data.id, "section_view", { sectionId: id });
                 }}
               >

@@ -30,8 +30,7 @@ export default function ConflictMergeModal() {
   const handleKeepMine = async () => {
     setResolving(true);
     try {
-      await cloudSync.forcePushEstimate?.(estimateId, localBlob) ||
-        await cloudSync.pushEstimate?.(estimateId, localBlob, { force: true });
+      await cloudSync.pushEstimate?.(estimateId, localBlob);
     } catch { /* push error handled by cloudSync */ }
     useUiStore.getState().clearConflictData?.() || useUiStore.setState({ conflictData: null });
     setResolving(false);

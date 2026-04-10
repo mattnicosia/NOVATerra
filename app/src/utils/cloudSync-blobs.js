@@ -5,6 +5,7 @@
 
 import { supabase } from "./supabase";
 import { getUserId, isReady } from "./cloudSync-auth";
+import { SyncDeferredError } from "./cloudSync-retry";
 
 const BLOB_BUCKET = "blobs";
 
@@ -18,21 +19,35 @@ export function waitForAuthReady() {
   if (!supabase) {
     return Promise.reject(new Error("[cloudSync] Supabase client not initialized"));
   }
+  if (!supabase.auth?.onAuthStateChange) {
+    return Promise.reject(new Error("[cloudSync] Supabase auth client not initialized"));
+  }
 
   if (!_authReady) {
     _authReady = new Promise((resolve, reject) => {
       try {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        let subscription = null;
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          subscription?.unsubscribe?.();
+          resolve();
+        };
+        const authChange = supabase.auth.onAuthStateChange((event, session) => {
           if (
             (event === "INITIAL_SESSION" ||
              event === "SIGNED_IN" ||
              event === "TOKEN_REFRESHED") &&
             session?.access_token
           ) {
-            subscription.unsubscribe();
-            resolve();
+            finish();
           }
         });
+        subscription = authChange?.data?.subscription || null;
+        if (settled) {
+          subscription?.unsubscribe?.();
+        }
       } catch (err) {
         reject(err);
       }
@@ -45,6 +60,25 @@ export function waitForAuthReady() {
 // Minimum valid image/blob size — anything smaller is likely a corrupted
 // error message stored by the CDN (e.g., "URI_TOO_LONG").
 const MIN_VALID_BLOB_BYTES = 200;
+const BLOB_FAILURE_COOLDOWN_MS = 5 * 60 * 1000;
+
+const getBlobFailureCount = key => parseInt(localStorage.getItem(key) || "0", 10);
+const getBlobFailureAt = key => parseInt(localStorage.getItem(`${key}:ts`) || "0", 10);
+const clearBlobFailureState = key => {
+  localStorage.removeItem(key);
+  localStorage.removeItem(`${key}:ts`);
+};
+const noteBlobFailure = key => {
+  const next = getBlobFailureCount(key) + 1;
+  localStorage.setItem(key, String(next));
+  localStorage.setItem(`${key}:ts`, String(Date.now()));
+  return next;
+};
+const isBlobCoolingDown = key => {
+  const failCount = getBlobFailureCount(key);
+  const failedAt = getBlobFailureAt(key);
+  return failCount >= 3 && failedAt > 0 && Date.now() - failedAt < BLOB_FAILURE_COOLDOWN_MS;
+};
 
 /**
  * Convert a data URL to a Blob. Uses fetch() with a manual fallback for
@@ -236,7 +270,6 @@ export const uploadBlob = async (path, dataUrl) => {
  * SAFETY: Validates downloaded blob size — rejects files smaller than
  * MIN_VALID_BLOB_BYTES (likely corrupted CDN error pages).
  */
-const BLOB_DOWNLOAD_TIMEOUT = 20000; // 20s timeout for individual blob downloads
 const BLOB_DOWNLOAD_RETRIES = 3; // retry up to 3 times with exponential backoff
 
 const downloadBlobOnce = async storagePath => {
@@ -332,6 +365,7 @@ export const stripAndUploadBlobs = async (estimateId, data) => {
   if (!data) return data;
   const userId = getUserId();
   const clean = { ...data };
+  const deferredUploads = [];
 
   // Upload + strip drawing data (only strip if upload is VERIFIED)
   if (Array.isArray(clean.drawings)) {
@@ -347,15 +381,24 @@ export const stripAndUploadBlobs = async (estimateId, data) => {
           const { data: _blob, ...rest } = d;
           return rest; // strip inline blob — already in Storage
         }
+        const drawFailKey = `_drawingFailCount_${estimateId}_${d.id}`;
+        if (isBlobCoolingDown(drawFailKey)) {
+          kept++;
+          deferredUploads.push(`drawing:${d.id}`);
+          return d;
+        }
         const path = `${userId}/${estimateId}/drawings/${d.id}`;
         const storagePath = await uploadBlob(path, d.data);
         if (storagePath) {
+          clearBlobFailureState(drawFailKey);
           uploaded++;
           const { data: _blob, ...rest } = d;
           return { ...rest, storagePath, _cloudBlobStripped: true };
         }
         // Upload failed — keep original data inline (safe fallback)
+        noteBlobFailure(drawFailKey);
         kept++;
+        deferredUploads.push(`drawing:${d.id}`);
         console.warn(
           `[cloudSync] Drawing "${d.id}" upload failed — keeping ${(d.data.length / 1024).toFixed(0)}KB inline`,
         );
@@ -377,47 +420,50 @@ export const stripAndUploadBlobs = async (estimateId, data) => {
           const { data: _blob, ...rest } = d;
           return rest; // strip inline blob — already in Storage
         }
-        const docFailKey = `_docFailCount_${d.id}`;
-        const docFailCount = parseInt(localStorage.getItem(docFailKey) || "0", 10);
-        if (docFailCount >= 3) {
-          console.warn(`[cloudSync] Document "${d.id}" permanently skipped — 3 failures`);
-          const { data: _blob, ...rest } = d;
-          return rest; // strip corrupted blob
+        const docFailKey = `_docFailCount_${estimateId}_${d.id}`;
+        if (isBlobCoolingDown(docFailKey)) {
+          deferredUploads.push(`document:${d.id}`);
+          return d;
         }
         const path = `${userId}/${estimateId}/documents/${d.id}`;
         const storagePath = await uploadBlob(path, d.data);
         if (storagePath) {
-          localStorage.removeItem(docFailKey);
+          clearBlobFailureState(docFailKey);
           const { data: _blob, ...rest } = d;
           return { ...rest, storagePath, _cloudBlobStripped: true };
         }
-        localStorage.setItem(docFailKey, String(docFailCount + 1));
-        console.warn(`[cloudSync] Document "${d.id}" upload failed (attempt ${docFailCount + 1}/3) — keeping inline`);
+        const failCount = noteBlobFailure(docFailKey);
+        deferredUploads.push(`document:${d.id}`);
+        console.warn(`[cloudSync] Document "${d.id}" upload failed (attempt ${failCount}) — keeping inline`);
         return d;
       }),
     );
   }
 
   // Upload + strip spec PDF (only strip if upload is VERIFIED)
-  // Skip if this blob has failed too many times (prevents infinite retry loop)
   const specFailKey = `_specPdfFailCount_${estimateId}`;
-  const specFailCount = parseInt(localStorage.getItem(specFailKey) || "0", 10);
-  if (clean.specPdf && specFailCount < 3) {
+  if (clean.specPdf && !isBlobCoolingDown(specFailKey)) {
     const path = `${userId}/${estimateId}/specPdf`;
     const storagePath = await uploadBlob(path, clean.specPdf);
     if (storagePath) {
       clean.specPdf = null;
       clean._specPdfStripped = true;
       clean._specPdfStoragePath = storagePath;
-      localStorage.removeItem(specFailKey);
+      clearBlobFailureState(specFailKey);
     } else {
-      localStorage.setItem(specFailKey, String(specFailCount + 1));
-      console.warn(`[cloudSync] specPdf upload failed (attempt ${specFailCount + 1}/3) — keeping inline`);
+      const failCount = noteBlobFailure(specFailKey);
+      deferredUploads.push("specPdf");
+      console.warn(`[cloudSync] specPdf upload failed (attempt ${failCount}) — keeping inline`);
     }
-  } else if (specFailCount >= 3) {
-    // Permanently skip — blob is corrupted, don't keep retrying
-    console.warn(`[cloudSync] specPdf permanently skipped for ${estimateId} — 3 failures`);
-    clean.specPdf = null; // strip the corrupted blob from the push payload
+  } else if (clean.specPdf) {
+    deferredUploads.push("specPdf");
+  }
+
+  if (deferredUploads.length > 0) {
+    throw new SyncDeferredError(
+      `[cloudSync] pushEstimate("${estimateId}") deferred — ${deferredUploads.length} blob upload(s) still pending`,
+      "blob_upload",
+    );
   }
 
   return clean;

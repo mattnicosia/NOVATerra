@@ -18,6 +18,8 @@ vi.mock("@/utils/cloudSync", () => ({
   pushEstimate: vi.fn().mockResolvedValue(undefined),
   pushData: vi.fn().mockResolvedValue(undefined),
   deleteEstimate: vi.fn().mockResolvedValue(undefined),
+  syncIndexColumns: vi.fn().mockResolvedValue(undefined),
+  readLocalEstimateRecord: vi.fn().mockResolvedValue({ exists: true, corrupted: false, data: { project: {} } }),
 }));
 
 // Mock idbKey — pass through key unchanged
@@ -233,6 +235,8 @@ describe("estimatesStore", () => {
       draftId: null,
     });
     vi.clearAllMocks();
+    cloudSync.readLocalEstimateRecord.mockResolvedValue({ exists: true, corrupted: false, data: { project: {} } });
+    localStorage.removeItem("bldg-dirty-estimates");
   });
 
   // ── 1. Initial state shape ──────────────────────────────────────────
@@ -530,6 +534,43 @@ describe("estimatesStore", () => {
 
       getState().assignEstimate("asgn-2", ["user-x"]);
       expect(getState().estimatesIndex[0].assignedTo).toEqual(["user-x"]);
+    });
+
+    it("persists the assignment change into the estimate blob before pushing", async () => {
+      const entry = makeFakeEntry({ id: "asgn-3", assignedTo: [] });
+      setState({ estimatesIndex: [entry] });
+      cloudSync.readLocalEstimateRecord.mockResolvedValueOnce({
+        exists: true,
+        corrupted: false,
+        data: { project: { name: "Test" } },
+      });
+
+      getState().assignEstimate("asgn-3", ["user-a", "user-b"]);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(storage.set).toHaveBeenCalledWith(
+        "bldg-est-asgn-3",
+        expect.stringContaining('"assignedTo":["user-a","user-b"]'),
+      );
+      expect(cloudSync.pushEstimate).toHaveBeenCalledWith(
+        "asgn-3",
+        expect.objectContaining({
+          project: expect.objectContaining({
+            assignedTo: ["user-a", "user-b"],
+          }),
+        }),
+      );
+    });
+
+    it("marks the estimate dirty when the direct cloud push fails", async () => {
+      const entry = makeFakeEntry({ id: "asgn-4", assignedTo: [] });
+      setState({ estimatesIndex: [entry] });
+      cloudSync.pushEstimate.mockRejectedValueOnce(new Error("sync failed"));
+
+      getState().assignEstimate("asgn-4", ["user-a"]);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(localStorage.getItem("bldg-dirty-estimates")).toContain("asgn-4");
     });
   });
 

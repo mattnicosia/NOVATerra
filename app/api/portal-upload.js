@@ -4,6 +4,7 @@
 
 import { supabaseAdmin } from './lib/supabaseAdmin.js';
 import { cors } from './lib/cors.js';
+import { isPastDueDate, isPortalSubmissionLocked } from "./lib/portalAccess.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -31,14 +32,14 @@ export default async function handler(req, res) {
     if (invErr || !inv) {
       return res.status(404).json({ error: 'Invalid invitation token' });
     }
+    if (isPortalSubmissionLocked(inv.status)) {
+      return res.status(400).json({ error: 'This invitation has already been submitted' });
+    }
 
     // Check if past due
     const pkg = inv.bid_packages;
-    if (pkg?.due_date) {
-      const due = new Date(pkg.due_date + 'T23:59:59');
-      if (new Date() > due) {
-        return res.status(410).json({ error: 'This bid invitation has passed its due date' });
-      }
+    if (isPastDueDate(pkg?.due_date)) {
+      return res.status(410).json({ error: 'This bid invitation has passed its due date' });
     }
 
     // Create proposal record

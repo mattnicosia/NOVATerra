@@ -1,4 +1,5 @@
 import { useState } from "react";
+import DOMPurify from "dompurify";
 import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
 import { bt } from "@/utils/styles";
@@ -133,7 +134,7 @@ export default function PdfExport({ workload }) {
       `;
 
       const container = document.createElement("div");
-      container.innerHTML = html;
+      container.innerHTML = DOMPurify.sanitize(html);
       document.body.appendChild(container);
 
       await html2pdf()

@@ -10,6 +10,16 @@ export const SYNC_COOLDOWN = 30000; // 30s cooldown after all retries exhausted
 export let _activeSyncs = 0;
 export const MAX_CONCURRENT_SYNCS = 3; // limit parallel uploads
 
+export class SyncDeferredError extends Error {
+  constructor(message, reason) {
+    super(message);
+    this.name = "SyncDeferredError";
+    this.reason = reason;
+  }
+}
+
+export const isDeferredSyncError = err => err instanceof SyncDeferredError;
+
 /** Classify errors: permanent (don't retry) vs transient (do retry). */
 export const isPermanentError = err => {
   const msg = (err?.message || "").toLowerCase();
@@ -25,12 +35,10 @@ export const isPermanentError = err => {
 export const withRetry = async (label, fn, retries = 2) => {
   const lastError = _syncErrors.get(label) || 0;
   if (Date.now() - lastError < SYNC_COOLDOWN) {
-    console.warn(`[cloudSync] ${label} skipped — cooling down after recent failure`);
-    return;
+    throw new SyncDeferredError(`[cloudSync] ${label} skipped — cooling down after recent failure`, "cooldown");
   }
   if (_activeSyncs >= MAX_CONCURRENT_SYNCS) {
-    console.warn(`[cloudSync] ${label} skipped — ${_activeSyncs} syncs in flight`);
-    return;
+    throw new SyncDeferredError(`[cloudSync] ${label} skipped — ${_activeSyncs} syncs in flight`, "concurrency");
   }
   _activeSyncs++;
   try {

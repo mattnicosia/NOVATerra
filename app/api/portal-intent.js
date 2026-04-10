@@ -3,6 +3,7 @@
 
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
+import { isPastDueDate } from "./lib/portalAccess.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -28,12 +29,15 @@ export default async function handler(req, res) {
     // Verify token
     const { data: inv, error: invErr } = await supabaseAdmin
       .from("bid_invitations")
-      .select("id, package_id, status")
+      .select("id, package_id, status, bid_packages(due_date)")
       .eq("token", token)
       .single();
 
     if (invErr || !inv) {
       return res.status(404).json({ error: "Invalid token" });
+    }
+    if (isPastDueDate(inv.bid_packages?.due_date)) {
+      return res.status(410).json({ error: "This bid invitation has passed its due date" });
     }
 
     // Don't allow intent changes on already-submitted or awarded invitations

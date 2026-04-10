@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     }
 
     // If not yet parsed, return pending
-    if (proposal.parse_status !== "success") {
+    if (!["success", "parsed"].includes(proposal.parse_status)) {
       return res.status(200).json({ status: "pending", parseStatus: proposal.parse_status || "processing" });
     }
 

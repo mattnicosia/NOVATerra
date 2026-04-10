@@ -22,7 +22,6 @@ import { useOrgStore } from "@/stores/orgStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { storage } from "@/utils/storage";
 import { idbKey } from "@/utils/idbKey";
-import { loadEstimate } from "@/hooks/usePersistence";
 
 // Throttle timers for incoming changes (batch rapid updates)
 const CHANGE_THROTTLE_MS = 500;
@@ -156,8 +155,8 @@ export function useRealtimeSync() {
         if (!cloudEst) return;
 
         // Compare timestamps — only apply if cloud is newer
-        const localRaw = await storage.get(idbKey(`bldg-est-${activeId}`));
-        const localTime = localRaw ? JSON.parse(localRaw.value)?._savedAt : null;
+        const localRecord = await cloudSync.readLocalEstimateRecord(activeId);
+        const localTime = localRecord.data?._savedAt || null;
         const cloudTime = cloudEst._savedAt;
 
         if (cloudTime && (!localTime || new Date(cloudTime) > new Date(localTime))) {
@@ -257,22 +256,13 @@ async function _handleEstimateChange(payload) {
     return;
   }
 
-  // New or updated estimate — pull full data and apply
+  // New or updated estimate — pull full data and apply.
+  // pullAndApplyEstimate() handles: timestamp guard (won't overwrite newer local),
+  // IDB write, and _reloadActiveEstimate() with edit-recency guard.
+  // Do NOT call loadEstimate() separately — it would re-read IDB that was just
+  // written and call setItems() a second time, potentially with stale data.
   console.log(`[realtimeSync] Estimate ${estimateId} changed on another device — pulling`);
   const data = await cloudSync.pullAndApplyEstimate(estimateId);
-
-  // If this is the active estimate, rehydrate all Zustand stores from IDB
-  const activeId = useEstimatesStore.getState().activeEstimateId;
-  if (data && estimateId === activeId) {
-    console.log(`[realtimeSync] Active estimate updated remotely — rehydrating stores`);
-    try {
-      await loadEstimate(estimateId);
-      const savedBy = data._savedByName || "a teammate";
-      useUiStore.getState().showToast(`Estimate updated by ${savedBy}`, "info");
-    } catch {
-      /* rehydrate non-critical — data is already in IDB */
-    }
-  }
 
   // If this is a new estimate not in our index, add it
   if (data) {

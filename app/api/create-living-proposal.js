@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
 import crypto from "crypto";
+import { hashProposalPassword } from "./lib/livingProposalAuth.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -22,18 +23,22 @@ export default async function handler(req, res) {
   // Generate unique token (URL-safe, 12 chars)
   const token = crypto.randomBytes(9).toString("base64url").slice(0, 12);
 
-  // Optional password hash
-  let passwordHash = null;
-  if (password) {
-    passwordHash = crypto.createHash("sha256").update(password).digest("base64");
-  }
-
   // Compute expiry
   const expiresAt = expiresInDays
     ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
     : null;
 
   try {
+    const { data: ownedEstimate, error: estimateErr } = await supabaseAdmin
+      .from("user_estimates")
+      .select("estimate_id")
+      .eq("estimate_id", estimateId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (estimateErr) throw estimateErr;
+    if (!ownedEstimate) return res.status(403).json({ error: "Estimate does not belong to this user" });
+
     const { data, error } = await supabaseAdmin
       .from("living_proposals")
       .insert({
@@ -47,7 +52,7 @@ export default async function handler(req, res) {
         project_info: projectInfo || {},
         recipient_name: recipientName || null,
         recipient_email: recipientEmail || null,
-        password_hash: passwordHash,
+        password_hash: password ? hashProposalPassword(password) : null,
         expires_at: expiresAt,
       })
       .select()

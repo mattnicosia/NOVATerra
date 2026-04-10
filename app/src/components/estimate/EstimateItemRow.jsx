@@ -29,6 +29,8 @@ const EstimateItemRow = memo(
     onBlurCostCell,
     subFromCode,
     onCodeClick,
+    onDelete,
+    hasSubItems,
   }) {
     const isZeroTotal = lineTotal === 0 || lineTotal === null || lineTotal === undefined;
 
@@ -251,6 +253,49 @@ const EstimateItemRow = memo(
         >
           {fmt(lineTotal)}
         </div>
+        {/* Sub-items indicator */}
+        {hasSubItems && (
+          <div
+            title="Click row to see what's included"
+            style={{
+              fontSize: 9,
+              color: isSelected ? C.accent : C.textDim,
+              whiteSpace: "nowrap",
+              padding: "0 4px",
+              opacity: isSelected ? 1 : 0.6,
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
+            <Ic d={I.layers} size={9} color={isSelected ? C.accent : C.textDim} />
+          </div>
+        )}
+        {/* Delete button — visible when selected */}
+        {isSelected && onDelete && (
+          <div
+            onClick={e => {
+              e.stopPropagation();
+              onDelete(item.id);
+            }}
+            title="Remove item"
+            style={{
+              width: 24,
+              height: 24,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              borderRadius: 4,
+              color: C.red || "#e05252",
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = `${C.red || "#e05252"}18`)}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >
+            <Ic d={I.trash} size={12} color={C.red || "#e05252"} />
+          </div>
+        )}
       </div>
     );
   },
@@ -263,6 +308,7 @@ const EstimateItemRow = memo(
     prev.focusedField === next.focusedField &&
     prev.isPricing === next.isPricing &&
     prev.globalIndex === next.globalIndex &&
+    prev.hasSubItems === next.hasSubItems &&
     prev.C === next.C,
 );
 
