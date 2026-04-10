@@ -294,7 +294,7 @@ export default function RomResult({ rom, email }) {
           scopeItems={rom.scopeItems}
           C={C}
           T={T}
-          onSignUp={() => window.location.href = "/signup"}
+          onCreateAccount={() => window.location.href = "/signup"}
         />
       )}
 

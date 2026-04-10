@@ -5,6 +5,20 @@ import { fmt, fmtSF, ConfidenceDot, ConfidenceBadge } from "./romFormatters";
 import { generateTradeScopes } from "@/utils/tradeScopeGenerator";
 import { TRADE_COLORS } from "@/constants/tradeGroupings";
 
+// Infer directive from line item context
+const inferItemDirective = (item) => {
+  const code = item.code || "";
+  const div = code.substring(0, 2);
+  const desc = (item.description || "").toLowerCase();
+  if (["21", "22", "23", "26", "27", "28"].includes(div)) return "F/I by Sub";
+  if (div === "11" || div === "14") return "F/O";
+  if (div === "10" || div === "12") return "F/O";
+  if (desc.includes("supply only") || desc.includes("owner furnished")) return "F/O";
+  if (desc.includes("install only") || desc.includes("labor only")) return "I/O";
+  return "F/I";
+};
+const DIR_COLORS = { "F/I": "#8b5cf6", "F/O": "#f59e0b", "I/O": "#06b6d4", "F/I by Sub": "#ec4899" };
+
 export default function RomUnifiedTable({
   C, T,
   divEntries, selectedRange, expandedDivs, toggleDiv,
@@ -125,6 +139,8 @@ export default function RomUnifiedTable({
                       background: i % 2 === 0 ? "transparent" : C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
                       cursor: "pointer",
                       transition: "background 0.1s",
+                      opacity: getDivisionMultiplier(divNum) === 0 ? 0.35 : 1,
+                      textDecoration: getDivisionMultiplier(divNum) === 0 ? "line-through" : "none",
                     }}
                   >
                     <td style={{ ...cellBase, color: C.textMuted, fontWeight: T.fontWeight.medium }}>
@@ -162,27 +178,48 @@ export default function RomUnifiedTable({
                     </td>
                     <td style={{ ...cellBase, textAlign: "center", padding: "6px 8px", whiteSpace: "nowrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => adjustDivision(divNum, -0.05)} style={{
-                          width: 22, height: 22, borderRadius: 4, border: `1px solid ${C.border}`,
-                          background: "transparent", color: C.textMuted, cursor: "pointer",
-                          fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
-                          lineHeight: 1, fontFamily: T.font.sans,
-                        }}>{"\u2212"}</button>
-                        <span style={{
-                          fontSize: 10, color: getDivisionMultiplier(divNum) !== 1.0 ? C.accent : C.textDim,
-                          fontWeight: getDivisionMultiplier(divNum) !== 1.0 ? 600 : 400,
-                          minWidth: 32, textAlign: "center", fontFamily: T.font.sans,
-                          cursor: getDivisionMultiplier(divNum) !== 1.0 ? "pointer" : "default",
-                        }} onClick={() => getDivisionMultiplier(divNum) !== 1.0 && resetDivisionAdjustment(divNum)}
-                          title={getDivisionMultiplier(divNum) !== 1.0 ? "Click to reset" : ""}>
-                          {Math.round(getDivisionMultiplier(divNum) * 100)}%
-                        </span>
-                        <button onClick={() => adjustDivision(divNum, 0.05)} style={{
-                          width: 22, height: 22, borderRadius: 4, border: `1px solid ${C.border}`,
-                          background: "transparent", color: C.textMuted, cursor: "pointer",
-                          fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
-                          lineHeight: 1, fontFamily: T.font.sans,
-                        }}>+</button>
+                        {getDivisionMultiplier(divNum) === 0 ? (
+                          /* Removed state — show restore button */
+                          <button onClick={() => resetDivisionAdjustment(divNum)} style={{
+                            fontSize: 9, padding: "3px 10px", borderRadius: 4,
+                            border: `1px solid ${C.green}40`, background: `${C.green}12`,
+                            color: C.green, cursor: "pointer", fontWeight: 600,
+                          }}>Restore</button>
+                        ) : (
+                          <>
+                            <button onClick={() => adjustDivision(divNum, -0.05)} style={{
+                              width: 22, height: 22, borderRadius: 4, border: `1px solid ${C.border}`,
+                              background: "transparent", color: C.textMuted, cursor: "pointer",
+                              fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                              lineHeight: 1, fontFamily: T.font.sans,
+                            }}>{"\u2212"}</button>
+                            <span style={{
+                              fontSize: 10, color: getDivisionMultiplier(divNum) !== 1.0 ? C.accent : C.textDim,
+                              fontWeight: getDivisionMultiplier(divNum) !== 1.0 ? 600 : 400,
+                              minWidth: 32, textAlign: "center", fontFamily: T.font.sans,
+                              cursor: getDivisionMultiplier(divNum) !== 1.0 ? "pointer" : "default",
+                            }} onClick={() => getDivisionMultiplier(divNum) !== 1.0 && resetDivisionAdjustment(divNum)}
+                              title={getDivisionMultiplier(divNum) !== 1.0 ? "Click to reset" : ""}>
+                              {Math.round(getDivisionMultiplier(divNum) * 100)}%
+                            </span>
+                            <button onClick={() => adjustDivision(divNum, 0.05)} style={{
+                              width: 22, height: 22, borderRadius: 4, border: `1px solid ${C.border}`,
+                              background: "transparent", color: C.textMuted, cursor: "pointer",
+                              fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                              lineHeight: 1, fontFamily: T.font.sans,
+                            }}>+</button>
+                            {/* Remove division button */}
+                            <button onClick={() => {
+                              const cur = getDivisionMultiplier(divNum);
+                              adjustDivision(divNum, -cur);
+                            }} title="Remove this division" style={{
+                              width: 22, height: 22, borderRadius: 4, border: `1px solid ${C.border}`,
+                              background: "transparent", color: C.red || "#ef4444", cursor: "pointer",
+                              fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                              lineHeight: 1, marginLeft: 2,
+                            }}>×</button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -333,6 +370,9 @@ export default function RomUnifiedTable({
                                   style={{ accentColor: tradeColor, cursor: "pointer", width: 12, height: 12 }} />
                               </td>
                               <td style={{ ...cellBase, fontSize: 10.5, borderBottom: thinBorder, textDecoration: isExcluded ? "line-through" : "none" }}>
+                                {(() => { const dir = inferItemDirective(item); const dc = DIR_COLORS[dir] || C.textDim; return (
+                                  <span style={{ fontSize: 7.5, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginRight: 4, background: `${dc}15`, color: dc, fontFamily: "'IBM Plex Mono', monospace" }}>{dir}</span>
+                                ); })()}
                                 <span style={{ color: C.textDim, marginRight: 4, fontSize: 9 }}>{item.code}</span>
                                 <span style={{ color: C.text }}>{item.description}</span>
                                 {item._fromDrawings && (

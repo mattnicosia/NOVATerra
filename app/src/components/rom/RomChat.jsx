@@ -20,6 +20,7 @@ import { I } from "@/constants/icons";
 
 const MAX_HISTORY = 8;
 const MAX_UNDO = 10;
+const MAX_FREE_CHANGES = 3;
 
 const QUICK_ACTIONS = [
   "What's my biggest cost?",
@@ -60,7 +61,9 @@ RULES:
 - Never fabricate cost data — use the numbers provided
 - If the user says "undo", respond confirming the undo (the UI handles it automatically)
 - "Go union" means laborType change — tell the user this adds ~25% and suggest adjusting all divisions by 1.25
-- Be conversational but efficient`;
+- Be conversational but efficient
+- The user gets 3 free changes (mutations). Questions don't count as changes. When the user is on their last change, mention it: "This will use your last free change."
+- After all changes are used, still answer questions but don't include action blocks. Suggest creating a free account for unlimited changes.`;
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -177,12 +180,14 @@ export default function RomChat() {
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: "assistant", text: "I'm NOVA. Ask me to adjust your estimate — \"bump HVAC 20%\", \"cut 10% across the board\", or ask about the numbers.", ts: Date.now() },
+    { role: "assistant", text: `I'm NOVA. You get ${MAX_FREE_CHANGES} free changes — ask me anything like "bump HVAC 20%", "remove landscaping", or "cut 10% across the board". Questions don't count.`, ts: Date.now() },
   ]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [undoStack, setUndoStack] = useState([]);
+  const [changesUsed, setChangesUsed] = useState(0);
+  const changesRemaining = MAX_FREE_CHANGES - changesUsed;
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -229,7 +234,7 @@ export default function RomChat() {
           // Inject context into the first user message in the window
           const isFirstUser = !apiMessages.some(am => am.role === "user");
           const content = isFirstUser
-            ? `[Current Estimate]\n${context}\n\n${m.text}`
+            ? `[Current Estimate]\n${context}\n\n[Changes remaining: ${changesRemaining} of ${MAX_FREE_CHANGES}]\n\n${m.text}`
             : m.text;
           apiMessages.push({ role: "user", content });
         } else {
@@ -277,6 +282,15 @@ export default function RomChat() {
       let appliedLabels = [];
 
       if (actions.length) {
+        // Check free change limit
+        if (changesUsed >= MAX_FREE_CHANGES) {
+          setMessages(prev => [...prev, {
+            role: "assistant",
+            text: `You've used all ${MAX_FREE_CHANGES} free changes. Create a free account to make unlimited adjustments to your estimate.`,
+            ts: Date.now(),
+          }]);
+          return;
+        }
         // Snapshot for undo before mutating
         const currentRom = useRomStore.getState().romResult;
         setUndoStack(prev => [...prev.slice(-(MAX_UNDO - 1)), {
@@ -285,6 +299,7 @@ export default function RomChat() {
           ts: Date.now(),
         }]);
         appliedLabels = applyActions(actions, currentRom, setRomResult);
+        if (appliedLabels.length) setChangesUsed(prev => prev + 1);
       }
 
       // Build final message with action confirmation
@@ -401,7 +416,16 @@ export default function RomChat() {
           background: "rgba(0,212,170,0.04)",
         }}>
           <Ic d={I.ai} size={14} color="#00D4AA" />
-          <span style={{ fontSize: 12, fontWeight: 600, color: C.text, flex: 1, ...ff }}>NOVA</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: C.text, ...ff }}>NOVA</span>
+          <span style={{
+            fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 6,
+            background: changesRemaining > 0 ? "rgba(0,212,170,0.12)" : "rgba(251,113,133,0.12)",
+            color: changesRemaining > 0 ? "#00D4AA" : "#FB7185",
+            ...ff,
+          }}>
+            {changesRemaining > 0 ? `${changesRemaining} change${changesRemaining !== 1 ? "s" : ""} left` : "No changes left"}
+          </span>
+          <div style={{ flex: 1 }} />
           {undoStack.length > 0 && (
             <button
               onClick={handleUndo}
