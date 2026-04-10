@@ -30,6 +30,50 @@ A scope-first review workflow: scan generates scope items, user reviews and cher
 | Review granularity | Item-level cherry-pick with confidence visible | Accept/reject all for speed, NOVA chat for conversational edits |
 | Layout | Split view: drawings left, scope right | Matches estimator workflow — plans open, notes beside them |
 
+## Vision Pipeline Upgrade
+
+The scan pipeline moves from a three-call chain (GCV OCR + Haiku detect + Haiku parse) to a two-tier architecture using the best available models as of April 2026.
+
+### Tier 1 — Triage: Gemini 3.1 Flash Lite
+
+- **Task**: Page classification. "Does this page contain a schedule, table, or specification data worth parsing? What type?"
+- **Cost**: ~$0.0003/page ($0.25/M input tokens, ~1120 tokens per image)
+- **Speed**: Sub-second per page, native multimodal
+- **Replaces**: Google Cloud Vision OCR ($0.0015/page) + Claude Haiku detection ($0.01/page)
+- **Output**: `{ hasSchedule: bool, scheduleTypes: [], confidence: 0.XX, boundingBoxes: [] }`
+- **Why Gemini Flash Lite**: Released March 2026, cheapest frontier vision model, pro-grade reasoning. Native multimodal (no separate OCR preprocessing).
+
+### Tier 2 — Extraction: Claude Sonnet 4
+
+- **Task**: Full structured parsing of detected schedules — fields, quantities, types, merged cells, construction abbreviations
+- **Cost**: ~$0.15/page (only runs on pages that passed triage, typically ~15% of a drawing set)
+- **Replaces**: Claude Haiku parsing ($0.01/page on ALL pages). Quality is the upgrade — Sonnet handles HM, GWB, WP-1, merged cells, and type labels dramatically better than Haiku.
+- **Output**: Structured JSON per schedule type using existing 9 schedule-type prompt templates
+- **Why Sonnet**: 9.5/10 on table extraction benchmarks (tied with Gemini Pro), prompts already tuned for Anthropic style, best at following detailed structured extraction instructions with construction domain knowledge.
+
+### Cost Comparison (40-page drawing set, 6 pages with schedules)
+
+| Pipeline | Triage | Extraction | Total |
+|----------|--------|-----------|-------|
+| Current (GCV + Haiku + Haiku) | 40 x $0.012 = $0.48 | 40 x $0.01 = $0.40 | $1.03 |
+| Proposed (Flash Lite + Sonnet) | 40 x $0.0003 = $0.01 | 6 x $0.15 = $0.90 | $0.91 |
+
+Cost is similar. Quality is dramatically better. Google Cloud Vision dependency is eliminated.
+
+### Implementation
+
+- New file: `app/src/utils/geminiClient.js` — Gemini API wrapper for triage calls
+- Modified: `scanRunner.js` — replace GCV+Haiku detection with Gemini Flash Lite triage, replace Haiku parsing with Sonnet parsing
+- New API route: `app/api/gemini-triage.js` — server-side Gemini proxy (keeps API key server-side)
+- Environment: `GEMINI_API_KEY` added to Vercel env vars
+- Existing `rom-ai.js` proxy continues to serve public ROM page (Haiku for free tier)
+
+### Future Benchmarks (Post-Ship)
+
+- GPT-5.4 single-pass engineering diagram extraction (March 2026) — could collapse triage+extraction into one call
+- PaddleOCR-VL-1.5 for self-hosted triage at zero marginal cost if volume grows
+- IBM Granite 4.0 3B Vision for self-hosted table extraction testing
+
 ## Architecture
 
 ### Data Flow
@@ -38,7 +82,15 @@ A scope-first review workflow: scan generates scope items, user reviews and cher
 Drawing Upload
     |
     v
-OCR + Detection (Haiku) + Parsing (Haiku, per schedule type)
+Gemini 3.1 Flash Lite TRIAGE (all pages, ~$0.0003/page)
+    -> "Has schedule? What type? Where on page?"
+    -> Pages WITHOUT schedules: skip (no further processing)
+    -> Pages WITH schedules: continue
+    |
+    v
+Claude Sonnet 4 EXTRACTION (schedule pages only, ~$0.15/page)
+    -> Full structured parsing per schedule type
+    -> Uses existing 9 schedule-type prompt templates (retargeted from Haiku)
     |
     v
 scopeOutlineGenerator.js
@@ -215,13 +267,16 @@ Items from scope carry `_scopeSource` and `_scopeConfidence` metadata. In `Estim
 | `app/src/components/planroom/ScopeNarrativeBlock.jsx` | AI-generated prose summary per division group |
 | `app/src/components/planroom/ScopeNovaChat.jsx` | Compact NOVA chat with scope-editing intents |
 | `app/src/components/rom/RomScopePreview.jsx` | Read-only preview for public ROM page |
+| `app/src/utils/geminiClient.js` | Gemini API wrapper for Flash Lite triage calls |
+| `app/api/gemini-triage.js` | Server-side Gemini proxy (keeps API key server-side) |
 
 ## Modified Files
 
 | File | Change |
 |------|--------|
 | `app/src/stores/scanStore.js` | Add `scopeItems[]` state + CRUD actions |
-| `app/src/utils/scanRunner.js` | Stop auto-inject, persist full scope items, fix jobType/buildingType |
+| `app/src/utils/scanRunner.js` | Replace GCV+Haiku with Flash Lite triage + Sonnet extraction; stop auto-inject; persist full scope items; fix jobType/buildingType |
+| `app/src/utils/scheduleParsers.js` | Retarget parsing prompts from Haiku to Sonnet (prompt quality improvements for stronger model) |
 | `app/src/pages/PlanRoomPage.jsx` | Split view layout after scan, mount ScopeReviewPanel |
 | `app/src/pages/RomPage.jsx` | Add scope outline generation, mount RomScopePreview |
 | `app/src/components/estimate/EstimateItemRow.jsx` | Show NOVA icon for `_scopeSource` items |
