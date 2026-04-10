@@ -779,12 +779,38 @@ function DrawingUploadPath({ onResult, onBack }) {
       if (locationInput) buildingParams.location = locationInput;
       const rom = generateBaselineROM(projectSF, effectiveType, "", null, buildingParams);
 
+      // Generate scope outline for preview
+      let scopeItems = [];
+      try {
+        const { generateScopeOutline } = await import("@/utils/scopeOutlineGenerator");
+        const scopeResult = await generateScopeOutline({
+          scheduleLineItems: lineItems,
+          rom,
+          project: { jobType: effectiveType, projectSF },
+        });
+        if (scopeResult?.items?.length > 0) {
+          scopeItems = scopeResult.items.map((item, i) => ({
+            id: `si_rom_${Date.now()}_${i}`,
+            code: item.code || "",
+            description: item.description || "",
+            division: item.division || "",
+            quantity: item.quantity || 0,
+            unit: item.unit || "EA",
+            confidence: item.source === "nova-schedule" ? 0.9 : 0.6,
+            source: item.source === "nova-schedule" ? "schedule" : "ai-gap",
+          }));
+        }
+      } catch (e) {
+        console.warn("[ROM] Scope outline generation failed:", e.message);
+      }
+
       // Combine ROM + line items
       const result = {
         ...rom,
         scheduleLineItems: lineItems,
         schedules: allEntries,
         buildingParams,
+        scopeItems,
         scanSummary: {
           filesScanned: drawings.length,
           pagesScanned: drawings.reduce((sum, d) => sum + d.pages, 0),

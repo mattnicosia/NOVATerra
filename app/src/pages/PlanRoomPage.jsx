@@ -28,6 +28,7 @@ import ProjectSummaryCard from "@/components/planroom/ProjectSummaryCard";
 import NovaROMCard from "@/components/planroom/NovaROMCard";
 import DrawingLightbox from "@/components/planroom/DrawingLightbox";
 import SpecificationsCard from "@/components/planroom/SpecificationsCard";
+import ScopeReviewPanel from "@/components/planroom/ScopeReviewPanel";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Discovery Page — Combined upload + findings dashboard
@@ -49,6 +50,7 @@ export default function PlanRoomPage() {
   const items = useItemsStore(s => s.items);
   const scanResults = useDrawingPipelineStore(s => s.scanResults);
   const scanProgress = useDrawingPipelineStore(s => s.scanProgress);
+  const scopeItems = useDrawingPipelineStore(s => s.scopeItems);
   const documents = useDocumentManagementStore(s => s.documents);
   const outlines = useDrawingPipelineStore(s => s.outlines);
   const floorAssignments = useDrawingPipelineStore(s => s.floorAssignments);
@@ -231,7 +233,7 @@ export default function PlanRoomPage() {
   // ═══════════════════════════════════════════════════════════════════════
   return (
     <div style={{ padding: T.space[7], minHeight: "100%" }}>
-      <div style={{ maxWidth: 1000 }}>
+      <div style={{ maxWidth: scopeItems.length > 0 ? 1400 : 1000 }}>
         {/* Header */}
         <div style={{ marginBottom: T.space[5], display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -334,7 +336,19 @@ export default function PlanRoomPage() {
             )}
             <ProjectSummaryCard C={C} T={T} project={project} drawings={drawings} specs={specs} items={items} documents={documents} activeLoc={activeLoc} autoDetected={autoDetected} floors={floors} costColor={costColor} costLevel={costLevel} composite={composite} />
             <NovaROMCard C={C} T={T} scanResults={scanResults} />
-            <DrawingLightbox C={C} T={T} drawings={drawings} drawingScales={drawingScales} pdfCanvases={pdfCanvases} previewDrawingId={previewDrawingId} setPreviewDrawingId={setPreviewDrawingId} />
+            {/* Split view: drawings + scope review when scope items exist */}
+            {scopeItems.length > 0 ? (
+              <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: T.space[4], minHeight: 500 }}>
+                <DrawingLightbox C={C} T={T} drawings={drawings} drawingScales={drawingScales} pdfCanvases={pdfCanvases} previewDrawingId={previewDrawingId} setPreviewDrawingId={setPreviewDrawingId} />
+                <ScopeReviewPanel onDrawingRefClick={sheetNum => {
+                  const idx = useDrawingPipelineStore.getState().sheetIndex;
+                  const drawingId = idx[sheetNum] || idx[sheetNum?.replace(/[-\s]/g, "")];
+                  if (drawingId) setPreviewDrawingId(drawingId);
+                }} />
+              </div>
+            ) : (
+              <DrawingLightbox C={C} T={T} drawings={drawings} drawingScales={drawingScales} pdfCanvases={pdfCanvases} previewDrawingId={previewDrawingId} setPreviewDrawingId={setPreviewDrawingId} />
+            )}
             <SpecificationsCard C={C} T={T} specs={specs} items={items} />
             <div style={{ gridColumn: "1 / -1" }}><BuildingParametersSection /></div>
             {novaHistory.length > 0 && (

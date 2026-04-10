@@ -862,9 +862,14 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       });
       if (sfEstimate?.estimatedSF) effectiveSF = sfEstimate.estimatedSF;
     }
+    // Reconcile buildingType → jobType if detection found a type but jobType is stale/missing
+    const effectiveJobType = proj.buildingType || proj.jobType || "unknown";
+    if (proj.buildingType && proj.buildingType !== proj.jobType) {
+      console.log(`[scanRunner] Reconciling jobType: "${proj.jobType}" → "${proj.buildingType}" (from detection)`);
+    }
     const calibrationFactors = useDrawingPipelineStore
       .getState()
-      .getCalibrationFactors(proj.jobType, proj.workType || "", proj.laborType || "");
+      .getCalibrationFactors(effectiveJobType, proj.workType || "", proj.laborType || "");
     const buildingParams = {
       floorCount: proj.floorCount,
       basementCount: proj.basementCount,
@@ -872,7 +877,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     };
     const baseline = generateBaselineROM(
       effectiveSF,
-      proj.jobType,
+      effectiveJobType,
       proj.workType || "",
       calibrationFactors,
       buildingParams,
@@ -983,49 +988,53 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       }
     }
 
-    if (useItemsStore.getState().items.length === 0) {
-      try {
-        useNovaStore.getState().updateProgress(85, "Generating scope outline...");
-        setScanProgress({ phase: "scope", current: 0, total: 1, message: "Generating scope outline..." });
+    // Phase 3.5: Generate scope outline → store for review (no auto-inject)
+    try {
+      useNovaStore.getState().updateProgress(85, "Generating scope outline...");
+      setScanProgress({ phase: "scope", current: 0, total: 1, message: "Generating scope outline..." });
 
-        const scopeResult = await generateScopeOutline({
-          scheduleLineItems,
-          rom: augmentedROM,
-          project: useProjectStore.getState().project,
-          notesContext,
-        });
+      const scopeResult = await generateScopeOutline({
+        scheduleLineItems,
+        rom: augmentedROM,
+        project: useProjectStore.getState().project,
+        notesContext,
+      });
 
-        if (scopeResult.items.length > 0) {
-          const { addElement } = useItemsStore.getState();
-          const { divFromCode } = useProjectStore.getState();
-          for (const item of scopeResult.items) {
-            const division = item.division || divFromCode(item.code) || "";
-            addElement(division, {
-              code: item.code,
-              name: item.description,
-              unit: item.unit,
-              quantity: item.quantity || 1,
-              material: item.material || 0,
-              labor: item.labor || 0,
-              equipment: item.equipment || 0,
-              subcontractor: item.subcontractor || 0,
-              trade: autoTradeFromCode(item.code) || "",
-            });
-          }
-          scopeOutlineStats = {
-            totalItems: scopeResult.items.length,
-            scheduleItems: scopeResult.scheduleItemCount,
-            aiItems: scopeResult.aiItemCount,
-          };
-          console.log(
-            `[scanRunner] Phase 3.5: Generated ${scopeResult.items.length} scope items ` +
-              `(${scopeResult.scheduleItemCount} from schedules, ${scopeResult.aiItemCount} AI-generated)`,
-          );
-        }
-      } catch (err) {
-        console.warn("[scanRunner] Phase 3.5 (scope outline) failed:", err.message);
-        // Non-critical — user can still add items manually
+      if (scopeResult.items.length > 0) {
+        // Map to scope item schema with review metadata
+        const scopeItems = scopeResult.items.map((item, i) => ({
+          id: `si_${Date.now()}_${i}`,
+          code: item.code || "",
+          description: item.description || "",
+          division: item.division || "",
+          quantity: item.quantity || 0,
+          unit: item.unit || "EA",
+          confidence: item.source === "nova-schedule" ? 0.9 : item.source === "nova-ai" ? 0.6 : 0.75,
+          source: item.source === "nova-schedule" ? "schedule" : item.source === "nova-ai" ? "ai-gap" : "schedule",
+          scheduleType: item.scheduleType || null,
+          drawingRef: item.drawingRef || null,
+          selected: true,
+          pushed: false,
+          pushedAt: null,
+          narrative: null,
+        }));
+
+        // Store for review — user will cherry-pick and push
+        useDrawingPipelineStore.getState().setScopeItems(scopeItems);
+
+        scopeOutlineStats = {
+          totalItems: scopeResult.items.length,
+          scheduleItems: scopeResult.scheduleItemCount,
+          aiItems: scopeResult.aiItemCount,
+        };
+        console.log(
+          `[scanRunner] Phase 3.5: Generated ${scopeResult.items.length} scope items for review ` +
+            `(${scopeResult.scheduleItemCount} from schedules, ${scopeResult.aiItemCount} AI-generated)`,
+        );
       }
+    } catch (err) {
+      console.warn("[scanRunner] Phase 3.5 (scope outline) failed:", err.message);
+      // Non-critical — user can still add items manually
     }
 
     const results = {
@@ -1042,6 +1051,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       drawingNotes: validNotesResults,
       notesContext,
       scopeOutline: scopeOutlineStats,
+      scopeItems: useDrawingPipelineStore.getState().scopeItems,
       timestamp: Date.now(),
     };
     // ── NOVA Intelligence Summary: what memory was applied ──

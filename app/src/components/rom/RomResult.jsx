@@ -11,6 +11,7 @@ import RomProjectSummary from "./RomProjectSummary";
 import RomNarrative from "./RomNarrative";
 import RomUnifiedTable from "./RomUnifiedTable";
 import ScopeFromDrawingsPanel from "./ScopeFromDrawingsPanel";
+import RomScopePreview from "./RomScopePreview";
 import RomAssumptions from "./RomAssumptions";
 
 export default function RomResult({ rom, email }) {
@@ -287,6 +288,15 @@ export default function RomResult({ rom, email }) {
       />
 
       <ScopeFromDrawingsPanel C={C} T={T} />
+
+      {rom?.scopeItems?.length > 0 && (
+        <RomScopePreview
+          scopeItems={rom.scopeItems}
+          C={C}
+          T={T}
+          onSignUp={() => window.location.href = "/signup"}
+        />
+      )}
 
       {/* Controls Bar */}
       <div style={{

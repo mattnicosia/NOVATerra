@@ -293,11 +293,46 @@ export const useDrawingPipelineStore = create((set, get) => ({
   parameterCorrections: [],
   scanAbortController: null,
   scanResultsPending: false,
+  scopeItems: [],
 
   setScanResults: results => set({ scanResults: results }),
   setScanResultsPending: v => set({ scanResultsPending: v }),
   setScanProgress: progress => set({ scanProgress: progress }),
   setScanError: error => set({ scanError: error }),
+
+  // ── Scope Items CRUD ──
+  setScopeItems: items => set({ scopeItems: items }),
+
+  updateScopeItem: (id, updates) =>
+    set(s => ({
+      scopeItems: s.scopeItems.map(si => (si.id === id ? { ...si, ...updates } : si)),
+    })),
+
+  toggleScopeItemSelected: id =>
+    set(s => ({
+      scopeItems: s.scopeItems.map(si =>
+        si.id === id && !si.pushed ? { ...si, selected: !si.selected } : si,
+      ),
+    })),
+
+  selectAllScopeItems: () =>
+    set(s => ({
+      scopeItems: s.scopeItems.map(si => (si.pushed ? si : { ...si, selected: true })),
+    })),
+
+  deselectAllScopeItems: () =>
+    set(s => ({
+      scopeItems: s.scopeItems.map(si => (si.pushed ? si : { ...si, selected: false })),
+    })),
+
+  markScopeItemsPushed: ids => {
+    const now = new Date().toISOString();
+    set(s => ({
+      scopeItems: s.scopeItems.map(si =>
+        ids.includes(si.id) ? { ...si, pushed: true, pushedAt: now } : si,
+      ),
+    }));
+  },
 
   clearScan: () =>
     set({
@@ -306,6 +341,7 @@ export const useDrawingPipelineStore = create((set, get) => ({
       scanError: null,
       scanAbortController: null,
       scanResultsPending: false,
+      scopeItems: [],
     }),
 
   createAbortController: () => {

@@ -169,6 +169,22 @@ const EstimateItemRow = memo(
               ALLOW
             </span>
           )}
+          {item.source?.category === "nova-scope" && (
+            <span
+              title={`From NOVA scope review (${Math.round((item.source.confidence || 0) * 100)}% confidence)`}
+              style={{
+                fontSize: 8,
+                color: C.accent,
+                fontWeight: T.fontWeight.bold,
+                marginLeft: 4,
+                padding: "1px 4px",
+                borderRadius: 3,
+                background: `${C.accent}12`,
+              }}
+            >
+              NOVA
+            </span>
+          )}
         </div>
         {/* Qty */}
         <div className="est-col" style={{ width: 60 }}>
