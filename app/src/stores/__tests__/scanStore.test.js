@@ -263,9 +263,9 @@ describe("scanStore -- loadLearningRecords", () => {
 // ─── getCalibrationFactors ───────────────────────────────────────────
 
 describe("scanStore -- getCalibrationFactors", () => {
-  it("returns empty object when no learning records", () => {
+  it("returns a bootstrapped sentinel when no learning records", () => {
     const factors = useDrawingPipelineStore.getState().getCalibrationFactors();
-    expect(factors).toEqual({});
+    expect(factors).toEqual({ bootstrapped: true });
   });
 
   it("computes ratio of actuals/predicted per division", () => {
@@ -393,7 +393,7 @@ describe("scanStore -- getCalibrationFactors", () => {
     expect(factors["03"].factor).toBeCloseTo(0.8, 1);
   });
 
-  it("skips records with missing romPrediction or actuals", () => {
+  it("returns only the bootstrapped sentinel when all records are missing romPrediction or actuals", () => {
     useDrawingPipelineStore.setState({
       learningRecords: [
         { romPrediction: null, actuals: { divisions: { "03": 100000 } } },
@@ -401,7 +401,7 @@ describe("scanStore -- getCalibrationFactors", () => {
       ],
     });
     const factors = useDrawingPipelineStore.getState().getCalibrationFactors();
-    expect(factors).toEqual({});
+    expect(factors).toEqual({ bootstrapped: true });
   });
 
   it("skips divisions where predicted or actual is zero", () => {

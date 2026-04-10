@@ -59,15 +59,17 @@ Keep the architectural drawing style. This should look like the same drawing but
       const errText = await response.text();
       console.error("[generate-rendering] Responses API error:", errText);
 
-      // Parse error for better message
+      // Parse error for better fallback diagnostics
       let errMsg = "Image generation failed";
       try {
         const errJson = JSON.parse(errText);
         errMsg = errJson.error?.message || errMsg;
-      } catch {}
+      } catch {
+        errMsg = errText || errMsg;
+      }
 
       // Fall back to Claude + DALL-E 3 on any Responses API failure
-      console.log("[generate-rendering] Responses API failed, falling back. Status:", response.status);
+      console.log("[generate-rendering] Responses API failed, falling back. Status:", response.status, "Message:", errMsg);
       return await fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_API_KEY);
     }
 

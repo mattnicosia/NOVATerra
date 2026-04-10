@@ -33,6 +33,12 @@ import { useFirmMemoryStore } from "@/nova/learning/firmMemory";
 import { peekPendingSessions, drainPendingSessions } from "@/hooks/useActivityTracker";
 import { markDirtyEstimate, clearDirtyEstimate } from "@/hooks/persistenceCleanup";
 import { saveUserLibrary } from "@/hooks/persistenceGlobal";
+import {
+  applyPendingEstimateItemsDraft,
+  clearPendingEstimateItemsDraft,
+  readPendingEstimateItemsDraft,
+  runWithItemsDraftMirrorSuppressed,
+} from "@/utils/estimateLocalDraft";
 
 // Load a specific estimate into stores
 export async function loadEstimate(id) {
@@ -207,9 +213,15 @@ export async function loadEstimate(id) {
   }
 
   try {
-    const data = JSON.parse(raw.value);
+    let data = JSON.parse(raw.value);
+    const pendingDraftRecovery = applyPendingEstimateItemsDraft(id, data);
+    data = pendingDraftRecovery.data;
     // Clean up internal hydration stats — not part of estimate data
     delete data._hydrationStats;
+    if (pendingDraftRecovery.recovered) {
+      console.log(`[loadEstimate] Recovered newer local item edits for ${id} from draft backup`);
+      await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
+    }
 
     // Ensure backwards compatibility: old estimates without setupComplete are treated as complete
     const projectData = data.project || useProjectStore.getState().project;
@@ -222,8 +234,10 @@ export async function loadEstimate(id) {
     const itemsWithContext = (data.items || []).map(i =>
       i.bidContext !== undefined ? i : { ...i, bidContext: "base" },
     );
-    useItemsStore.getState().setItems(itemsWithContext);
-    useItemsStore.getState().normalizeAllCodes();
+    runWithItemsDraftMirrorSuppressed(() => {
+      useItemsStore.getState().setItems(itemsWithContext);
+      useItemsStore.getState().normalizeAllCodes();
+    });
     const loadedMarkup = data.markup || useItemsStore.getState().markup;
     // Strip legacy compound flag from markup object
     const { compound: _legacyCompound, ...cleanMarkup } = loadedMarkup;
@@ -382,6 +396,7 @@ export async function saveEstimate(overrideId, options = {}) {
   const { allowInactiveCloudPush = false } = options;
   const id = overrideId || useEstimatesStore.getState().activeEstimateId;
   if (!id) return;
+  const pendingItemsDraftCapturedAtMs = readPendingEstimateItemsDraft(id)?.capturedAtMs || 0;
 
   // Capture org context at entry — used to detect org-switch during async save
   const saveOrgId = useOrgStore.getState().org?.id || null;
@@ -520,6 +535,8 @@ export async function saveEstimate(overrideId, options = {}) {
     return; // Don't update index if estimate didn't save — pending sessions preserved
   }
 
+  clearPendingEstimateItemsDraft(id, pendingItemsDraftCapturedAtMs);
+
   // IDB write confirmed — now safely drain the pending sessions
   if (pendingSessions.length > 0) {
     drainPendingSessions(id);
@@ -635,7 +652,9 @@ export async function saveEstimate(overrideId, options = {}) {
     const stillActive = useEstimatesStore.getState().activeEstimateId === id;
     if (stillActive) {
       const newEntry = { id, ...entryFields };
-      useEstimatesStore.getState().setEstimatesIndex(prev => [...prev, newEntry]);
+      useEstimatesStore.getState().setEstimatesIndex(prev =>
+        prev.some(e => e.id === id) ? prev : [...prev, newEntry]
+      );
     } else {
       console.warn("[saveEstimate] Estimate not in index and not active — skipping re-add for", id);
       return;

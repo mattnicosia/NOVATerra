@@ -269,25 +269,29 @@ describe("useTakeoffCRUD", () => {
       const setMeasureState = vi.fn();
       const setActivePoints = vi.fn();
       const setContextMenu = vi.fn();
+      const setTakeoffs = vi.fn();
+      const clearPredictions = vi.fn();
 
       useDrawingPipelineStore.getState.mockReturnValue({
-        ...useDrawingPipelineStore.getState(),
+        ...mockTakeoffsState,
         takeoffs: [...sampleTakeoffs],
-        setTakeoffs: vi.fn(),
+        selectedDrawingId: "dwg-1",
+        setTakeoffs,
         setTkActiveTakeoffId: setActiveTakeoffId,
         setTkTool: setTool,
         setTkMeasureState: setMeasureState,
         setTkActivePoints: setActivePoints,
         setTkContextMenu: setContextMenu,
-        clearPredictions: vi.fn(),
+        clearPredictions,
       });
-      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
 
       const { result } = renderHook(() => useTakeoffCRUD());
       act(() => {
         result.current.addTakeoff("", "Measure This", "LF");
       });
 
+      expect(setTakeoffs).toHaveBeenCalledTimes(1);
+      expect(clearPredictions).toHaveBeenCalled();
       expect(setActiveTakeoffId).toHaveBeenCalledWith("test-uid-001");
       expect(setTool).toHaveBeenCalledWith("linear");
       expect(setMeasureState).toHaveBeenCalledWith("measuring");
@@ -296,11 +300,10 @@ describe("useTakeoffCRUD", () => {
 
     it("does not start measuring with noMeasure option", () => {
       const setActiveTakeoffId = vi.fn();
-      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
-
       useDrawingPipelineStore.getState.mockReturnValue({
-        ...useDrawingPipelineStore.getState(),
+        ...mockTakeoffsState,
         takeoffs: [...sampleTakeoffs],
+        selectedDrawingId: "dwg-1",
         setTakeoffs: vi.fn(),
         setTkActiveTakeoffId: setActiveTakeoffId,
         clearPredictions: vi.fn(),
@@ -316,11 +319,10 @@ describe("useTakeoffCRUD", () => {
 
     it("does not start measuring without a drawing selected", () => {
       const setActiveTakeoffId = vi.fn();
-      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: null });
-
       useDrawingPipelineStore.getState.mockReturnValue({
-        ...useDrawingPipelineStore.getState(),
+        ...mockTakeoffsState,
         takeoffs: [...sampleTakeoffs],
+        selectedDrawingId: null,
         setTakeoffs: vi.fn(),
         setTkActiveTakeoffId: setActiveTakeoffId,
         clearPredictions: vi.fn(),
@@ -336,11 +338,10 @@ describe("useTakeoffCRUD", () => {
 
     it("does not start measuring without a description", () => {
       const setActiveTakeoffId = vi.fn();
-      useDrawingPipelineStore.getState.mockReturnValue({ selectedDrawingId: "dwg-1" });
-
       useDrawingPipelineStore.getState.mockReturnValue({
-        ...useDrawingPipelineStore.getState(),
+        ...mockTakeoffsState,
         takeoffs: [...sampleTakeoffs],
+        selectedDrawingId: "dwg-1",
         setTakeoffs: vi.fn(),
         setTkActiveTakeoffId: setActiveTakeoffId,
         clearPredictions: vi.fn(),
@@ -420,7 +421,7 @@ describe("useTakeoffCRUD", () => {
   // ── insertAssemblyIntoTakeoffs ─────────────────────────────
 
   describe("insertAssemblyIntoTakeoffs", () => {
-    it("inserts all assembly elements as takeoffs", () => {
+    it("inserts a single assembly takeoff with derived assembly elements", () => {
       const setTakeoffs = vi.fn();
       const setTkNewInput = vi.fn();
       const setTkDbResults = vi.fn();
@@ -450,17 +451,30 @@ describe("useTakeoffCRUD", () => {
       });
 
       const all = setTakeoffs.mock.calls[0][0];
-      // Original 3 + 3 new = 6
-      expect(all).toHaveLength(6);
+      expect(all).toHaveLength(4);
 
-      const newItems = all.slice(3);
-      expect(newItems[0].description).toBe("Footing");
-      expect(newItems[0].unit).toBe("CY");
-      expect(newItems[0].code).toBe("03-100");
-      expect(newItems[0].group).toBe("Concrete Foundation");
-
-      expect(newItems[1].description).toBe("Slab");
-      expect(newItems[2].description).toBe("Rebar");
+      const assemblyTakeoff = all[3];
+      expect(assemblyTakeoff.description).toBe("Concrete Foundation");
+      expect(assemblyTakeoff.unit).toBe("CY");
+      expect(assemblyTakeoff.code).toBe("03-100");
+      expect(assemblyTakeoff.group).toBe("Concrete Foundation");
+      expect(assemblyTakeoff.assemblyName).toBe("Concrete Foundation");
+      expect(assemblyTakeoff.assemblyElements).toHaveLength(3);
+      expect(assemblyTakeoff.assemblyElements[0]).toMatchObject({
+        code: "03-100",
+        desc: "Footing",
+        unit: "CY",
+      });
+      expect(assemblyTakeoff.assemblyElements[1]).toMatchObject({
+        code: "03-300",
+        desc: "Slab",
+        unit: "SF",
+      });
+      expect(assemblyTakeoff.assemblyElements[2]).toMatchObject({
+        code: "03-200",
+        desc: "Rebar",
+        unit: "LF",
+      });
 
       expect(setTkNewInput).toHaveBeenCalledWith("");
       expect(setTkDbResults).toHaveBeenCalledWith([]);

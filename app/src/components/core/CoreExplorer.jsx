@@ -30,16 +30,11 @@ const NODES = [
   { id: "assemblies", label: "Seed Assemblies", icon: "M4 4h16v16H4zM4 9h16M9 4v16", desc: "~801 pre-built cost items (national avg)." },
 ];
 
-// ── Data resolver ──
-function useNodeData(nodeId) {
-  const elements = useDatabaseStore(s => s.elements);
-  const masterData = useMasterDataStore(s => s.masterData);
-  const proposals = useMasterDataStore(s => s.masterData?.historicalProposals || []);
-  const learningRecords = useDrawingPipelineStore(s => s.learningRecords || []);
-  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex || []);
+const EMPTY_NODE_DATA = { count: 0, summary: "", records: [] };
 
-  return useMemo(() => {
-    switch (nodeId) {
+// ── Data resolver ──
+function resolveNodeData(nodeId, { elements, masterData, proposals, learningRecords, estimatesIndex }) {
+  switch (nodeId) {
       case "costdb": {
         const merged = elements || [];
         const master = merged.filter(e => e.source === "master");
@@ -201,7 +196,6 @@ function useNodeData(nodeId) {
       default:
         return { count: 0, summary: "", records: [] };
     }
-  }, [nodeId, elements, masterData, proposals, learningRecords, estimatesIndex]);
 }
 
 // ── Detail View for a single record ──
@@ -228,11 +222,24 @@ function RecordDetail({ record, C }) {
 export default function CoreExplorer() {
   const C = useTheme();
   const T = C.T;
+  const elements = useDatabaseStore(s => s.elements);
+  const masterData = useMasterDataStore(s => s.masterData);
+  const proposals = useMasterDataStore(s => s.masterData?.historicalProposals || []);
+  const learningRecords = useDrawingPipelineStore(s => s.learningRecords || []);
+  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex || []);
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [search, setSearch] = useState("");
 
-  const nodeData = useNodeData(selectedNode);
+  const nodeDataById = useMemo(() => {
+    const dataSources = { elements, masterData, proposals, learningRecords, estimatesIndex };
+    return Object.fromEntries(NODES.map(node => [node.id, resolveNodeData(node.id, dataSources)]));
+  }, [elements, masterData, proposals, learningRecords, estimatesIndex]);
+
+  const nodeData = useMemo(
+    () => (selectedNode ? (nodeDataById[selectedNode] || EMPTY_NODE_DATA) : EMPTY_NODE_DATA),
+    [selectedNode, nodeDataById]
+  );
 
   const filteredRecords = useMemo(() => {
     if (!nodeData?.records) return [];
@@ -255,7 +262,7 @@ export default function CoreExplorer() {
       }}>
         {NODES.map(node => {
           const active = selectedNode === node.id;
-          const data = useNodeData(node.id);
+          const data = nodeDataById[node.id] || { count: 0 };
           return (
             <button
               key={node.id}

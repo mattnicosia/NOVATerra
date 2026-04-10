@@ -6,7 +6,6 @@ import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
-import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { normalizeProposal, getNormalizationTrace } from "@/utils/normalizationEngine";
 import { validateProposal, getStatusColor, getStatusLabel } from "@/utils/proposalValidation";
 
@@ -317,7 +316,7 @@ function CalibrationTab() {
   const getCalibrationFactors = useDrawingPipelineStore(s => s.getCalibrationFactors);
   const learningRecords = useDrawingPipelineStore(s => s.learningRecords);
 
-  const factors = useMemo(() => getCalibrationFactors(), [getCalibrationFactors, learningRecords]);
+  const factors = useMemo(() => getCalibrationFactors(), [getCalibrationFactors]);
 
   const divEntries = Object.entries(factors).sort(([a], [b]) => a.localeCompare(b));
 

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import { useRef, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
 
@@ -322,7 +322,7 @@ export default function ProjectPulseWidget() {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [C, T, benchmarks, sortedEstimates.length]);
+  }, [C, T, benchmarks, sortedEstimates]);
 
   // Mouse handlers
   const onMove = useCallback(e => {

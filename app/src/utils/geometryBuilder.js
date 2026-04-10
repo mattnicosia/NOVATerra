@@ -4,6 +4,7 @@
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useModuleStore } from "@/stores/moduleStore";
+import { useProjectStore } from "@/stores/projectStore";
 import { nn } from "@/utils/format";
 import { cleanPath } from "@/utils/geometrySnapping";
 import { generateBuildingEnvelope } from "@/utils/envelopeBuilder";
@@ -457,10 +458,6 @@ export function generateRoomElements(roomGeometry, floorAssignments) {
 // Returns envelope elements that can be merged with takeoff elements.
 
 export function generateEnvelopeFromStores() {
-  // Lazy import to avoid circular dependency (modelStore → geometryBuilder → modelStore)
-  const { useDrawingPipelineStore } = require("@/stores/drawingPipelineStore");
-  const { useProjectStore } = require("@/stores/projectStore");
-
   const { outlines, floorHeights } = useDrawingPipelineStore.getState();
   const { project } = useProjectStore.getState();
 

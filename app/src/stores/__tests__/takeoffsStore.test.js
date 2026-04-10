@@ -160,29 +160,22 @@ describe("takeoffsStore", () => {
       expect(tks[1].description).toBe("Second");
     });
 
-    it("pushes undo entry on add", () => {
+    it("does not push an undo entry on add", () => {
       getState().addTakeoff("", "Undo Test");
-      expect(useUndoStore.getState().past).toHaveLength(1);
-      expect(useUndoStore.getState().past[0].action).toContain("Add takeoff");
+      expect(useUndoStore.getState().past).toHaveLength(0);
     });
 
-    it("undo removes the added takeoff", () => {
+    it("requires explicit deletion instead of undo for a newly added takeoff", () => {
       getState().addTakeoff("", "Will Undo");
       expect(getState().takeoffs).toHaveLength(1);
-      // Execute the undo callback
-      useUndoStore.getState().past[0].undo();
-      expect(getState().takeoffs).toHaveLength(0);
+      expect(useUndoStore.getState().past).toHaveLength(0);
     });
 
-    it("redo restores the undone takeoff", () => {
+    it("does not create redo state for a newly added takeoff", () => {
       getState().addTakeoff("", "Will Redo");
-      const added = getState().takeoffs[0];
-      const entry = useUndoStore.getState().past[0];
-      entry.undo();
-      expect(getState().takeoffs).toHaveLength(0);
-      entry.redo();
       expect(getState().takeoffs).toHaveLength(1);
-      expect(getState().takeoffs[0].id).toBe(added.id);
+      expect(useUndoStore.getState().past).toHaveLength(0);
+      expect(useUndoStore.getState().future).toHaveLength(0);
     });
 
     it("assigns a color from the palette", () => {
@@ -548,7 +541,8 @@ describe("takeoffsStore", () => {
       getState().recordPredictionMiss();
       getState().recordPredictionMiss();
       expect(getState().tkPredRefining).toBe(true);
-      expect(getState().tkPredContext.consecutiveMisses).toBe(2);
+      expect(getState().tkPredContext.consecutiveMisses).toBe(0);
+      expect(getState().tkPredContext.refining).toBe(true);
     });
 
     it("recordPredictionMiss with no context is a no-op", () => {

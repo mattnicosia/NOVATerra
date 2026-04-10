@@ -21,7 +21,7 @@ export default function SpotifyWidget({ config }) {
     if (url && url !== musicPlayerUrl) {
       setMusicPlayerUrl(url);
     }
-  }, [url]);
+  }, [url, musicPlayerUrl, setMusicPlayerUrl]);
 
   if (!url) {
     return (

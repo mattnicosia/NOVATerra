@@ -21,7 +21,6 @@ import {
   segmentedOCR,
   SCAN_MODEL,
   INTERPRET_MODEL,
-  NARRATIVE_MODEL,
 } from "@/utils/ai";
 import {
   buildDetectionPrompt,
@@ -112,7 +111,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     return null;
   }
 
-  const { setScanResults, setScanProgress, setScanError, clearScan, createAbortController } = useDrawingPipelineStore.getState();
+  const { setScanResults, setScanProgress, setScanError, clearScan } = useDrawingPipelineStore.getState();
   const showToast = useUiStore.getState().showToast;
 
   clearScan();
@@ -239,7 +238,9 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           try {
             const { logAICall } = await import("@/nova/learning/evaluationLogger");
             logAICall({ phase: 'detect', model: 'haiku', inputSummary: `Sheet ${sheetLabel}`, aiResult: detected, latencyMs: Date.now() - detectStart });
-          } catch {}
+          } catch {
+            // Evaluation logging is optional and must not block schedule detection.
+          }
           if (!parsed) return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
           return {
             sheetId: d.id,
@@ -564,7 +565,9 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
                 correctionContextUsed: !!(localCorrectionCtx || vectorCorrectionContext),
                 vectorCorrectionsUsed: vectorCorrectionContext ? (vectorCorrectionContext.match(/^-/gm) || []).length : 0,
               });
-            } catch {}
+            } catch {
+              // Evaluation logging is optional and must not block schedule parsing.
+            }
             if (!parsed) return { ...sched, entries: [] };
             return { ...sched, entries: normalizeScheduleData(sched.type, parsed) };
           } catch {
@@ -911,7 +914,9 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       const resolvedSF = effectiveSF || proj.projectSF || 0;
       const { logAICall } = await import("@/nova/learning/evaluationLogger");
       logAICall({ phase: 'rom', model: 'sonnet', inputSummary: `${resolvedJobType} ${resolvedSF}SF`, aiResult: { totalMid: augmentedROM?.totals?.mid, divCount: Object.keys(augmentedROM?.divisions || {}).length }, latencyMs: Date.now() - romStart });
-    } catch {}
+    } catch {
+      // Evaluation logging is optional and must not block ROM generation.
+    }
 
     // ── Phase 3.1: Verify ROM (agent self-check) ──
     try {

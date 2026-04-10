@@ -787,7 +787,7 @@ export function MessageBubble({ msg, C, streaming }) {
             justifyContent: "center",
           }}
         >
-          <Ic d={I.ai} size={18} color={P.accent || "#8B5CF6"} />
+          <Ic d={I.ai} size={18} color={C.accent || "#8B5CF6"} />
         </div>
       )}
       <div

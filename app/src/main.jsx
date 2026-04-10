@@ -86,7 +86,9 @@ class RootErrorBoundary extends Component {
               localStorage.removeItem("bldg-session-token");
               sessionStorage.clear();
               if (window.caches) caches.keys().then(names => names.forEach(n => caches.delete(n)));
-            } catch {}
+            } catch {
+              // Reset should continue even if cache/storage access is unavailable.
+            }
             window.location.href = "/";
           }}
           style={{

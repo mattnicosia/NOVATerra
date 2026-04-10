@@ -16,6 +16,7 @@
  */
 
 import { useUiStore } from "@/stores/uiStore";
+import { hasPendingEstimateItemsNewerThan, runWithItemsDraftMirrorSuppressed } from "@/utils/estimateLocalDraft";
 
 // ---------- Re-exports: auth helpers ----------
 import { getUserId, getScope, applyScope, isReady, markSynced, markError, markSyncing } from "./cloudSync-auth";
@@ -70,6 +71,7 @@ export { saveAtomically, pullProfiles, pullContacts } from "./cloudSyncProfiles"
 // These are used by useRealtimeSync to apply incoming changes from other devices.
 
 const _corruptLocalEstimateWarnings = new Set();
+const _deferredEstimatePullTimers = new Map();
 
 /**
  * Read a local estimate blob from IndexedDB with corruption guards.
@@ -141,6 +143,20 @@ export const pullAndApplyEstimate = async estimateId => {
       return cloudData;
     }
 
+    const { useEstimatesStore } = await import("@/stores/estimatesStore");
+    const activeId = useEstimatesStore.getState().activeEstimateId;
+    const protectRecentActiveEdits = activeId === estimateId && isRecentlyEdited();
+    const protectPendingLocalItems = hasPendingEstimateItemsNewerThan(estimateId, localTime);
+    if (protectRecentActiveEdits || protectPendingLocalItems) {
+      if (protectRecentActiveEdits) {
+        const delay = scheduleDeferredEstimatePull(estimateId);
+        console.log(`[cloudSync] pullAndApplyEstimate: deferring incoming cloud reload for ${estimateId} by ${delay}ms to protect local edits`);
+      } else {
+        console.log(`[cloudSync] pullAndApplyEstimate: skipping cloud overwrite for ${estimateId} because newer local item edits are pending`);
+      }
+      return cloudData;
+    }
+
     // Hydrate blobs (drawings, documents, specPdf)
     cloudData = await hydrateBlobs(cloudData);
     delete cloudData._hydrationStats;
@@ -149,8 +165,6 @@ export const pullAndApplyEstimate = async estimateId => {
     await storage.set(idbKey(`bldg-est-${estimateId}`), JSON.stringify(cloudData));
 
     // If this is the active estimate, reload into stores
-    const { useEstimatesStore } = await import("@/stores/estimatesStore");
-    const activeId = useEstimatesStore.getState().activeEstimateId;
     if (activeId === estimateId) {
       await _reloadActiveEstimate(cloudData, estimateId);
     }
@@ -193,6 +207,27 @@ let _lastItemEditMs = 0;
 export const markItemEdited = () => { _lastItemEditMs = Date.now(); };
 export const isRecentlyEdited = () => _lastItemEditMs > 0 && (Date.now() - _lastItemEditMs) < EDIT_SAFE_WINDOW_MS;
 const EDIT_SAFE_WINDOW_MS = 10_000; // 10s — safely covers the 1.5s auto-save debounce
+export const getRemainingEditSafeDelayMs = (bufferMs = 500) => {
+  if (_lastItemEditMs <= 0) return 0;
+  const msSinceEdit = Date.now() - _lastItemEditMs;
+  if (msSinceEdit >= EDIT_SAFE_WINDOW_MS) return 0;
+  return Math.max(0, EDIT_SAFE_WINDOW_MS - msSinceEdit + bufferMs);
+};
+
+export const scheduleDeferredEstimatePull = (estimateId, bufferMs = 500) => {
+  if (!estimateId) return 0;
+  const delay = getRemainingEditSafeDelayMs(bufferMs) || bufferMs;
+  const existing = _deferredEstimatePullTimers.get(estimateId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    _deferredEstimatePullTimers.delete(estimateId);
+    pullAndApplyEstimate(estimateId).catch(err => {
+      console.warn(`[cloudSync] Deferred pullAndApplyEstimate("${estimateId}") failed:`, err?.message || err);
+    });
+  }, delay);
+  _deferredEstimatePullTimers.set(estimateId, timer);
+  return delay;
+};
 
 /** Reload the currently active estimate's stores from fresh data.
  *  Exported so useCloudSync Phase 4 can reuse the edit recency guard
@@ -230,7 +265,12 @@ async function _reloadActiveEstimate(data, estimateId) {
     }
 
     if (data.project) useProjectStore.getState().setProject(data.project);
-    if (data.items !== undefined) useItemsStore.getState().setItems(data.items || []);
+    if (data.items !== undefined) {
+      runWithItemsDraftMirrorSuppressed(() => {
+        useItemsStore.getState().setItems(data.items || []);
+        useItemsStore.getState().normalizeAllCodes();
+      });
+    }
     if (data.markup !== undefined) useItemsStore.getState().setMarkup(data.markup);
     if (data.markupOrder) useItemsStore.getState().setMarkupOrder(data.markupOrder);
     if (data.drawings) useDrawingPipelineStore.getState().setDrawings(data.drawings);

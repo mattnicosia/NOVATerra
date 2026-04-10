@@ -26,7 +26,8 @@ function CostSummaryCard({ items, project }) {
   const C = useTheme();
   const T = C.T;
   const markup = useItemsStore(s => s.markup);
-  const markupOrder = useItemsStore(s => s.markupOrder) || [];
+  const rawMarkupOrder = useItemsStore(s => s.markupOrder);
+  const markupOrder = useMemo(() => rawMarkupOrder || [], [rawMarkupOrder]);
 
   const totals = useMemo(() => {
     let material = 0, labor = 0, equipment = 0, sub = 0;
@@ -194,7 +195,6 @@ export default function ReviewPage() {
   // ─── Cost Validation ───────────────────────────────────────────────────
   const warnings = useMemo(() => runValidation(items), [items]);
   const warnCount = warnings.filter(w => w.severity === "WARN").length;
-  const infoCount = warnings.filter(w => w.severity === "INFO").length;
 
   // ─── Scope Gaps ────────────────────────────────────────────────────────
   const gaps = useMemo(() => {

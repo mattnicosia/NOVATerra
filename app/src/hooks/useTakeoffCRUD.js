@@ -71,10 +71,11 @@ export default function useTakeoffCRUD() {
   const addTakeoff = useCallback((group = "", desc = "", unit = "SF", code = "", opts = {}) => {
     const id = uid();
     const ts = useDrawingPipelineStore.getState();
+    const existingTakeoffs = Array.isArray(ts.takeoffs) ? ts.takeoffs : [];
     const { noMeasure: _noMeasure, quantity, ...extraFields } = opts;
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     ts.setTakeoffs([
-      ...ts.takeoffs,
+      ...existingTakeoffs,
       {
         id,
         description: desc || "New Takeoff",

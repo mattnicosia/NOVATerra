@@ -1,0 +1,32 @@
+{
+  "status": "complete",
+  "output_format": "markdown",
+  "chunks": null,
+  "json": null,
+  "markdown": "\n\n![Swift Construction, LLC logo with the text 'SAFETY FIRST'](935eed7aa61f7777f62cfc032e11bee9_img.jpg)\n\nSwift Construction, LLC logo with the text 'SAFETY FIRST'\n\nCustomer\n\nSwift Construction LLC  \n746 Highway 34, Suite 4  \nMatawan, NJ  \n07747, US  \n7325661206\n\n**Tener Contracting**\n\nPrepared By:  \nMaurice Evans\n\n**James Tener**\n\nmaurice@swiftconstruct.com\n\nProject: **Goodwill RFP Build Out**\n\n# **Scope of Work**\n\n**Proposal based on drawings dated 01/29/25**\n\n## **Included (+)**\n\n1. Furnish and install new drywall partitions @ 12ft high as indicated  \n(Metal Framing, 5/8\" gypsum board, insulation, blocking, taped and spackled)\n2. Modify existing ceilings for new walls as indicated\n3. Furnish and install \u00be\" FR plywood blocking as indicated\n4. Install only bathroom accessories as indicated\n5. Install only (4) HM frames doors and hardware as indicated\n\n## **Alternate:**\n\nOpen and close ceiling on floor below for sanitary plumbing on OT (2-man days w/ material: ADD \\$ 2,410)\n\n## **Total**\n\n**\\$26,992**\n\nAccepted By\n\nDate\n\n.....\n\n.....",
+  "html": null,
+  "extraction_schema_json": null,
+  "extraction_score_average": null,
+  "segmentation_results": null,
+  "metadata": {
+    "page_stats": [
+      {
+        "page_id": 0,
+        "num_blocks": 21
+      }
+    ]
+  },
+  "success": true,
+  "error": "",
+  "parse_quality_score": null,
+  "page_count": 1,
+  "total_cost": 1,
+  "cost_breakdown": {
+    "list_cost_cents": 1,
+    "final_cost_cents": 1
+  },
+  "runtime": 9.666240215301514,
+  "checkpoint_id": null,
+  "versions": null,
+  "evaluation": null
+}

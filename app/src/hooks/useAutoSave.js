@@ -31,6 +31,7 @@ import { useTaskStore } from "@/stores/taskStore";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useUiStore } from "@/stores/uiStore";
+import { isItemsDraftMirrorSuppressed, persistPendingEstimateItemsDraft } from "@/utils/estimateLocalDraft";
 
 // ── Selector-based subscribe helper ─────────────────────────
 // Zustand v4 subscribe(listener) fires on ANY state change.
@@ -74,6 +75,13 @@ export function useAutoSave() {
 
     let estTimer = null;
     let drawTimer = null;
+
+    const persistPendingItems = () => {
+      const { activeEstimateId } = useEstimatesStore.getState();
+      if (!activeEstimateId) return;
+      if (isItemsDraftMirrorSuppressed()) return;
+      persistPendingEstimateItemsDraft(activeEstimateId, useItemsStore.getState().items);
+    };
 
     const scheduleEstSave = () => {
       const { activeEstimateId, draftId, clearDraft } = useEstimatesStore.getState();
@@ -120,7 +128,10 @@ export function useAutoSave() {
     // spurious debounce resets on every mouse move or tool switch.
     const unsubs = [
       subSlice(useProjectStore, s => s.project, scheduleEstSave),
-      subSlice(useItemsStore, s => s.items, scheduleEstSave),
+      subSlice(useItemsStore, s => s.items, () => {
+        persistPendingItems();
+        scheduleEstSave();
+      }),
       subSlice(useDrawingPipelineStore, s => s.takeoffs, scheduleEstSave),
       subSlice(useBidManagementStore, s => s.subBidSubs, scheduleEstSave),
       subSlice(useBidManagementStore, s => s.linkedSubs, scheduleEstSave),

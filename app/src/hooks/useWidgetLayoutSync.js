@@ -24,6 +24,14 @@ function cleanLayout(layouts) {
   return result;
 }
 
+function persistLayoutToLocalStorage(layouts) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(layouts));
+  } catch {
+    // Storage access can fail in private browsing or when quota is exceeded.
+  }
+}
+
 function hydrateFromSettings() {
   const saved = useUiStore.getState().appSettings.widgetLayouts;
   if (saved && typeof saved === 'object' && saved.lg) {
@@ -31,7 +39,7 @@ function hydrateFromSettings() {
     if (cleaned.lg && cleaned.lg.length > 0) {
       useWidgetStore.getState().setLayouts(cleaned);
       // Also update localStorage for instant boot
-      try { localStorage.setItem(LS_KEY, JSON.stringify(cleaned)); } catch {}
+      persistLayoutToLocalStorage(cleaned);
       return true;
     }
   }
@@ -55,7 +63,7 @@ export function useWidgetLayoutSync() {
   const lastCloudRef = useRef(null);
   useEffect(() => {
     const unsub = useUiStore.subscribe(
-      (state, prevState) => {
+      state => {
         if (!initialized.current) return;
         const next = state.appSettings?.widgetLayouts;
         if (!next) return;
@@ -75,7 +83,7 @@ export function useWidgetLayoutSync() {
       (state, prevState) => {
         if (state.layouts !== prevState.layouts && initialized.current) {
           // localStorage — instant boot on next load
-          try { localStorage.setItem(LS_KEY, JSON.stringify(state.layouts)); } catch {}
+          persistLayoutToLocalStorage(state.layouts);
           // appSettings — triggers auto-save to IDB + cloud
           useUiStore.getState().updateSetting('widgetLayouts', state.layouts);
         }

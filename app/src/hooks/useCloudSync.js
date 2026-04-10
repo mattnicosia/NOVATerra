@@ -11,6 +11,7 @@ import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
 import { useOrgStore } from "@/stores/orgStore";
 import * as nova from "@/utils/novaLogger";
+import { hasPendingEstimateItemsNewerThan } from "@/utils/estimateLocalDraft";
 
 const DIRTY_RETRY_INTERVAL_MS = 30_000;
 let _dirtyFlushPromise = null;
@@ -612,6 +613,23 @@ async function syncEstimates() {
         // Cloud is newer — fetch full data and overwrite local
         // Also handle case where local has no _savedAt (legacy data before this fix)
         if (cloudTime > localTime) {
+          const activeId = useEstimatesStore.getState().activeEstimateId;
+          const protectRecentActiveEdits = activeId === ce.estimate_id && cloudSync.isRecentlyEdited();
+          const protectPendingLocalItems = hasPendingEstimateItemsNewerThan(ce.estimate_id, localRecord.data?._savedAt);
+          if (protectRecentActiveEdits || protectPendingLocalItems) {
+            if (protectRecentActiveEdits) {
+              const delay = cloudSync.scheduleDeferredEstimatePull(ce.estimate_id);
+              console.log(
+                `[cloudSync] Estimates: deferring overwrite for ${ce.estimate_id} by ${delay}ms to protect local edits`,
+              );
+            } else {
+              console.log(
+                `[cloudSync] Estimates: skipping cloud overwrite for ${ce.estimate_id} because newer local item edits are pending`,
+              );
+            }
+            continue;
+          }
+
           console.log(
             `[cloudSync] Estimates: cloud is newer for ${ce.estimate_id} (cloud: ${ce.updated_at}, local _savedAt: ${localTime ? new Date(localTime).toISOString() : "none"}) — overwriting local`,
           );

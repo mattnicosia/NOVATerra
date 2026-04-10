@@ -138,12 +138,36 @@ export const useItemsStore = create((set, get) => ({
   projectAssemblies: [],
 
   setItems: v => set({ items: v }),
-  // Normalize all item codes to standard format (run once after load)
+  // Normalize all item codes to standard format and repair division labels
+  // from code when a stale blob left them blank/incomplete.
   normalizeAllCodes: () => set(s => {
     let changed = false;
+    const divFromCode = useProjectStore.getState().divFromCode;
     const fixed = s.items.map(it => {
       const nc = normalizeCode(it.code);
-      if (nc !== it.code) { changed = true; return { ...it, code: nc }; }
+      const next = {};
+
+      if (nc !== it.code) {
+        next.code = nc;
+      }
+
+      const currentDiv = typeof it.division === "string" ? it.division.trim() : "";
+      const needsDivisionRepair =
+        !!(nc || it.code) &&
+        (!currentDiv || currentDiv === "Unassigned" || !currentDiv.includes(" - ") || !currentDiv.split(" - ")[1]?.trim());
+
+      if (needsDivisionRepair) {
+        const repairedDiv = divFromCode(nc || it.code);
+        if (repairedDiv && repairedDiv !== it.division) {
+          next.division = repairedDiv;
+        }
+      }
+
+      if (Object.keys(next).length > 0) {
+        changed = true;
+        return { ...it, ...next };
+      }
+
       return it;
     });
     return changed ? { items: fixed } : {};

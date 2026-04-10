@@ -38,6 +38,7 @@ export default function useTakeoffCanvasHandlers({
   pauseMeasuring,
   setCrossSheetScan,
   snapAngle,
+  realToPx,
   hasScale,
   calcPolylineLength,
   calcPolygonArea,

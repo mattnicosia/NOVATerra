@@ -172,12 +172,20 @@ export default function TakeoffLeftPanel({
 
   const toggleGroupCollapse = group => setCollapsedGroups(prev => {
     const next = { ...prev, [group]: !prev[group] };
-    try { sessionStorage.setItem("bldg-collapsedGroups", JSON.stringify(next)); } catch {}
+    try {
+      sessionStorage.setItem("bldg-collapsedGroups", JSON.stringify(next));
+    } catch {
+      // Session storage is optional for collapse persistence.
+    }
     return next;
   });
   const toggleAssemblyCollapse = asmId => setCollapsedAssemblies(prev => {
     const next = { ...prev, [asmId]: !prev[asmId] };
-    try { sessionStorage.setItem("bldg-collapsedAsm", JSON.stringify(next)); } catch {}
+    try {
+      sessionStorage.setItem("bldg-collapsedAsm", JSON.stringify(next));
+    } catch {
+      // Session storage is optional for collapse persistence.
+    }
     return next;
   });
 

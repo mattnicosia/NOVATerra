@@ -905,9 +905,7 @@ export default function ResourcePage() {
   const pendingReviews = useCollaborationStore(s => s.reviews.filter(r => r.status !== "completed").length);
   const isManager = useOrgStore(selectIsManager);
   const hasOrg = !!useOrgStore(s => s.org);
-
-  // ── Estimator role-gate: show simplified My Workload view ──
-  if (hasOrg && !isManager) return <MyWorkloadView />;
+  const shouldShowMyWorkload = hasOrg && !isManager;
 
   // KPI summary
   const activeEstimators = workload.estimatorRows.length;
@@ -985,6 +983,9 @@ export default function ResourcePage() {
       y: e.clientY - 20,
     });
   }, []);
+
+  // ── Estimator role-gate: show simplified My Workload view ──
+  if (shouldShowMyWorkload) return <MyWorkloadView />;
 
   return (
     <div

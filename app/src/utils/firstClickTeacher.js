@@ -15,6 +15,8 @@
  * fresh per session, prevents stale references from old projects).
  */
 
+import { imageBlock } from "./ai";
+
 // ── Session cache: takeoffId → { base64, description, drawingId, point, capturedAt } ──
 const _firstClickCache = new Map();
 
@@ -201,9 +203,6 @@ export function hasFirstClickExample(takeoffId) {
 export function getFirstClickContentBlocks(takeoffId) {
   const example = _firstClickCache.get(takeoffId);
   if (!example) return [];
-
-  // Import imageBlock dynamically to avoid circular deps
-  const { imageBlock } = require("./ai");
 
   const raw = example.base64.includes(",")
     ? example.base64.split(",")[1]

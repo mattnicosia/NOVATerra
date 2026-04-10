@@ -6,7 +6,7 @@ import prettier from "eslint-config-prettier";
 export default [
   // Ignore build artifacts and dependencies (must be first for flat config)
   {
-    ignores: ["dist/**", "node_modules/**", ".vercel/**", "*.config.js", "coverage/**"],
+    ignores: ["dist/**", "node_modules/**", ".vercel/**", "*.config.js", "coverage/**", "src/_backup/**"],
   },
 
   // Base JS recommended rules
@@ -15,6 +15,12 @@ export default [
   // React recommended (flat config)
   react.configs.flat.recommended,
   react.configs.flat["jsx-runtime"],
+
+  {
+    settings: {
+      react: { version: "detect" },
+    },
+  },
 
   // Prettier — disables formatting rules that conflict
   prettier,
@@ -49,6 +55,7 @@ export default [
         File: "readonly",
         FileReader: "readonly",
         AbortController: "readonly",
+        AbortSignal: "readonly",
         requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly",
         localStorage: "readonly",
@@ -75,6 +82,7 @@ export default [
         IntersectionObserver: "readonly",
         Worker: "readonly",
         self: "readonly",
+        caches: "readonly",
         Audio: "readonly",
         KeyboardEvent: "readonly",
         TextDecoder: "readonly",
@@ -96,9 +104,6 @@ export default [
         matchMedia: "readonly",
         OffscreenCanvas: "readonly",
       },
-    },
-    settings: {
-      react: { version: "detect" },
     },
     rules: {
       // Downgrade to warnings — too many existing violations to error on day one
@@ -135,7 +140,14 @@ export default [
       "src/components/nova/PBRShell.jsx",
       "src/components/nova/EnergyWisps.jsx",
       "src/components/nova/Chamber.jsx",
+      "src/components/insights/ArchitectSketch.jsx",
+      "src/components/insights/BlueprintTab.jsx",
       "src/components/insights/SceneViewer.jsx",
+      "src/components/ambient/**/*.jsx",
+      "src/components/building-viewer/**/*.jsx",
+      "src/components/spatial/**/*.jsx",
+      "src/components/proposal/CostSnapshot3D.jsx",
+      "src/pages/spatial/**/*.jsx",
     ],
     rules: {
       "react/no-unknown-property": "off",
@@ -165,6 +177,7 @@ export default [
         Request: "readonly",
         Headers: "readonly",
         AbortController: "readonly",
+        AbortSignal: "readonly",
         FormData: "readonly",
         Blob: "readonly",
         File: "readonly",
@@ -182,6 +195,24 @@ export default [
           varsIgnorePattern: "^_",
         },
       ],
+    },
+  },
+
+  // Vitest files
+  {
+    files: ["src/**/*.{test,spec}.{js,jsx}", "src/test/**/*.{js,jsx}"],
+    languageOptions: {
+      globals: {
+        describe: "readonly",
+        it: "readonly",
+        test: "readonly",
+        expect: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
+        vi: "readonly",
+      },
     },
   },
 ];

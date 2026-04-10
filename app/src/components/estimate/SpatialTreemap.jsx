@@ -232,8 +232,32 @@ export default function SpatialTreemap() {
   }, [items, zoomedDiv, getItemTotal]);
 
   // Keep refs current for the draw loop (avoids stale closures)
-  const dataRef = useRef({ divData, lineData, grand, zoomedDiv, mode, projectName, projectCompany, estimateName, itemCount: items.length, font: "" });
-  dataRef.current = { divData, lineData, grand, zoomedDiv, mode, projectName, projectCompany, estimateName, itemCount: items.length, font: T.font?.sans || "Switzer, sans-serif" };
+  const dataRef = useRef({
+    divData,
+    lineData,
+    grand,
+    zoomedDiv,
+    mode,
+    projectName,
+    projectCompany,
+    estimateName,
+    itemCount: items.length,
+    font: "",
+    accent: C.accent,
+  });
+  dataRef.current = {
+    divData,
+    lineData,
+    grand,
+    zoomedDiv,
+    mode,
+    projectName,
+    projectCompany,
+    estimateName,
+    itemCount: items.length,
+    font: T.font?.sans || "Switzer, sans-serif",
+    accent: C.accent,
+  };
 
   // ── Single stable draw loop ──
   useEffect(() => {
@@ -300,12 +324,12 @@ export default function SpatialTreemap() {
           for (let i = 0; i < count; i++) {
             const age = (rp - i / rooms.length) * rooms.length;
             const alpha = Math.min(1, age * 2);
-            drawRoom(ctx, rooms[i], false, d.mode, font, alpha);
+            drawRoom(ctx, rooms[i], false, d.mode, font, alpha, d.accent);
           }
         } else {
           drawBoundary(ctx, bounds);
-          rooms.forEach(r => drawRoom(ctx, r, r === ds.hoveredRoom, d.mode, font, 1));
-          drawTitleBlock(ctx, W, H, pad, tbW, font, d.grand, d.divData.length, d.itemCount, d.projectName || d.estimateName, d.projectCompany);
+          rooms.forEach(r => drawRoom(ctx, r, r === ds.hoveredRoom, d.mode, font, 1, d.accent));
+          drawTitleBlock(ctx, W, H, pad, tbW, font, d.grand, d.divData.length, d.itemCount, d.projectName || d.estimateName, d.projectCompany, d.accent);
         }
 
         if (t >= 1) ds.entranceDone = true;
@@ -316,8 +340,8 @@ export default function SpatialTreemap() {
       // Normal
       drawGrid(ctx, W, H);
       drawBoundary(ctx, bounds);
-      rooms.forEach(r => drawRoom(ctx, r, r === ds.hoveredRoom, d.mode, font, 1));
-      drawTitleBlock(ctx, W, H, pad, tbW, font, d.grand, d.divData.length, d.itemCount, d.projectName || d.estimateName, d.projectCompany);
+      rooms.forEach(r => drawRoom(ctx, r, r === ds.hoveredRoom, d.mode, font, 1, d.accent));
+      drawTitleBlock(ctx, W, H, pad, tbW, font, d.grand, d.divData.length, d.itemCount, d.projectName || d.estimateName, d.projectCompany, d.accent);
 
       rafRef.current = requestAnimationFrame(frame);
     }
@@ -556,7 +580,7 @@ function drawBoundaryPartial(ctx, b, t) {
   ctx.stroke();
 }
 
-function drawRoom(ctx, r, isHovered, mode, font, alpha) {
+function drawRoom(ctx, r, isHovered, mode, font, alpha, accent) {
   if (alpha <= 0 || r.w < 2 || r.h < 2) return;
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -640,7 +664,7 @@ function drawRoom(ctx, r, isHovered, mode, font, alpha) {
     }
     ctx.fillText(label, cx, cy - 6);
     ctx.font = `600 14px ${font}`;
-    ctx.fillStyle = isHovered ? C.accent : "#FAFAFA";
+    ctx.fillStyle = isHovered ? accent : "#FAFAFA";
     ctx.fillText(fmtDollar(r.cost || r.value), cx, cy + 14);
     if (r.pct) {
       ctx.font = `400 10px ${font}`;
@@ -652,7 +676,7 @@ function drawRoom(ctx, r, isHovered, mode, font, alpha) {
     ctx.fillStyle = isHovered ? "#FAFAFA" : "#A1A1AA";
     ctx.fillText(r.id || r.divId || (r.name || "").substring(0, 6), cx, cy - 2);
     ctx.font = `500 10px ${font}`;
-    ctx.fillStyle = isHovered ? C.accent : "#52525B";
+    ctx.fillStyle = isHovered ? accent : "#52525B";
     ctx.fillText(fmtDollar(r.cost || r.value), cx, cy + 12);
   }
 
@@ -673,7 +697,7 @@ function drawRoom(ctx, r, isHovered, mode, font, alpha) {
   ctx.restore();
 }
 
-function drawTitleBlock(ctx, W, H, pad, tbW, font, grand, divCount, itemCount, name, company) {
+function drawTitleBlock(ctx, W, H, pad, tbW, font, grand, divCount, itemCount, name, company, accent) {
   const x = W - pad - tbW;
   const y = H - pad - 90;
 
@@ -695,7 +719,7 @@ function drawTitleBlock(ctx, W, H, pad, tbW, font, grand, divCount, itemCount, n
   }
 
   ctx.font = `600 12px ${font}`;
-  ctx.fillStyle = C.accent;
+  ctx.fillStyle = accent;
   ctx.fillText(fmtDollar(grand) + " \u00B7 " + itemCount + " items", x + 10, y + 50);
 
   ctx.font = `400 10px ${font}`;

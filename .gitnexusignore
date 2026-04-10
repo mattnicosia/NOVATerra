@@ -1,0 +1,17 @@
+node_modules
+.next
+dist
+build
+.vercel
+.git
+coverage
+*.min.js
+*.bundle.js
+*.chunk.js
+Lamborghini Terzo Millennio*
+pascal-editor
+app/api/
+vector-api/
+training/
+scripts/
+blender/

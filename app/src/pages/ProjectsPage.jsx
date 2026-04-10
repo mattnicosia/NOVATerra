@@ -104,6 +104,7 @@ function isDueThisWeek(dateStr) {
 /* ── Inline status dropdown ── */
 function StatusDropdown({ currentStatus, onSelect, onClose, C, T: _T }) {
   const ref = useRef(null);
+  const statusColors = getStatusColors(C);
   useEffect(() => {
     const handler = e => {
       if (ref.current && !ref.current.contains(e.target)) onClose();
@@ -131,7 +132,7 @@ function StatusDropdown({ currentStatus, onSelect, onClose, C, T: _T }) {
       }}
     >
       {STATUS_ORDER.map(status => {
-        const sc = STATUS_COLORS[status];
+        const sc = statusColors[status];
         const isActive = currentStatus === status;
         return (
           <button
@@ -209,7 +210,8 @@ function KanbanCard({
   onDelete: _onDelete,
   viewers,
 }) {
-  const sc = STATUS_COLORS[est.status] || STATUS_COLORS.Draft;
+  const statusColors = getStatusColors(C);
+  const sc = statusColors[est.status] || statusColors.Draft;
   return (
     <div
       draggable
@@ -442,8 +444,12 @@ export default function ProjectsPage() {
   const [dueThisWeek, setDueThisWeek] = useState(false);
   const [showColumnConfig, setShowColumnConfig] = useState(false);
   const updateSetting = useUiStore(s => s.updateSetting);
-  const projectColumns = useUiStore(s => s.appSettings.projectColumns) || { visible: DEFAULT_VISIBLE, order: DEFAULT_ORDER };
-  const customWidths = projectColumns.widths || {};
+  const storedProjectColumns = useUiStore(s => s.appSettings.projectColumns);
+  const projectColumns = useMemo(
+    () => storedProjectColumns || { visible: DEFAULT_VISIBLE, order: DEFAULT_ORDER },
+    [storedProjectColumns]
+  );
+  const customWidths = useMemo(() => projectColumns.widths || {}, [projectColumns]);
   const visibleCols = useMemo(() => {
     const order = projectColumns.order || DEFAULT_ORDER;
     const vis = new Set(projectColumns.visible || DEFAULT_VISIBLE);

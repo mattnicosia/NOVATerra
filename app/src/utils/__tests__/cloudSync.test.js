@@ -37,6 +37,15 @@ function createQueryMock(resolvedValue = { data: null, error: null }) {
 
 let mockQuery;
 let mockSupabase;
+const mockStorage = {
+  get: vi.fn(),
+  set: vi.fn(),
+  delete: vi.fn(),
+  clearAll: vi.fn(),
+  keys: vi.fn(),
+  getUsage: vi.fn(),
+};
+const mockEstimatesState = { activeEstimateId: null, estimatesIndex: [] };
 
 // Track what supabase.from() was called with
 let fromCalls = [];
@@ -114,6 +123,20 @@ vi.mock("@/stores/orgStore", () => ({
   },
 }));
 
+vi.mock("@/stores/estimatesStore", () => ({
+  useEstimatesStore: {
+    getState: () => mockEstimatesState,
+  },
+}));
+
+vi.mock("@/utils/storage", () => ({
+  storage: mockStorage,
+}));
+
+vi.mock("@/utils/idbKey", () => ({
+  idbKey: key => key,
+}));
+
 // ---------------------------------------------------------------------------
 // Now import the module under test (after mocks are registered)
 // ---------------------------------------------------------------------------
@@ -133,6 +156,21 @@ beforeEach(async () => {
   mockUiState.setCloudSyncStatus.mockClear();
   mockUiState.setCloudSyncLastAt.mockClear();
   mockUiState.setCloudSyncError.mockClear();
+  mockStorage.get.mockReset();
+  mockStorage.set.mockReset();
+  mockStorage.delete.mockReset();
+  mockStorage.clearAll.mockReset();
+  mockStorage.keys.mockReset();
+  mockStorage.getUsage.mockReset();
+  mockStorage.get.mockResolvedValue(undefined);
+  mockStorage.set.mockResolvedValue(true);
+  mockStorage.delete.mockResolvedValue(true);
+  mockStorage.clearAll.mockResolvedValue(true);
+  mockStorage.keys.mockResolvedValue([]);
+  mockStorage.getUsage.mockResolvedValue({ usage: 0, quota: 0, pctUsed: 0 });
+  mockEstimatesState.activeEstimateId = null;
+  mockEstimatesState.estimatesIndex = [];
+  localStorage.clear();
 });
 
 // ---------------------------------------------------------------------------
@@ -514,6 +552,37 @@ describe("cloudSync", () => {
       // Should NOT filter by org_id
       const orgCalls = mockQuery.eq.mock.calls.filter(([k]) => k === "org_id");
       expect(orgCalls.length).toBe(0);
+    });
+  });
+
+  describe("pullAndApplyEstimate", () => {
+    it("does not overwrite IDB when newer local item edits are still pending", async () => {
+      const { persistPendingEstimateItemsDraft } = await import("@/utils/estimateLocalDraft");
+      const { pullAndApplyEstimate } = await import("@/utils/cloudSync");
+
+      mockStorage.get.mockResolvedValue({
+        value: JSON.stringify({
+          _savedAt: "2026-04-10T10:00:00.000Z",
+          items: [{ id: "item-1", division: "" }],
+        }),
+      });
+
+      persistPendingEstimateItemsDraft("est-1", [{ id: "item-1", division: "07 - Thermal", material: 125 }]);
+      mockQuery.maybeSingle = vi.fn(() =>
+        Promise.resolve({
+          data: {
+            data: {
+              _savedAt: "2026-04-10T10:00:05.000Z",
+              items: [{ id: "item-1", division: "", material: 0 }],
+            },
+          },
+          error: null,
+        }),
+      );
+
+      await pullAndApplyEstimate("est-1");
+
+      expect(mockStorage.set).not.toHaveBeenCalled();
     });
   });
 });

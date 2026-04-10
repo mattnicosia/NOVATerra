@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
+import { ESTIMATE_TEMPLATES } from "@/constants/seedTemplates";
 import Modal from "./Modal";
 import { bt, inp } from "@/utils/styles";
 // Templates hidden — always creates blank estimates

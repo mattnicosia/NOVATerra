@@ -24,10 +24,9 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useBidManagementStore } from "@/stores/bidManagementStore";
-import { useCollaborationStore } from "@/stores/collaborationStore";
 import { tick, receive, isInitialized } from "@/lib/crdtClock";
 import { shouldApply, recordHLC, resetState, serialize } from "@/lib/crdtState";
-import { createSetOp, createAddOp, createRemoveOp, batchOps, HLC } from "@/lib/crdt";
+import { createSetOp, createAddOp, createRemoveOp, batchOps } from "@/lib/crdt";
 import { storage } from "@/utils/storage";
 
 // ── Feature flag ──
@@ -376,7 +375,7 @@ export function useCollaborativeSync() {
       }
       prevSnapRef.current = null;
     };
-  }, [CRDT_ENABLED, user, activeEstimateId, orgReady, org?.id, takeSnapshot, broadcastDiff]);
+  }, [user, activeEstimateId, orgReady, org?.id, takeSnapshot, broadcastDiff]);
 
   return { enabled: CRDT_ENABLED && !!org?.id };
 }

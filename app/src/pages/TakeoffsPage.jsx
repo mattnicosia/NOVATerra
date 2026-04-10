@@ -379,6 +379,7 @@ export default function TakeoffsPage() {
     pauseMeasuring,
     setCrossSheetScan,
     snapAngle,
+    realToPx,
     hasScale,
     calcPolylineLength,
     calcPolygonArea,

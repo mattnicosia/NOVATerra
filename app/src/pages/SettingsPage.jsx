@@ -35,6 +35,7 @@ export default function SettingsPage() {
   const setMarkup = useItemsStore(s => s.setMarkup);
   const markupOrder = useItemsStore(s => s.markupOrder) || DEFAULT_MARKUP_ORDER;
   const setMarkupOrder = useItemsStore(s => s.setMarkupOrder);
+  const showLaborTypes = appSettings?.showLaborTypes === true;
 
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragMarkupIdx, setDragMarkupIdx] = useState(null);
@@ -604,7 +605,7 @@ export default function SettingsPage() {
 
         {/* Labor Types — hidden: Settings multipliers are disconnected from ROM/normalization engines.
            Per-estimate labor type dropdown on Project Info still works (reads from constructionTypes.js). */}
-        {false && <Sec title="Labor Types">
+        {showLaborTypes && <Sec title="Labor Types">
           <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>
             Configure labor type multipliers. The multiplier is applied to the labor portion of all line items at
             calculation time. Set per-estimate on the Project Info page.

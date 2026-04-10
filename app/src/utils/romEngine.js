@@ -44,18 +44,36 @@ function _persistCache() {
  * Generate a deterministic fingerprint from ROM input parameters.
  * Same inputs always produce the same hash string.
  */
-export function romFingerprint(projectSF, buildingType, workType, buildingParams = {}) {
+function stableSerialize(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableSerialize(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+export function romFingerprint(projectSF, buildingType, workType, buildingParams = {}, calibrationFactors = {}) {
+  const normalizedParams = {
+    laborType: buildingParams?.laborType || "open-shop",
+    location: buildingParams?.location || "",
+    stories: buildingParams?.stories || "",
+    floorCount: buildingParams?.floorCount || "",
+    basementCount: buildingParams?.basementCount || "",
+    quality: buildingParams?.quality || "",
+    complexity: buildingParams?.complexity || "",
+    condition: buildingParams?.condition || "",
+    roomCounts: buildingParams?.roomCounts || {},
+    typeAnswers: buildingParams?.typeAnswers || {},
+  };
   const parts = [
     Math.round(parseFloat(projectSF) || 0),
     (buildingType || "commercial-office").toLowerCase(),
-    (workType || "").toLowerCase(),
-    (buildingParams?.laborType || "open-shop").toLowerCase(),
-    (buildingParams?.location || "").toLowerCase().trim(),
-    (buildingParams?.stories || "").toString(),
-    (buildingParams?.quality || "").toString(),
-    (buildingParams?.complexity || "").toString(),
-    (buildingParams?.condition || "").toString(),
-    JSON.stringify(buildingParams?.typeAnswers || {}),
+    typeof workType === "string" ? workType.toLowerCase() : "",
+    stableSerialize(normalizedParams),
+    stableSerialize(calibrationFactors),
   ];
   return parts.join("|");
 }
@@ -479,11 +497,6 @@ export function getBuildingParamMultipliers(buildingParams = {}) {
 // buildingParams can include: { laborType, location, floorCount, ... }
 // Backward compat: (projectSF, jobType, calibrationFactors) still works
 export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOrCalib, maybeCalib, buildingParams) {
-  // Check cache first
-  const fp = romFingerprint(projectSF, buildingTypeOrJobType, workTypeOrCalib, buildingParams);
-  const cached = getCachedROM(fp);
-  if (cached) return cached;
-
   // Detect old 3-arg signature vs new 4-arg
   let buildingType, workType, calibrationFactors;
   if (typeof workTypeOrCalib === "string") {
@@ -495,10 +508,16 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     workType = null;
     calibrationFactors = workTypeOrCalib || {};
   }
+  const params = buildingParams || {};
+
+  // Check cache after normalizing the call signature so baseline/calibrated
+  // variants do not collide across old/new call patterns.
+  const fp = romFingerprint(projectSF, buildingType, workType, params, calibrationFactors);
+  const cached = getCachedROM(fp);
+  if (cached) return cached;
 
   const sf = parseFloat(projectSF) || 0;
   const benchmarks = BENCHMARKS[buildingType] || DEFAULT_BENCHMARKS;
-  const params = buildingParams || {};
 
   // ── Multipliers ──
   const workMultiplier = workType ? getWorkTypeMultiplier(workType) : 1.0;

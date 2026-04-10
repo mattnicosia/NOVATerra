@@ -353,7 +353,7 @@ describe("estimatesStore", () => {
     it("pushes to cloud sync when not in progress", async () => {
       await getState().createEstimate();
       expect(cloudSync.pushEstimate).toHaveBeenCalled();
-      expect(cloudSync.pushData).toHaveBeenCalledWith("index", expect.any(Array));
+      expect(cloudSync.pushData).not.toHaveBeenCalled();
     });
 
     it("accumulates multiple estimates in the index", async () => {
@@ -507,13 +507,14 @@ describe("estimatesStore", () => {
       expect(storage.set).toHaveBeenCalled();
     });
 
-    it("pushes updated index to cloud sync", () => {
+    it("syncs updated index columns to the cloud record", () => {
       const entry = makeFakeEntry({ id: "upd-g" });
       setState({ estimatesIndex: [entry] });
       vi.clearAllMocks();
 
       getState().updateIndexEntry("upd-g", { status: "Won" });
-      expect(cloudSync.pushData).toHaveBeenCalledWith("index", expect.any(Array));
+      expect(cloudSync.syncIndexColumns).toHaveBeenCalledWith("upd-g", { status: "Won" });
+      expect(cloudSync.pushData).not.toHaveBeenCalled();
     });
   });
 

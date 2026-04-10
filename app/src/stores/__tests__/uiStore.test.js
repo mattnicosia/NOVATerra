@@ -47,7 +47,7 @@ describe("uiStore — initial state", () => {
     expect(s.estShowVars).toBeNull();
     expect(s.estShowSpec).toBeNull();
     expect(s.estShowAllowance).toBeNull();
-    expect(s.estViewMode).toBe("scope");
+    expect(s.estViewMode).toBe("detail");
     expect(s.activeGroupId).toBe("base");
     expect(s.expandedDivs).toBeInstanceOf(Set);
     expect(s.expandedDivs.size).toBe(0);

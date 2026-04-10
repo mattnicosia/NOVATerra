@@ -9,7 +9,7 @@
  * - Quick action chips for common operations
  * - Framer Motion open/close animation
  */
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
 import { useRomStore } from "@/stores/romStore";
@@ -317,7 +317,7 @@ export default function RomChat() {
 
   // ─── Undo ────────────────────────────────────────────
 
-  const handleUndo = useCallback(() => {
+  const handleUndo = () => {
     setUndoStack(prev => {
       if (!prev.length) {
         setMessages(m => [...m, { role: "assistant", text: "Nothing to undo.", ts: Date.now() }]);
@@ -331,7 +331,7 @@ export default function RomChat() {
       setMessages(m => [...m, { role: "assistant", text: `Undone: "${snapshot.label}"\n\nTotal restored to ${total}`, ts: Date.now(), applied: ["Undo"] }]);
       return stack;
     });
-  }, [setRomResult]);
+  };
 
   // ─── Cancel streaming ────────────────────────────────
 

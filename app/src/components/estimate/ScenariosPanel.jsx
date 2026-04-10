@@ -1006,7 +1006,7 @@ Prioritize by likelihood the architect/owner will request these.`,
         }}
         onDragOver={e => {
           e.preventDefault();
-          setDragOver("__root__");
+          handleDragOverNode(e, "__root__");
         }}
         onDrop={e => handleDropOnNode(e, "__root__")}
         onDragLeave={handleDragLeave}
@@ -1023,7 +1023,7 @@ Prioritize by likelihood the architect/owner will request these.`,
                 onContextMenu={e => handleContextMenu(e, baseNode)}
                 onDragOver={e => {
                   e.preventDefault();
-                  if (dragId) setDragOver("base");
+                  handleDragOverNode(e, "base");
                 }}
                 onDragLeave={handleDragLeave}
                 onDrop={e => handleDropOnNode(e, "base")}

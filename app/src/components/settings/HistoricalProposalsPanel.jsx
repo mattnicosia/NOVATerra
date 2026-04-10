@@ -320,7 +320,16 @@ export default function HistoricalProposalsPanel() {
     showToast(`Saved ${extracted.length} proposal${extracted.length !== 1 ? "s" : ""} to Cost History`);
     setTimeout(async () => {
       const proposals = useMasterDataStore.getState().masterData.historicalProposals || [];
-      for (const q of extracted) { const match = proposals.find(p => p.sourceFileName === q.fileName); if (match) { try { await generateLearningFromProposal(match); } catch {} } }
+      for (const q of extracted) {
+        const match = proposals.find(p => p.sourceFileName === q.fileName);
+        if (match) {
+          try {
+            await generateLearningFromProposal(match);
+          } catch (err) {
+            console.warn(`[HistoricalProposalsPanel] Learning generation failed for ${q.fileName}:`, err);
+          }
+        }
+      }
     }, 100);
   };
 

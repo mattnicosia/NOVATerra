@@ -12,6 +12,8 @@ import { bt, inp, card } from "@/utils/styles";
 import { T } from "@/utils/designTokens";
 import { I } from "@/constants/icons";
 import { BUILDING_TYPES } from "@/constants/constructionTypes";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useUiStore } from "@/stores/uiStore";
 import Modal from "@/components/shared/Modal";
 
 // ─── Global modal state ──────────────────────────────────────────────────────
@@ -142,12 +144,10 @@ export default function AutopilotPanel() {
   // ── Navigate to estimate ───────────────────────────────────────────────────
   const openEstimate = useCallback(() => {
     if (!result?.estimateId) return;
-    const { useEstimatesStore } = require("@/stores/estimatesStore");
     useEstimatesStore.setState({ activeEstimateId: result.estimateId });
     hide();
     // Navigate via uiStore or direct
     try {
-      const { useUiStore } = require("@/stores/uiStore");
       useUiStore.getState().setPage?.("estimate");
     } catch { /* fallback: user can navigate manually */ }
   }, [result, hide]);

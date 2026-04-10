@@ -1,0 +1,36 @@
+{
+  "status": "complete",
+  "output_format": "markdown",
+  "chunks": null,
+  "json": null,
+  "markdown": "\n\n# OATH SOLUTIONS LLC.\n\n## PROPOSAL\n\nDate: 02/20/2024  \n 5 West 14<sup>th</sup> Street  \n New York, NY\n\n10011\n\nExpediting  \n Services\n\n| Qty       | Description                                                                                                                         | Unit Price | Line Total |\n|-----------|-------------------------------------------------------------------------------------------------------------------------------------|------------|------------|\n| 1         | Filing department of buildings Alteration type 2 application in DOBNOW. (GC, PL and MH)                                             |            |            |\n| 1         | Meeting with DOB examiners to answer objections and obtain approval for application.                                                |            |            |\n| 1         | Pulling of all necessary permits for this application.                                                                              |            |            |\n| 1         | Meet with DOB examiner to receive all controlled inspections after work is complete and all special inspections have been obtained. |            |            |\n| 1         | Sign-off review with DOB staff.                                                                                                     |            |            |\n| 1         | Sign-Off of application.                                                                                                            |            |            |\n| Subtotal  |                                                                                                                                     |            |            |\n| Sales Tax |                                                                                                                                     |            |            |\n| Total     |                                                                                                                                     |            | \\$3000.00  |\n\n***Thank you for your business!***\n\nZelle: Jay@oathsolutionsny.com \"Oath Solutions LLC.\" 101 Franklin Street, Brooklyn, New York 11222\n\nATTN: Jay Byrnes\n\nPayment Breakdown:\n\n50% at start of job. 25% at time of approval. 25% at sign-off.\n\n",
+  "html": null,
+  "extraction_schema_json": null,
+  "extraction_score_average": null,
+  "segmentation_results": null,
+  "metadata": {
+    "page_stats": [
+      {
+        "page_id": 0,
+        "num_blocks": 11
+      },
+      {
+        "page_id": 1,
+        "num_blocks": 0
+      }
+    ]
+  },
+  "success": true,
+  "error": "",
+  "parse_quality_score": null,
+  "page_count": 2,
+  "total_cost": 1,
+  "cost_breakdown": {
+    "list_cost_cents": 1,
+    "final_cost_cents": 1
+  },
+  "runtime": 12.272186994552612,
+  "checkpoint_id": null,
+  "versions": null,
+  "evaluation": null
+}

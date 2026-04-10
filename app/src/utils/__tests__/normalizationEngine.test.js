@@ -117,7 +117,7 @@ describe("normalizeProposal", () => {
     expect(result.divisions["03"]).toBeDefined();
     expect(result.divisions["03"].rawTotal).toBe(200000);
     expect(result.divisions["03"].rawPerSF).toBe(20); // 200000 / 10000
-    expect(result.divisions["03"].normalizedPerSF).toBeCloseTo(10.73, 1); // 20 / 1.863
+    expect(result.divisions["03"].normalizedPerSF).toBeCloseTo(11.12, 1); // 20 / (1.285 * 1.40)
 
     // Normalized total should be less than raw total (NYC union > national avg)
     expect(result.normalized.totalCost).toBeLessThan(500000);

@@ -1,7 +1,7 @@
 // BuildingCubes.jsx — InstancedMesh cube renderer with assembly animation
 // Each cube flies from scattered position to target, with staggered delays per floor.
 
-import { useRef, useMemo, useEffect, useState, useCallback } from "react";
+import { useRef, useMemo, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { CUBE_MATERIALS } from "@/lib/building-types";
@@ -36,10 +36,7 @@ export default function BuildingCubes({ cubes, onProgress, onComplete }) {
       prevCubeCount.current = cubes.length;
       onProgress?.(0);
     }
-  }, [cubes]);
-
-  // Group cubes by type for coloring
-  const cubeTypes = useMemo(() => cubes.map(c => c.type), [cubes]);
+  }, [cubes, onProgress]);
 
   // Pre-compute colors per instance
   const colors = useMemo(() => {
@@ -60,7 +57,7 @@ export default function BuildingCubes({ cubes, onProgress, onComplete }) {
     return new THREE.EdgesGeometry(box);
   }, []);
 
-  useFrame((state, delta) => {
+  useFrame((state, _delta) => {
     if (!meshRef.current || !cubes.length) return;
 
     if (startTime.current === null) startTime.current = state.clock.elapsedTime;
@@ -133,9 +130,8 @@ export default function BuildingCubes({ cubes, onProgress, onComplete }) {
   });
 
   // Window emissive pulse
-  useFrame((state) => {
+  useFrame((_state) => {
     if (!meshRef.current || !assembled) return;
-    const pulse = 0.2 + Math.sin(state.clock.elapsedTime * 1.5) * 0.15;
 
     // We can't easily change per-instance emissive with InstancedMesh,
     // but we can update the shared material's emissive intensity

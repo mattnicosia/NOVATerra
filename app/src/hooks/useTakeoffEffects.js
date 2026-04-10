@@ -18,6 +18,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { unitToTool } from "@/hooks/useMeasurementEngine";
 import { uid } from "@/utils/format";
+import { autoRecordFromPredState } from "@/utils/crossSheetLearning";
 import { runSmartPredictions } from "@/utils/predictiveEngine";
 import { inferViewType } from "@/utils/uploadPipeline";
 
@@ -35,8 +36,6 @@ export default function useTakeoffEffects({
   stopMeasuring,
   engageMeasuring,
   renderPdfPage,
-  // Cross-sheet scan
-  setCrossSheetScan,
   // State values for keyboard handler deps
   tkTool,
   tkMeasureState,
@@ -49,7 +48,6 @@ export default function useTakeoffEffects({
   tkActiveTakeoffId,
   selectedDrawingId,
   drawings,
-  pdfCanvases,
   // Geo analysis setter
   setGeoAnalysis,
 }) {
@@ -123,7 +121,7 @@ export default function useTakeoffEffects({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [tkMeasureState, tkPanning, tkPanStart]);
+  }, [canvasRef, tkMeasureState, tkPanning, tkPanStart]);
 
   // Reset pan on drawing change
   useEffect(() => {
@@ -354,7 +352,6 @@ export default function useTakeoffEffects({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tkTool, tkMeasureState, tkSelectedTakeoffId, stopMeasuring, engageMeasuring]);
 
   // ─── DB search ───
@@ -434,7 +431,6 @@ export default function useTakeoffEffects({
       try {
         const s = useDrawingPipelineStore.getState();
         if (s.tkActiveTakeoffId && s.tkPredictions) {
-          const { autoRecordFromPredState } = require("@/utils/crossSheetLearning");
           const manualCount = (s.takeoffs.find(t => t.id === s.tkActiveTakeoffId)?.measurements || [])
             .filter(m => m.sheetId === prevId && !m.predicted).length;
           autoRecordFromPredState(

@@ -264,24 +264,22 @@ async function _handleEstimateChange(payload) {
   console.log(`[realtimeSync] Estimate ${estimateId} changed on another device — pulling`);
   const data = await cloudSync.pullAndApplyEstimate(estimateId);
 
-  // If this is a new estimate not in our index, add it
+  // If this is a new estimate not in our index, add it atomically.
   if (data) {
-    const currentIndex = useEstimatesStore.getState().estimatesIndex;
-    if (!currentIndex.some(e => e.id === estimateId)) {
-      // Pull the updated index metadata from the estimate data
-      const indexEntry = {
-        id: estimateId,
-        name: data.project?.projectName || "Untitled",
-        updated_at: data._savedAt || new Date().toISOString(),
-      };
-      useEstimatesStore.getState().setEstimatesIndex(prev => [...prev, indexEntry]);
-      // Update IDB index
-      try {
-        const updatedIndex = useEstimatesStore.getState().estimatesIndex;
-        await storage.set(idbKey("bldg-index"), JSON.stringify(updatedIndex));
-      } catch {
-        /* IDB index update non-critical */
-      }
+    const indexEntry = {
+      id: estimateId,
+      name: data.project?.projectName || "Untitled",
+      updated_at: data._savedAt || new Date().toISOString(),
+    };
+    useEstimatesStore.getState().setEstimatesIndex(prev =>
+      prev.some(e => e.id === estimateId) ? prev : [...prev, indexEntry]
+    );
+    // Update IDB index
+    try {
+      const updatedIndex = useEstimatesStore.getState().estimatesIndex;
+      await storage.set(idbKey("bldg-index"), JSON.stringify(updatedIndex));
+    } catch {
+      /* IDB index update non-critical */
     }
   }
 }

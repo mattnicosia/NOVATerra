@@ -7,6 +7,11 @@ vi.mock("@/stores/projectStore", () => ({
   useProjectStore: {
     getState: () => ({
       project: { laborType: "union", zipCode: "", locationMetroId: null },
+      divFromCode: code => {
+        if (!code) return "";
+        const div = String(code).split(".")[0].padStart(2, "0");
+        return `${div} - Mock Division`;
+      },
     }),
   },
 }));
@@ -129,6 +134,17 @@ describe("itemsStore (builder store)", () => {
       expect(keys).toContain("contingency");
       expect(keys).toContain("overhead");
       expect(keys).toContain("profit");
+    });
+  });
+
+  describe("normalizeAllCodes", () => {
+    it("repairs a missing division label from the normalized code", () => {
+      seedItem({ code: "7.100", division: "" });
+
+      getState().normalizeAllCodes();
+
+      expect(getState().items[0].code).toBe("07.100");
+      expect(getState().items[0].division).toBe("07 - Mock Division");
     });
   });
 
