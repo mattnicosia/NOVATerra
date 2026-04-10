@@ -289,14 +289,13 @@ export default function RomResult({ rom, email }) {
 
       <ScopeFromDrawingsPanel C={C} T={T} />
 
-      {rom?.scopeItems?.length > 0 && (
-        <RomScopePreview
-          scopeItems={rom.scopeItems}
-          C={C}
-          T={T}
-          onCreateAccount={() => window.location.href = "/signup"}
-        />
-      )}
+      <RomScopePreview
+        rom={rom}
+        scopeItems={rom?.scopeItems || []}
+        C={C}
+        T={T}
+        onCreateAccount={() => window.location.href = "/signup"}
+      />
 
       {/* Controls Bar */}
       <div style={{

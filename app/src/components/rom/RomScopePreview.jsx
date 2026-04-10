@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { generateScopeTemplate } from "@/constants/scopeTemplates";
 
 const confidenceColor = (conf) => {
   if (conf >= 0.8) return "#22c55e";
@@ -6,23 +7,16 @@ const confidenceColor = (conf) => {
   return "#ef4444";
 };
 
-// Infer directive from scope item context
+// Infer directive from item context
 const inferDirective = (si) => {
   const code = si.code || "";
   const div = code.substring(0, 2);
   const desc = (si.description || "").toLowerCase();
-
-  // MEP divisions are almost always subcontracted
   if (["21", "22", "23", "26", "27", "28"].includes(div)) return "F/I by Sub";
-  // Equipment = furnish only (vendor delivers)
   if (div === "11" || div === "14") return "F/O";
-  // Specialties, furnishings
   if (div === "10" || div === "12") return "F/O";
-  // Supply-only keywords
   if (desc.includes("supply only") || desc.includes("owner furnished")) return "F/O";
-  // Install-only keywords
   if (desc.includes("install only") || desc.includes("labor only")) return "I/O";
-  // Default for GC self-performed trades
   return "F/I";
 };
 
@@ -33,15 +27,94 @@ const DIRECTIVE_COLORS = {
   "F/I by Sub": "#ec4899",
 };
 
-export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount }) {
+const DIV_LABELS = {
+  "01": "01 - General Requirements", "02": "02 - Existing Conditions", "03": "03 - Concrete",
+  "04": "04 - Masonry", "05": "05 - Metals", "06": "06 - Wood & Plastics",
+  "07": "07 - Thermal & Moisture", "08": "08 - Openings", "09": "09 - Finishes",
+  "10": "10 - Specialties", "11": "11 - Equipment", "12": "12 - Furnishings",
+  "13": "13 - Special Construction", "14": "14 - Conveying Equipment",
+  "21": "21 - Fire Suppression", "22": "22 - Plumbing", "23": "23 - HVAC",
+  "26": "26 - Electrical", "27": "27 - Communications", "28": "28 - Electronic Safety",
+  "31": "31 - Earthwork", "32": "32 - Exterior Improvements", "33": "33 - Utilities",
+};
+
+const fmtCost = n => {
+  if (!n && n !== 0) return "—";
+  return "$" + Math.round(n).toLocaleString();
+};
+
+export default function RomScopePreview({ rom, scopeItems = [], C, T, onCreateAccount }) {
   const [collapsed, setCollapsed] = useState({});
   const [removedDivisions, setRemovedDivisions] = useState(new Set());
 
+  // Generate full scope of work from template engine + merge schedule-detected items
   const { grouped, totalCount, divisionCount, activeCount } = useMemo(() => {
-    if (!scopeItems.length) return { grouped: [], totalCount: 0, divisionCount: 0, activeCount: 0 };
+    const jobType = rom?.buildingType || rom?.jobType || "commercial-office";
+    const sf = rom?.projectSF || 2000;
+    const floors = rom?.floors || rom?.buildingParams?.floorCount || 1;
 
+    // Generate full template for all trades
+    let allItems = [];
+    try {
+      const tpl = generateScopeTemplate(jobType, sf, { floors, workType: rom?.workType || "" });
+      if (tpl?.items?.length) {
+        allItems = tpl.items.map((item, i) => ({
+          id: `tpl_${i}`,
+          code: item.code || "",
+          description: item.description || "",
+          division: DIV_LABELS[item.division] || `${item.division} - Unknown`,
+          divCode: item.division,
+          quantity: item.qty || 0,
+          unit: item.unit || "",
+          confidence: 0.7, // template baseline
+          source: "template",
+          midCost: item.midCost || 0,
+          lowCost: item.lowCost || 0,
+          highCost: item.highCost || 0,
+          note: item.note || null,
+        }));
+      }
+    } catch (e) {
+      console.warn("[RomScopePreview] Template generation failed:", e.message);
+    }
+
+    // Merge in schedule-detected items (higher confidence, replace matching codes)
+    if (scopeItems?.length) {
+      const tplCodes = new Set(allItems.map(it => it.code.replace(/\s/g, "")));
+      for (const si of scopeItems) {
+        const normCode = (si.code || "").replace(/\s/g, "");
+        if (tplCodes.has(normCode)) {
+          // Replace template item with schedule-detected one
+          const idx = allItems.findIndex(it => it.code.replace(/\s/g, "") === normCode);
+          if (idx >= 0) {
+            allItems[idx] = {
+              ...allItems[idx],
+              ...si,
+              division: allItems[idx].division, // keep the labeled division
+              confidence: si.confidence || 0.9,
+              source: "schedule",
+            };
+          }
+        } else {
+          // Add new schedule item not in template
+          const divCode = (si.code || "").substring(0, 2).replace(/\s/g, "");
+          allItems.push({
+            ...si,
+            id: si.id || `scan_${allItems.length}`,
+            division: DIV_LABELS[divCode] || si.division || "Unassigned",
+            divCode,
+            confidence: si.confidence || 0.9,
+            source: "schedule",
+          });
+        }
+      }
+    }
+
+    if (!allItems.length) return { grouped: [], totalCount: 0, divisionCount: 0, activeCount: 0 };
+
+    // Group by division
     const groups = {};
-    for (const si of scopeItems) {
+    for (const si of allItems) {
       const div = si.division || "Unassigned";
       if (!groups[div]) groups[div] = [];
       groups[div].push(si);
@@ -52,11 +125,11 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
 
     return {
       grouped: sorted,
-      totalCount: scopeItems.length,
+      totalCount: allItems.length,
       divisionCount: Object.keys(groups).length,
       activeCount: active,
     };
-  }, [scopeItems, removedDivisions]);
+  }, [rom, scopeItems, removedDivisions]);
 
   const toggleDivRemoved = (div) => {
     setRemovedDivisions(prev => {
@@ -66,7 +139,7 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
     });
   };
 
-  if (!scopeItems.length) return null;
+  if (!grouped.length) return null;
 
   return (
     <div
@@ -102,11 +175,12 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
         )}
       </div>
 
-      {/* All items — no blur gate, full scope visible */}
+      {/* All items — full scope visible */}
       <div style={{ maxHeight: 600, overflowY: "auto" }}>
         {grouped.map(([div, items]) => {
           const isRemoved = removedDivisions.has(div);
           const isCollapsed = collapsed[div];
+          const divMidTotal = items.reduce((s, it) => s + (it.midCost || 0), 0);
 
           return (
             <div key={div} style={{ opacity: isRemoved ? 0.35 : 1 }}>
@@ -127,22 +201,26 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
                 }}
                 onClick={() => setCollapsed(c => ({ ...c, [div]: !c[div] }))}
               >
-                <span style={{ fontSize: 9, opacity: 0.5 }}>{isCollapsed ? "▶" : "▼"}</span>
+                <span style={{ fontSize: 9, opacity: 0.5 }}>{isCollapsed ? "\u25B6" : "\u25BC"}</span>
                 {div}
                 <span style={{ fontWeight: 400, color: C.textDim, fontSize: 10 }}>
                   ({items.length} items)
                 </span>
                 <div style={{ flex: 1 }} />
-                {/* Remove/restore division button */}
+                {!isRemoved && divMidTotal > 0 && (
+                  <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {fmtCost(divMidTotal)}
+                  </span>
+                )}
                 <button
                   onClick={e => { e.stopPropagation(); toggleDivRemoved(div); }}
                   style={{
                     fontSize: 9,
                     padding: "2px 8px",
                     borderRadius: 4,
-                    border: `1px solid ${isRemoved ? C.green + "40" : C.border}`,
-                    background: isRemoved ? `${C.green}12` : "transparent",
-                    color: isRemoved ? C.green : C.textDim,
+                    border: `1px solid ${isRemoved ? (C.green || "#22c55e") + "40" : C.border}`,
+                    background: isRemoved ? `${C.green || "#22c55e"}12` : "transparent",
+                    color: isRemoved ? (C.green || "#22c55e") : C.textDim,
                     cursor: "pointer",
                   }}
                 >
@@ -161,21 +239,21 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 8,
-                      padding: "5px 18px",
-                      borderBottom: `1px solid ${C.border}08`,
+                      gap: 6,
+                      padding: "4px 18px",
+                      borderBottom: `1px solid ${C.border}06`,
                     }}
                   >
                     {/* Directive badge */}
                     <span
                       style={{
-                        fontSize: 8,
+                        fontSize: 7.5,
                         fontWeight: 700,
-                        padding: "1px 5px",
+                        padding: "1px 4px",
                         borderRadius: 3,
                         background: `${dirColor}15`,
                         color: dirColor,
-                        minWidth: 28,
+                        minWidth: 30,
                         textAlign: "center",
                         flexShrink: 0,
                         fontFamily: "'IBM Plex Mono', monospace",
@@ -188,39 +266,45 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
                     <span
                       style={{
                         fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: 11,
+                        fontSize: 10,
                         color: C.accent,
-                        minWidth: 52,
+                        minWidth: 56,
                         flexShrink: 0,
                       }}
                     >
-                      {si.code || "—"}
+                      {si.code || "\u2014"}
                     </span>
 
                     {/* Description */}
-                    <span style={{ flex: 1, fontSize: 12, color: C.text }}>
+                    <span style={{
+                      flex: 1, fontSize: 11.5, color: C.text,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
                       {si.description}
-                    </span>
-
-                    {/* Confidence */}
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        padding: "1px 5px",
-                        borderRadius: 4,
-                        background: `${confidenceColor(si.confidence)}18`,
-                        color: confidenceColor(si.confidence),
-                        flexShrink: 0,
-                      }}
-                    >
-                      {Math.round((si.confidence || 0) * 100)}%
+                      {si.source === "schedule" && (
+                        <span style={{
+                          fontSize: 7, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+                          marginLeft: 4, background: `${C.green || "#22c55e"}18`, color: C.green || "#22c55e",
+                        }}>
+                          FROM DRAWINGS
+                        </span>
+                      )}
                     </span>
 
                     {/* Qty */}
-                    <span style={{ fontSize: 11, color: C.textDim, minWidth: 40, textAlign: "right", flexShrink: 0 }}>
-                      {si.quantity > 0 ? `${si.quantity} ${si.unit || ""}` : "---"}
+                    <span style={{ fontSize: 10, color: C.textDim, minWidth: 55, textAlign: "right", flexShrink: 0 }}>
+                      {si.quantity > 0 ? `${si.quantity.toLocaleString()} ${si.unit || ""}` : "\u2014"}
                     </span>
+
+                    {/* Mid cost */}
+                    {si.midCost > 0 && (
+                      <span style={{
+                        fontSize: 10, color: C.textDim, minWidth: 60, textAlign: "right", flexShrink: 0,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                      }}>
+                        {fmtCost(si.midCost)}
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -229,7 +313,7 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
         })}
       </div>
 
-      {/* CTA — create account to get full estimate */}
+      {/* CTA */}
       <div
         style={{
           padding: "12px 18px",
@@ -256,7 +340,7 @@ export default function RomScopePreview({ scopeItems = [], C, T, onCreateAccount
             flexShrink: 0,
           }}
         >
-          Create Detailed Estimate →
+          Create Detailed Estimate \u2192
         </button>
       </div>
     </div>
