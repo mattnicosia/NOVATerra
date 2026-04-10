@@ -646,30 +646,18 @@ async function syncEstimates() {
     const mergedIndex = Array.from(idbIndexMap.values());
     await storage.set(idbKey("bldg-index"), JSON.stringify(mergedIndex));
 
-    // If the active estimate was updated, reload it into stores
+    // If the active estimate was updated, reload it into stores.
+    // Use reloadActiveEstimate (not direct setItems) so the edit recency guard
+    // applies — prevents cloud sync from wiping division/pricing changes that
+    // are in-flight in the 1.5s auto-save debounce window.
     const activeId = useEstimatesStore.getState().activeEstimateId;
     if (activeId && updatedFromCloud.includes(activeId)) {
       try {
         const freshRaw = await storage.get(idbKey(`bldg-est-${activeId}`));
         if (freshRaw) {
           const freshData = JSON.parse(freshRaw.value);
-          // Reload stores from the fresh cloud data
-          const { useItemsStore } = await import("@/stores/itemsStore");
-          const { useProjectStore } = await import("@/stores/projectStore");
-          const { useDrawingPipelineStore } = await import("@/stores/drawingPipelineStore");
-          const { useDocumentManagementStore } = await import("@/stores/documentManagementStore");
-          const { useGroupsStore } = await import("@/stores/groupsStore");
-
-          if (freshData.project) useProjectStore.getState().setProject(freshData.project);
-          if (freshData.items !== undefined) useItemsStore.getState().setItems(freshData.items || []);
-          if (freshData.markup !== undefined) useItemsStore.getState().setMarkup(freshData.markup);
-          if (freshData.drawings) useDrawingPipelineStore.getState().setDrawings(freshData.drawings);
-          if (freshData.takeoffs) useDrawingPipelineStore.getState().setTakeoffs(freshData.takeoffs);
-          if (freshData.specs) useDocumentManagementStore.getState().setSpecs(freshData.specs);
-          if (freshData.exclusions) useDocumentManagementStore.getState().setExclusions(freshData.exclusions);
-          if (freshData.clarifications) useDocumentManagementStore.getState().setClarifications(freshData.clarifications);
-          if (freshData.groups) useGroupsStore.getState().setGroups(freshData.groups);
-
+          const { reloadActiveEstimate } = await import("@/utils/cloudSync");
+          await reloadActiveEstimate(freshData, activeId);
           console.log(`[cloudSync] Active estimate ${activeId} reloaded from newer cloud data`);
           useUiStore.getState().showToast("Estimate updated from another device", "info");
         }

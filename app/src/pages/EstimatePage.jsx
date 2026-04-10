@@ -1561,14 +1561,15 @@ export default function EstimatePage() {
             onSelect={(code) => {
               const normalized = normalizeCode(code);
               updateItem(codeEditItemId, "code", normalized);
-              // Also update the division field to match
+              // Save full division label directly — never rely on normalization effect
+              // to fix a bare code, which has a race with cloud sync overwriting the store.
               const divCode = normalized.split(".")[0];
-              updateItem(codeEditItemId, "division", divCode);
+              const fullDiv = divCode ? (divFromCode(divCode) || divCode) : "";
+              updateItem(codeEditItemId, "division", fullDiv);
               // If filtering by division, switch to "All" so item doesn't vanish
               if (estDivision !== "All") {
-                const newDiv = divFromCode(divCode) || divCode;
-                setEstDivision(newDiv);
-                showToast(`Moved to ${newDiv}`, "info");
+                setEstDivision(fullDiv || "All");
+                showToast(`Moved to ${fullDiv || "Unassigned"}`, "info");
               }
               setCodeEditItemId(null);
             }}

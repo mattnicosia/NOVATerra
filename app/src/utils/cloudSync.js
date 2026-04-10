@@ -191,9 +191,16 @@ export const pullAndApplyData = async key => {
 // Track last time user edited items in this session (module-level, reset on load)
 let _lastItemEditMs = 0;
 export const markItemEdited = () => { _lastItemEditMs = Date.now(); };
+export const isRecentlyEdited = () => _lastItemEditMs > 0 && (Date.now() - _lastItemEditMs) < EDIT_SAFE_WINDOW_MS;
 const EDIT_SAFE_WINDOW_MS = 10_000; // 10s — safely covers the 1.5s auto-save debounce
 
-/** Reload the currently active estimate's stores from fresh data */
+/** Reload the currently active estimate's stores from fresh data.
+ *  Exported so useCloudSync Phase 4 can reuse the edit recency guard
+ *  instead of calling setItems directly and bypassing it. */
+export async function reloadActiveEstimate(data, estimateId) {
+  return _reloadActiveEstimate(data, estimateId);
+}
+
 async function _reloadActiveEstimate(data, estimateId) {
   try {
     const { useProjectStore } = await import("@/stores/projectStore");

@@ -237,6 +237,9 @@ export const useItemsStore = create((set, get) => ({
 
   // Batch update — apply multiple fields at once, recalculate directive only once
   batchUpdateItem: (id, fields) => {
+    // Signal edit recency guard (same as updateItem) so cloud sync won't
+    // overwrite in-flight drag-drop division/code assignments
+    import("@/utils/cloudSync").then(m => m.markItemEdited?.()).catch(() => {});
     // Flush any pending field edit first
     if (_lastEdit.timer) _flushEditUndo(get, set);
 
