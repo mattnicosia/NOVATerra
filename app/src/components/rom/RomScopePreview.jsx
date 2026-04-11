@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { generateScopeTemplate } from "@/constants/scopeTemplates";
+import { SCOPE_SOURCE, SCOPE_SOURCE_META } from "@/constants/scopeSources";
 
 const confidenceColor = (conf) => {
   if (conf >= 0.8) return "#22c55e";
@@ -92,7 +93,7 @@ export default function RomScopePreview({ rom, scopeItems = [], C, T, onCreateAc
             quantity: item.qty || 0,
             unit: item.unit || "",
             confidence: 0.7, // template baseline
-            source: "template",
+            source: SCOPE_SOURCE.TEMPLATE,
             midCost: item.midCost || 0,
             lowCost: item.lowCost || 0,
             highCost: item.highCost || 0,
@@ -117,7 +118,7 @@ export default function RomScopePreview({ rom, scopeItems = [], C, T, onCreateAc
               ...si,
               division: allItems[idx].division, // keep the labeled division
               confidence: si.confidence || 0.9,
-              source: "schedule",
+              source: SCOPE_SOURCE.SCHEDULE,
             };
           }
         } else {
@@ -306,14 +307,18 @@ export default function RomScopePreview({ rom, scopeItems = [], C, T, onCreateAc
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
                       {si.description}
-                      {si.source === "schedule" && (
-                        <span style={{
-                          fontSize: 7, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
-                          marginLeft: 4, background: `${C.green || "#22c55e"}18`, color: C.green || "#22c55e",
-                        }}>
-                          FROM DRAWINGS
-                        </span>
-                      )}
+                      {(() => {
+                        const meta = SCOPE_SOURCE_META[si.source];
+                        if (!meta?.badge) return null;
+                        return (
+                          <span style={{
+                            fontSize: 7, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+                            marginLeft: 4, background: `${meta.color}18`, color: meta.color,
+                          }}>
+                            {meta.badge}
+                          </span>
+                        );
+                      })()}
                     </span>
 
                     {/* Qty */}

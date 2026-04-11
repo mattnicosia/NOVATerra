@@ -1,6 +1,7 @@
 import { memo } from "react";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
+import { SCOPE_SOURCE_META } from "@/constants/scopeSources";
 
 const confidenceColor = (conf) => {
   if (conf >= 0.8) return "#22c55e";
@@ -94,17 +95,22 @@ function ScopeItemRow({ item, T, onToggle, onDrawingRefClick }) {
         {item.quantity > 0 ? `${item.quantity} ${item.unit || ""}` : "---"}
       </span>
 
-      {/* Source icon */}
-      <span
-        title={item.source === "schedule" ? "From schedule" : item.source === "ai-gap" ? "AI suggestion" : "NOVA chat"}
-        style={{ fontSize: 12, flexShrink: 0, opacity: 0.6 }}
-      >
-        {item.source === "schedule" ? (
-          <Ic icon={I.table} size={13} color={T.fg + "88"} />
-        ) : (
-          <Ic icon={I.sparkle || I.star} size={13} color="#f59e0b" />
-        )}
-      </span>
+      {/* Source badge */}
+      {(() => {
+        const meta = SCOPE_SOURCE_META[item.source];
+        if (!meta?.badge) return null;
+        return (
+          <span
+            title={meta.label}
+            style={{
+              fontSize: 7.5, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+              background: `${meta.color}18`, color: meta.color, flexShrink: 0,
+            }}
+          >
+            {meta.badge}
+          </span>
+        );
+      })()}
 
       {/* Drawing ref link */}
       {item.drawingRef && (

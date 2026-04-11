@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { callAnthropic } from "@/utils/ai-core";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
+import { SCOPE_SOURCE } from "@/constants/scopeSources";
 import { bt } from "@/utils/styles";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -67,7 +68,7 @@ Always return valid JSON. Be concise.`,
           quantity: item.quantity || 1,
           unit: item.unit || "EA",
           confidence: 0.5,
-          source: "nova-chat",
+          source: SCOPE_SOURCE.NOVA_CHAT,
           scheduleType: null,
           drawingRef: null,
           selected: true,

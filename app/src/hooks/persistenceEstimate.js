@@ -326,6 +326,14 @@ export async function loadEstimate(id) {
       useDrawingPipelineStore.getState().clearScan();
     }
 
+    // Restore scope items — prefer direct save (preserves chat edits/selection state),
+    // fall back to nested scanResults.scopeItems from older saves
+    if (data.scopeItems?.length) {
+      useDrawingPipelineStore.getState().setScopeItems(data.scopeItems);
+    } else if (data.scanResults?.scopeItems?.length) {
+      useDrawingPipelineStore.getState().setScopeItems(data.scanResults.scopeItems);
+    }
+
     // Restore discovery index if present
     if (data.discoveryIndex && Array.isArray(data.discoveryIndex)) {
       useDiscoveryStore.getState().setDiscoveryIndex(data.discoveryIndex);
@@ -463,6 +471,7 @@ export async function saveEstimate(overrideId, options = {}) {
     subdivisionOverrides: useSubdivisionStore.getState().userOverrides,
     subdivisionLlm: useSubdivisionStore.getState().llmRefinements,
     scanResults: useDrawingPipelineStore.getState().scanResults,
+    scopeItems: useDrawingPipelineStore.getState().scopeItems,
     discoveryIndex: useDiscoveryStore.getState().discoveryIndex,
     groups: useGroupsStore.getState().groups,
     bidPackages: useBidManagementStore.getState().bidPackages,

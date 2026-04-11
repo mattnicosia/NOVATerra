@@ -1010,9 +1010,14 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           quantity: item.quantity || 0,
           unit: item.unit || "EA",
           confidence: item.source === "nova-schedule" ? 0.9 : item.source === "nova-ai" ? 0.6 : 0.75,
-          source: item.source === "nova-schedule" ? "schedule" : item.source === "nova-ai" ? "ai-gap" : "schedule",
+          source: item.source === "nova-schedule" ? "schedule" : item.source === "nova-ai" ? "ai-gap" : "schedule", // see SCOPE_SOURCE enum in constants/scopeSources.js
           scheduleType: item.scheduleType || null,
           drawingRef: item.drawingRef || null,
+          // Preserve pricing from scope outline generator
+          material: item.material || 0,
+          labor: item.labor || 0,
+          equipment: item.equipment || 0,
+          subcontractor: item.subcontractor || 0,
           selected: true,
           pushed: false,
           pushedAt: null,
