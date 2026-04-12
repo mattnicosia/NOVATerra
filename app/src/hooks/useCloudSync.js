@@ -464,6 +464,8 @@ function applyMasterData(data) {
     const cur = current[k];
     // Never let an empty array overwrite a populated one
     if (Array.isArray(cur) && cur.length > 0 && Array.isArray(v) && v.length === 0) continue;
+    // Never let a non-array overwrite an array field (Supabase JSONB can return {} instead of [])
+    if (Array.isArray(cur) && v !== null && v !== undefined && !Array.isArray(v)) continue;
     // Never let an empty/null companyInfo overwrite a populated one
     if (k === "companyInfo" && cur?.name && (!v || !v.name)) continue;
     safe[k] = v;
