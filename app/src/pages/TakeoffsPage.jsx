@@ -498,6 +498,7 @@ export default function TakeoffsPage() {
           getComputedQty,
           startAutoCount,
         }}
+        canvasRef={canvasRef}
         analysis={{
           aiDrawingAnalysis,
           pdfSchedules,

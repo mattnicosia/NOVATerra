@@ -22,6 +22,28 @@ import { nn, formatCurrency } from "@/utils/format";
 let _puid = 0;
 const puid = () => `np_${++_puid}_${Date.now()}`;
 
+// Capture current drawing canvas as a downscaled base64 JPEG for NOVA vision.
+// Returns null if no canvas or drawing is loaded.
+function captureDrawingSnapshot(canvasRef) {
+  const canvas = canvasRef?.current;
+  if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
+  try {
+    // Scale down to max 1568px on the long side (Claude vision sweet spot)
+    const MAX = 1568;
+    const scale = Math.min(1, MAX / Math.max(canvas.width, canvas.height));
+    if (scale >= 1) {
+      return canvas.toDataURL("image/jpeg", 0.82).split(",")[1];
+    }
+    const offscreen = document.createElement("canvas");
+    offscreen.width = Math.round(canvas.width * scale);
+    offscreen.height = Math.round(canvas.height * scale);
+    offscreen.getContext("2d").drawImage(canvas, 0, 0, offscreen.width, offscreen.height);
+    return offscreen.toDataURL("image/jpeg", 0.82).split(",")[1];
+  } catch {
+    return null;
+  }
+}
+
 export default function TakeoffNOVAPanel({
   aiDrawingAnalysis,
   pdfSchedules,
@@ -30,6 +52,7 @@ export default function TakeoffNOVAPanel({
   crossSheetScan,
   setCrossSheetScan,
   context = "takeoff",
+  canvasRef,
 }) {
   const C = useTheme();
   const T = C.T;
@@ -335,18 +358,35 @@ export default function TakeoffNOVAPanel({
       specs: useDocumentManagementStore.getState().specs,
       drawings,
     });
-    // First user message gets full project context injected; subsequent messages are plain
+
+    // Capture drawing snapshot for vision — attach on every message so NOVA
+    // always sees the current sheet, not a stale one from earlier in the conversation.
+    const drawingSnapshot = captureDrawingSnapshot(canvasRef);
+    const hasDrawing = !!drawingSnapshot;
+
+    // Build the user content block — include image if drawing is loaded
     const currentApiMsgs = useNovaStore.getState().apiMessages;
-    const userApiContent = currentApiMsgs.length === 0
+    const textContent = currentApiMsgs.length === 0
       ? `[Project Context]\n${ctx}\n\n[Question]\n${msg}`
       : msg;
+
+    const userApiContent = hasDrawing
+      ? [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: drawingSnapshot } },
+          { type: "text", text: textContent },
+        ]
+      : textContent;
+
     const newApiMsgs = [...currentApiMsgs, { role: "user", content: userApiContent }];
     setApiMessages(newApiMsgs);
 
     try {
       const CHAT_SYS = `You are NOVA, an expert construction estimating AI embedded in a takeoff and estimating tool. Be concise and direct. Reference CSI codes when relevant. You have tools to modify the estimate.
 
-CRITICAL — DRAWING VISION: You CANNOT see or analyze drawing images directly. You only have access to: estimate line items, takeoff measurements, drawing filenames/metadata, and any AI analysis results already run. If asked what you see on a drawing or what's on the plans, be honest: say you cannot view the drawing image. Direct the user to use "Detect Elements" (runs AI drawing analysis) or "Find Schedules" (extracts schedules from PDFs) to get drawing data into your context — then you can reason about those results.
+${hasDrawing
+  ? "DRAWING VISION: You have been given a screenshot of the current drawing sheet the user is viewing. You can see and analyze it directly — describe elements, count items, identify symbols, read notes/labels, etc."
+  : "DRAWING VISION: No drawing is currently loaded. You can only reason from estimate items and takeoff data."
+}
 
 IMPORTANT: When modifying many items, work in batches of up to 25 items per tool call. If there are more items to process, make multiple tool calls or tell the user you will continue in the next message.`;
 
