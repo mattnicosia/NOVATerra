@@ -910,10 +910,17 @@ export default function TakeoffRow({
                   </span>
                 </button>
               )}
-              {/* ── Estimate Actions (when linked item exists) ── */}
+              {/* ── Estimate Actions ── */}
               {(() => {
                 const li = itemById[to.linkedItemId];
-                if (!li) return null;
+                if (!li) return (
+                  <>
+                    <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+                    <div style={{ padding: "5px 12px", fontSize: 10, color: C.textDim, fontStyle: "italic" }}>
+                      No linked estimate item
+                    </div>
+                  </>
+                );
                 const isExcluded = !!li.excluded;
                 const isAllowance = hasAllowance(li);
                 const subCount = (li.subItems || []).length;
@@ -1199,7 +1206,7 @@ export default function TakeoffRow({
       </div>
 
       {/* Inline measurement list — expands when row is selected */}
-      {isSelected && hasMeasurements && tkShowVars !== to.id && (
+      {isSelected && tkShowVars !== to.id && (
         <div
           style={{
             background: `${to.color}08`,
@@ -1210,10 +1217,15 @@ export default function TakeoffRow({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <span style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>
-              {(to.measurements || []).length} Measurement{(to.measurements || []).length !== 1 ? "s" : ""}
+              {hasMeasurements ? `${(to.measurements || []).length} Measurement${(to.measurements || []).length !== 1 ? "s" : ""}` : "No measurements yet"}
             </span>
-            <span style={{ fontSize: 8, color: C.textDim }}>⌫ undo last · ⇧⌦ delete item</span>
+            {hasMeasurements && <span style={{ fontSize: 8, color: C.textDim }}>⌫ undo last · ⇧⌦ delete item</span>}
           </div>
+          {!hasMeasurements && (
+            <div style={{ fontSize: 9, color: C.textDim, padding: "2px 4px" }}>
+              Press ▶ to start measuring — each click will appear here
+            </div>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {(to.measurements || []).map((m, idx) => {
               const isLast = idx === (to.measurements || []).length - 1;
