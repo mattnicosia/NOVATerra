@@ -23,6 +23,8 @@ import TakeoffLeftPanel from "@/components/takeoffs/TakeoffLeftPanel";
 import TakeoffDrawingViewer from "@/components/takeoffs/TakeoffDrawingViewer";
 import TakeoffCommandPalette from "@/components/takeoffs/TakeoffCommandPalette";
 const ItemDetailPanel = lazy(() => import("@/components/estimate/ItemDetailPanel"));
+const NovaOrb = lazy(() => import("@/components/nova/NovaOrb"));
+import NovaChatPanel from "@/components/nova/NovaChatPanel";
 
 const RAIL_W = 36; // px — navigation rail width
 
@@ -410,6 +412,9 @@ export default function TakeoffsPage() {
     activeModule,
     aiDrawingAnalysis,
     showMeasureLabels,
+    tkCheckDimPoints: useDrawingPipelineStore(s => s.tkCheckDimPoints),
+    tkSelectedMeasurementId: useDrawingPipelineStore(s => s.tkSelectedMeasurementId),
+    tkNovaHighlights: useDrawingPipelineStore(s => s.tkNovaHighlights),
     shiftHeldRef,
     snapAngleOnRef,
     realToPx,
@@ -449,7 +454,8 @@ export default function TakeoffsPage() {
   // ─── RENDER ─────────────────────────
 
   return (
-    <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)", position: "relative" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 120px)" }}>
+    <div style={{ display: "flex", flex: 1, gap: 0, position: "relative", overflow: "hidden" }}>
       {/* ── Revision Impact Card ── */}
       <RevisionImpactCard
         revisionImpact={revisionImpact}
@@ -607,6 +613,15 @@ export default function TakeoffsPage() {
         onAutoCount={() => useDrawingPipelineStore.getState().setTkAutoCount({ phase: "select" })}
         getMeasuredQty={getMeasuredQty}
       />
+
+      {/* NOVA Orb — voice + canvas vision AI companion */}
+      <Suspense fallback={null}>
+        <NovaOrb canvasRef={canvasRef} drawingImgRef={drawingImgRef} />
+      </Suspense>
+    </div>
+
+    {/* NOVA Chat Console — always visible at bottom of estimate workspace */}
+    <NovaChatPanel />
     </div>
   );
 }

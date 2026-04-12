@@ -31,7 +31,7 @@ import { CSI } from "@/constants/csi";
 import { normalizeCode, subdivisionFromCode, sortDivisionNames, sortCodes } from "@/utils/csiFormat";
 import EstimateTotalsBar from "@/components/estimate/EstimateTotalsBar";
 import EstimateModals from "@/components/estimate/EstimateModals";
-import NovaChatPanel from "@/components/nova/NovaChatPanel";
+
 
 export default function EstimatePage() {
   const C = useTheme();
@@ -1521,9 +1521,6 @@ export default function EstimatePage() {
 
         {/* Right panel removed — item details handled inline */}
       </div>
-
-      {/* NOVA Chat Console — multi-turn AI, docked at bottom */}
-      <NovaChatPanel />
 
       {/* Modals + sidebars */}
       <EstimateModals
