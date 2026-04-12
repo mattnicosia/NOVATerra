@@ -22,22 +22,43 @@ import { nn, formatCurrency } from "@/utils/format";
 let _puid = 0;
 const puid = () => `np_${++_puid}_${Date.now()}`;
 
-// Capture current drawing canvas as a downscaled base64 JPEG for NOVA vision.
-// Returns null if no canvas or drawing is loaded.
-function captureDrawingSnapshot(canvasRef) {
-  const canvas = canvasRef?.current;
-  if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
+// Composite the drawing image + measurement overlay into a single JPEG for NOVA vision.
+// drawingImgRef → the <img> element showing the rendered PDF/drawing page
+// canvasRef     → the transparent overlay canvas with takeoff measurement lines
+function captureDrawingSnapshot(canvasRef, drawingImgRef) {
+  const img = drawingImgRef?.current;
+  const overlay = canvasRef?.current;
+
+  // Need at least one source with real dimensions
+  const srcW = img?.naturalWidth || overlay?.width || 0;
+  const srcH = img?.naturalHeight || overlay?.height || 0;
+  if (!srcW || !srcH) return null;
+
   try {
-    // Scale down to max 1568px on the long side (Claude vision sweet spot)
     const MAX = 1568;
-    const scale = Math.min(1, MAX / Math.max(canvas.width, canvas.height));
-    if (scale >= 1) {
-      return canvas.toDataURL("image/jpeg", 0.82).split(",")[1];
-    }
+    const scale = Math.min(1, MAX / Math.max(srcW, srcH));
+    const w = Math.round(srcW * scale);
+    const h = Math.round(srcH * scale);
+
     const offscreen = document.createElement("canvas");
-    offscreen.width = Math.round(canvas.width * scale);
-    offscreen.height = Math.round(canvas.height * scale);
-    offscreen.getContext("2d").drawImage(canvas, 0, 0, offscreen.width, offscreen.height);
+    offscreen.width = w;
+    offscreen.height = h;
+    const ctx = offscreen.getContext("2d");
+
+    // White background so JPEG compression doesn't produce black artifacts
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+
+    // Layer 1: the actual drawing image
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, 0, 0, w, h);
+    }
+
+    // Layer 2: takeoff measurement overlay (transparent canvas)
+    if (overlay && overlay.width > 0 && overlay.height > 0) {
+      ctx.drawImage(overlay, 0, 0, w, h);
+    }
+
     return offscreen.toDataURL("image/jpeg", 0.82).split(",")[1];
   } catch {
     return null;
@@ -53,6 +74,7 @@ export default function TakeoffNOVAPanel({
   setCrossSheetScan,
   context = "takeoff",
   canvasRef,
+  drawingImgRef,
 }) {
   const C = useTheme();
   const T = C.T;
@@ -361,7 +383,7 @@ export default function TakeoffNOVAPanel({
 
     // Capture drawing snapshot for vision — attach on every message so NOVA
     // always sees the current sheet, not a stale one from earlier in the conversation.
-    const drawingSnapshot = captureDrawingSnapshot(canvasRef);
+    const drawingSnapshot = captureDrawingSnapshot(canvasRef, drawingImgRef);
     const hasDrawing = !!drawingSnapshot;
 
     // Build the user content block — include image if drawing is loaded

@@ -81,8 +81,9 @@ export default function TakeoffLeftPanel({
     runPdfScheduleScan,
     wallScheduleLoading,
   },
-  // --- Canvas ref for NOVA vision ---
+  // --- Refs for NOVA vision ---
   canvasRef,
+  drawingImgRef,
   // --- Shared state from parent ---
   pageFilter,
   setPageFilter,
@@ -348,6 +349,7 @@ export default function TakeoffLeftPanel({
                   setCrossSheetScan={setCrossSheetScan}
                   context={tkPanelTier === "full" || tkPanelTier === "estimate" ? "estimate" : "takeoff"}
                   canvasRef={canvasRef}
+                  drawingImgRef={drawingImgRef}
                 />
               </div>
             ) : null
