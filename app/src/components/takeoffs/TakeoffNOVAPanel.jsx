@@ -7,6 +7,8 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useNovaStore } from "@/stores/novaStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
@@ -48,8 +50,14 @@ export default function TakeoffNOVAPanel({
   const selectedDrawingId = useDrawingPipelineStore(s => s.selectedDrawingId);
   const project = useProjectStore(s => s.project);
   const showToast = useUiStore(s => s.showToast);
-  const novaChatMessages = useUiStore(s => s.aiChatMessages);
-  const setNovaChatMessages = useUiStore(s => s.setAiChatMessages);
+  const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
+  // Multi-turn memory: novaStore owns display + API message history
+  const novaChatMessages = useNovaStore(s => s.chatMessages);
+  const novaApiMessages = useNovaStore(s => s.apiMessages);
+  const appendDisplayMessage = useNovaStore(s => s.appendDisplayMessage);
+  const setApiMessages = useNovaStore(s => s.setApiMessages);
+  const clearChat = useNovaStore(s => s.clearChat);
+  const chatEstimateId = useNovaStore(s => s.chatEstimateId);
 
   // ── Internal state ──
   const [novaChatInput, setNovaChatInput] = useState("");
@@ -73,6 +81,13 @@ export default function TakeoffNOVAPanel({
     novaPreds.length > 0
       ? Math.round((novaPreds.reduce((s, p) => s + (p.confidence || 0), 0) / novaPreds.length) * 100)
       : 0;
+
+  // Clear chat when estimate changes (scope memory per-estimate)
+  useEffect(() => {
+    if (activeEstimateId && activeEstimateId !== chatEstimateId) {
+      clearChat(activeEstimateId);
+    }
+  }, [activeEstimateId]);
 
   // Auto-scroll on new messages / proposals
   useEffect(() => {
@@ -308,32 +323,34 @@ export default function TakeoffNOVAPanel({
   const handleNovaChat = async text => {
     const msg = (text || novaChatInput).trim();
     if (!msg || novaChatLoading) return;
-    const userMsg = { role: "user", text: msg };
-    const updated = [...novaChatMessages, userMsg];
-    setNovaChatMessages(updated);
     setNovaChatInput("");
     setNovaChatLoading(true);
+
+    // Append user message to display + API history
+    appendDisplayMessage({ role: "user", text: msg });
+    const ctx = buildProjectContext({
+      project,
+      items: useItemsStore.getState().items,
+      takeoffs,
+      specs: useDocumentManagementStore.getState().specs,
+      drawings,
+    });
+    // First user message gets full project context injected; subsequent messages are plain
+    const currentApiMsgs = useNovaStore.getState().apiMessages;
+    const userApiContent = currentApiMsgs.length === 0
+      ? `[Project Context]\n${ctx}\n\n[Question]\n${msg}`
+      : msg;
+    const newApiMsgs = [...currentApiMsgs, { role: "user", content: userApiContent }];
+    setApiMessages(newApiMsgs);
+
     try {
-      const ctx = buildProjectContext({
-        project,
-        items: useItemsStore.getState().items,
-        takeoffs,
-        specs: useDocumentManagementStore.getState().specs,
-        drawings,
-      });
-      const apiMsgs = updated.map((m, i) => {
-        if (m.actions) return { role: "assistant", content: m.text || "Done." };
-        if (i === 0 && m.role === "user")
-          return { role: "user", content: `[Project Context]\n${ctx}\n\n[Question]\n${m.text}` };
-        return { role: m.role, content: m.text };
-      });
       const CHAT_SYS = `You are NOVA, an expert construction estimating AI. Be concise and direct. Reference CSI codes when relevant. You have tools to modify the estimate. IMPORTANT: When modifying many items, work in batches of up to 25 items per tool call. If there are more items to process, make multiple tool calls or tell the user you will continue in the next message.`;
 
       // ── Multi-pass loop: auto-continue when response is truncated ──
       let allTextParts = [];
       let allToolCalls = [];
-      let conversationMsgs = [...apiMsgs];
-      const MAX_PASSES = 5; // safety cap
+      let conversationMsgs = [...newApiMsgs];
+      const MAX_PASSES = 5;
 
       for (let pass = 0; pass < MAX_PASSES; pass++) {
         const resp = await callAnthropic({
@@ -345,7 +362,7 @@ export default function TakeoffNOVAPanel({
 
         if (typeof resp === "string") {
           allTextParts.push(resp);
-          break; // plain text response — done
+          break;
         }
 
         if (!resp?.content) break;
@@ -354,46 +371,37 @@ export default function TakeoffNOVAPanel({
         allTextParts.push(...textParts);
         allToolCalls.push(...toolCalls);
 
-        // If response was NOT truncated, we're done
         if (resp.stop_reason !== "max_tokens") break;
 
-        // Response was truncated — auto-continue
-        // Build continuation: append assistant's partial response + user's "continue" prompt
-        // Reconstruct assistant content as a text block for the conversation
         const partialText = textParts.join("\n");
         const toolSummary = toolCalls.length > 0 ? `\n[Applied ${toolCalls.length} tool call(s) so far]` : "";
         conversationMsgs = [
           ...conversationMsgs,
           { role: "assistant", content: partialText + toolSummary || "Processing..." },
-          {
-            role: "user",
-            content: "Continue where you left off. Process the remaining items that haven't been handled yet.",
-          },
+          { role: "user", content: "Continue where you left off. Process the remaining items that haven't been handled yet." },
         ];
       }
 
-      // ── Process collected results ──
+      // ── Persist final assistant turn in API history ──
+      const assistantContent = allTextParts.join("\n") || "Done.";
+      setApiMessages([...conversationMsgs, { role: "assistant", content: assistantContent }]);
+
+      // ── Process collected results → display ──
       if (allToolCalls.length === 0 && allTextParts.length > 0) {
-        // Text-only response
-        setNovaChatMessages([...updated, { role: "assistant", text: allTextParts.join("\n") }]);
+        appendDisplayMessage({ role: "assistant", text: assistantContent });
       } else if (allToolCalls.length > 0) {
         if (isEstimate) {
-          // Estimate context → queue proposals for approval
           const { newProposals, totalItems } = _collectProposals(allToolCalls);
           if (newProposals.length > 0) {
             setProposals(prev => [...prev, ...newProposals]);
-            const assistantText =
-              allTextParts.join("\n") ||
-              `I have ${totalItems} proposed change${totalItems !== 1 ? "s" : ""} ready for your review.`;
-            setNovaChatMessages([...updated, { role: "assistant", text: assistantText }]);
+            appendDisplayMessage({
+              role: "assistant",
+              text: allTextParts.join("\n") || `I have ${totalItems} proposed change${totalItems !== 1 ? "s" : ""} ready for your review.`,
+            });
           } else {
-            setNovaChatMessages([
-              ...updated,
-              { role: "assistant", text: allTextParts.join("\n") || "No changes to propose." },
-            ]);
+            appendDisplayMessage({ role: "assistant", text: allTextParts.join("\n") || "No changes to propose." });
           }
         } else {
-          // Takeoff context → execute immediately
           const toolResults = await Promise.all(allToolCalls.map(async tc => {
             try {
               return { tool_use_id: tc.id, ...(await executeNovaTool(tc.name, tc.input)) };
@@ -401,16 +409,13 @@ export default function TakeoffNOVAPanel({
               return { tool_use_id: tc.id, success: false, message: err.message };
             }
           }));
-          setNovaChatMessages([
-            ...updated,
-            { role: "assistant", text: allTextParts.join("\n") || "", actions: toolResults },
-          ]);
+          appendDisplayMessage({ role: "assistant", text: allTextParts.join("\n") || "", actions: toolResults });
         }
       } else {
-        setNovaChatMessages([...updated, { role: "assistant", text: "No response from NOVA." }]);
+        appendDisplayMessage({ role: "assistant", text: "No response from NOVA." });
       }
     } catch (err) {
-      setNovaChatMessages([...updated, { role: "assistant", text: `Error: ${err.message}` }]);
+      appendDisplayMessage({ role: "assistant", text: `Error: ${err.message}` });
     } finally {
       setNovaChatLoading(false);
     }

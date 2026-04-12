@@ -24,7 +24,7 @@ import TakeoffDrawingViewer from "@/components/takeoffs/TakeoffDrawingViewer";
 import TakeoffCommandPalette from "@/components/takeoffs/TakeoffCommandPalette";
 const ItemDetailPanel = lazy(() => import("@/components/estimate/ItemDetailPanel"));
 const NovaOrb = lazy(() => import("@/components/nova/NovaOrb"));
-import NovaChatPanel from "@/components/nova/NovaChatPanel";
+
 
 const RAIL_W = 36; // px — navigation rail width
 
@@ -454,7 +454,6 @@ export default function TakeoffsPage() {
   // ─── RENDER ─────────────────────────
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 120px)" }}>
     <div style={{ display: "flex", flex: 1, gap: 0, position: "relative", overflow: "hidden" }}>
       {/* ── Revision Impact Card ── */}
       <RevisionImpactCard
@@ -620,8 +619,5 @@ export default function TakeoffsPage() {
       </Suspense>
     </div>
 
-    {/* NOVA Chat Console — always visible at bottom of estimate workspace */}
-    <NovaChatPanel />
-    </div>
   );
 }
