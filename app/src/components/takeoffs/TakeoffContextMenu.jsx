@@ -216,6 +216,23 @@ export default function TakeoffContextMenu({
               </div>
             )}
 
+            {/* Delete specific vertex point (right-clicked on a vertex handle) */}
+            {tkContextMenu.hitVertex && (
+              <div
+                className="nav-item"
+                onClick={() => {
+                  const { takeoffId, measurementId, pointIndex } = tkContextMenu.hitVertex;
+                  useDrawingPipelineStore.getState().removeMeasurementPoint(takeoffId, measurementId, pointIndex);
+                  useUiStore.getState().showToast("Point deleted", "info");
+                  setTkContextMenu(null);
+                }}
+                style={{ ...menuItemStyle(C.orange), fontWeight: 500 }}
+              >
+                {ctxIcon("M12 2a10 10 0 100 20 10 10 0 000-20z M8 12h8", C.orange)}
+                Delete This Point
+              </div>
+            )}
+
             {/* Delete specific measurement (right-clicked on a measurement line) */}
             {tkContextMenu.hitMeasurement && (
               <div

@@ -607,6 +607,11 @@ export const useDrawingPipelineStore = create((set, get) => ({
   tkShowVars: null,
   tkAutoCount: null,
   tkScopeSuggestions: null,
+  tkCheckDimPoints: [],          // Ephemeral ruler points (Check Dim tool)
+  tkSelectedMeasurementId: null, // Per-measurement selection for editing
+  tkDraggingVertex: null,        // { takeoffId, measurementId, pointIndex } during drag
+  tkDragJustEnded: false,        // Prevents click from firing after vertex drag
+  tkNovaHighlights: [],          // [{ xPct, yPct, label }] from NOVA pointing
   tkZoom: 100,
   tkPan: { x: 0, y: 0 },
   tkPanelWidth: 550,
@@ -766,6 +771,41 @@ export const useDrawingPipelineStore = create((set, get) => ({
   setTkShowVars: v => set({ tkShowVars: v }),
   setTkAutoCount: v => set({ tkAutoCount: v }),
   setTkScopeSuggestions: v => set({ tkScopeSuggestions: v }),
+  setTkCheckDimPoints: v => set(s => ({ tkCheckDimPoints: typeof v === "function" ? v(s.tkCheckDimPoints) : v })),
+  setTkNovaHighlights: v => set({ tkNovaHighlights: v }),
+  setTkSelectedMeasurementId: v => set({ tkSelectedMeasurementId: v }),
+  setTkDraggingVertex: v => set({ tkDraggingVertex: v }),
+  setTkDragJustEnded: v => set({ tkDragJustEnded: v }),
+  updateMeasurementPoint: (takeoffId, measurementId, pointIndex, newPt) => set(s => ({
+    takeoffs: s.takeoffs.map(t =>
+      t.id !== takeoffId ? t : {
+        ...t,
+        measurements: (t.measurements || []).map(m => {
+          if (m.id !== measurementId) return m;
+          const pts = m.points || [];
+          if (pointIndex < 0 || pointIndex >= pts.length || !newPt) return m;
+          return { ...m, points: pts.map((p, i) => i === pointIndex ? { x: newPt.x, y: newPt.y } : p) };
+        }),
+      }
+    ),
+  })),
+  removeMeasurementPoint: (takeoffId, measurementId, pointIndex) => set(s => ({
+    takeoffs: s.takeoffs.map(t =>
+      t.id !== takeoffId ? t : {
+        ...t,
+        measurements: (t.measurements || []).map(m => {
+          if (m.id !== measurementId) return m;
+          const pts = m.points || [];
+          if (pointIndex < 0 || pointIndex >= pts.length) return m;
+          const newPts = pts.filter((_, i) => i !== pointIndex);
+          // If too few points remain for the type, remove the entire measurement
+          const MIN = { linear: 2, area: 3, circle: 2 };
+          if (newPts.length < (MIN[m.type] ?? 1)) return null;
+          return { ...m, points: newPts };
+        }).filter(Boolean),
+      }
+    ),
+  })),
   setTkZoom: v => set(s => ({ tkZoom: typeof v === "function" ? v(s.tkZoom) : v })),
   setTkPan: v => set(s => ({ tkPan: typeof v === "function" ? v(s.tkPan) : v })),
   _sheetViews: {},

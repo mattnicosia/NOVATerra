@@ -304,22 +304,26 @@ export default function TakeoffControlRail({
     },
     {
       id: "checkdim",
-      label: checkDimMode ? "Check Dim ON" : "Check Dim",
+      label: checkDimMode ? "Ruler ON" : "Ruler",
       active: checkDimMode,
       action: () => {
-        setCheckDimMode(v => !v);
-        if (!checkDimMode) {
-          setTkTool("linear");
+        const next = !checkDimMode;
+        setCheckDimMode(next);
+        if (next) {
+          setTkTool("checkdim");
           setTkMeasureState("idle");
           setTkActivePoints([]);
           setTkActiveTakeoffId(null);
+          useDrawingPipelineStore.getState().setTkCheckDimPoints([]);
+          useDrawingPipelineStore.getState().setTkSelectedMeasurementId(null);
         } else {
           setTkTool("select");
+          useDrawingPipelineStore.getState().setTkCheckDimPoints([]);
         }
       },
       icon: (
         <svg {...ico(checkDimMode)}>
-          <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
+          <path d="M2 2l20 20 M2 8h6v-6 M16 22h6v-6" />
         </svg>
       ),
     },

@@ -119,6 +119,7 @@ export default function TakeoffDrawingViewer({
   const tkMeasureState = useDrawingPipelineStore(s => s.tkMeasureState);
   const setTkMeasureState = useDrawingPipelineStore(s => s.setTkMeasureState);
   const setTkCursorPt = useDrawingPipelineStore(s => s.setTkCursorPt);
+  const tkDraggingVertex = useDrawingPipelineStore(s => s.tkDraggingVertex);
   const tkCalibrations = useDrawingPipelineStore(s => s.tkCalibrations);
   const tkZoom = useDrawingPipelineStore(s => s.tkZoom);
   const setTkZoom = useDrawingPipelineStore(s => s.setTkZoom);
@@ -702,6 +703,28 @@ export default function TakeoffDrawingViewer({
                     const sy = (canvasRef.current?.height || 1) / rect.height;
                     const pt = { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
 
+                    // ── Vertex dragging ──
+                    const dragging = useDrawingPipelineStore.getState().tkDraggingVertex;
+                    if (dragging) {
+                      e.preventDefault();
+                      useDrawingPipelineStore.getState().updateMeasurementPoint(
+                        dragging.takeoffId, dragging.measurementId, dragging.pointIndex, pt,
+                      );
+                      return;
+                    }
+
+                    // Check Dim cursor update
+                    if (useDrawingPipelineStore.getState().tkTool === "checkdim" &&
+                        useDrawingPipelineStore.getState().tkCheckDimPoints.length > 0) {
+                      pendingCursorRef.current = pt;
+                      if (!rafCursorRef.current) {
+                        rafCursorRef.current = requestAnimationFrame(() => {
+                          rafCursorRef.current = null;
+                          if (pendingCursorRef.current) setTkCursorPt(pendingCursorRef.current);
+                        });
+                      }
+                    }
+
                     // Idle/stopped: show pointer cursor when hovering over clickable measurements
                     if (tkMeasureState !== "measuring" && tkMeasureState !== "paused") {
                       const zs = Math.max(1, sx);
@@ -751,10 +774,11 @@ export default function TakeoffDrawingViewer({
                     // Measuring: update cursor position for live preview (RAF throttled)
                     if (tkActivePoints.length === 0) return;
                     let snapped = pt;
-                    if ((e.shiftKey || snapAngleOnRef.current) && tkActivePoints.length >= 1) {
+                    const snapActive = snapAngleOnRef.current ? !e.shiftKey : e.shiftKey;
+                    if (snapActive && tkActivePoints.length >= 1) {
                       snapped = snapAngle(tkActivePoints[tkActivePoints.length - 1], pt);
                     }
-                    shiftHeldRef.current = e.shiftKey || snapAngleOnRef.current;
+                    shiftHeldRef.current = snapActive;
                     pendingCursorRef.current = snapped;
                     if (!rafCursorRef.current) {
                       rafCursorRef.current = requestAnimationFrame(() => {
@@ -765,7 +789,31 @@ export default function TakeoffDrawingViewer({
                   }}
                   onMouseLeave={() => setTkCursorPt(null)}
                   onMouseDown={e => {
-                    if (e.button === 2 || e.button === 1) handleDrawingMouseDown(e);
+                    if (e.button === 2 || e.button === 1) { handleDrawingMouseDown(e); return; }
+                    // Left-click: check for vertex handle grab on selected measurement
+                    if (e.button === 0 && tkMeasureState !== "measuring" && tkMeasureState !== "paused") {
+                      const s = useDrawingPipelineStore.getState();
+                      const selMId = s.tkSelectedMeasurementId;
+                      const selTId = s.tkSelectedTakeoffId;
+                      if (!selMId || !selTId) return;
+                      const to = s.takeoffs.find(t => t.id === selTId);
+                      const m = to?.measurements?.find(mm => mm.id === selMId);
+                      if (!m || !m.points?.length) return;
+                      const rect = canvasRef.current.getBoundingClientRect();
+                      const sx = canvasRef.current.width / rect.width;
+                      const sy = canvasRef.current.height / rect.height;
+                      const pt = { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+                      const vertexRadius = Math.max(12, 12 * Math.max(1, sx));
+                      for (let i = 0; i < m.points.length; i++) {
+                        const d = Math.sqrt((pt.x - m.points[i].x) ** 2 + (pt.y - m.points[i].y) ** 2);
+                        if (d < vertexRadius) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          s.setTkDraggingVertex({ takeoffId: selTId, measurementId: selMId, pointIndex: i });
+                          return;
+                        }
+                      }
+                    }
                   }}
                   onContextMenu={e => e.preventDefault()}
                   style={{
@@ -775,7 +823,10 @@ export default function TakeoffDrawingViewer({
                     width: "100%",
                     height: "100%",
                     pointerEvents: "auto",
-                    cursor: (tkMeasureState === "measuring" || tkMeasureState === "paused") ? "crosshair" : "default",
+                    cursor: tkDraggingVertex ? "grabbing"
+                      : (tkMeasureState === "measuring" || tkMeasureState === "paused") ? "crosshair"
+                      : tkTool === "checkdim" ? "crosshair"
+                      : "default",
                   }}
                 />
                 {/* Prediction ghost overlay canvas — animated ghost markers */}

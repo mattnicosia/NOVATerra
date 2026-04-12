@@ -118,7 +118,7 @@ export default function TakeoffSearchBar({
             }
           }}
           placeholder="Search or type item · Enter to add · Tab navigate"
-          style={inp(C, { paddingLeft: 28, fontSize: 11, padding: "7px 10px 7px 28px" })}
+          style={inp(C, { paddingLeft: 28, fontSize: 10, padding: "7px 10px 7px 28px" })}
         />
         <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}>
           <Ic d={I.search} size={12} color={C.textDim} />
