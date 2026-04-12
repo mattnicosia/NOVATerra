@@ -516,6 +516,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const isDashboard = location.pathname === "/";
+  const isCanvasRoute = location.pathname.includes("/takeoffs") || location.pathname.includes("/estimate/");
   const updateAvailable = useUiStore(s => s.updateAvailable);
 
   // ── First org login redirect: send invited users to settings/company profile ──
@@ -688,7 +689,7 @@ function AppContent() {
         </Suspense>
         <div
           className="app-viewport"
-          style={{ flex: 1, position: "relative", overflow: isDashboard ? "hidden" : "auto", scrollBehavior: "smooth" }}
+          style={{ flex: 1, minHeight: 0, position: "relative", overflow: isDashboard || isCanvasRoute ? "hidden" : "auto", scrollBehavior: "smooth" }}
         >
           <Suspense fallback={<RouteLoading />}>
             <PageTransition>

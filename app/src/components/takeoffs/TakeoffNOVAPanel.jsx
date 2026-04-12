@@ -344,7 +344,11 @@ export default function TakeoffNOVAPanel({
     setApiMessages(newApiMsgs);
 
     try {
-      const CHAT_SYS = `You are NOVA, an expert construction estimating AI. Be concise and direct. Reference CSI codes when relevant. You have tools to modify the estimate. IMPORTANT: When modifying many items, work in batches of up to 25 items per tool call. If there are more items to process, make multiple tool calls or tell the user you will continue in the next message.`;
+      const CHAT_SYS = `You are NOVA, an expert construction estimating AI embedded in a takeoff and estimating tool. Be concise and direct. Reference CSI codes when relevant. You have tools to modify the estimate.
+
+CRITICAL — DRAWING VISION: You CANNOT see or analyze drawing images directly. You only have access to: estimate line items, takeoff measurements, drawing filenames/metadata, and any AI analysis results already run. If asked what you see on a drawing or what's on the plans, be honest: say you cannot view the drawing image. Direct the user to use "Detect Elements" (runs AI drawing analysis) or "Find Schedules" (extracts schedules from PDFs) to get drawing data into your context — then you can reason about those results.
+
+IMPORTANT: When modifying many items, work in batches of up to 25 items per tool call. If there are more items to process, make multiple tool calls or tell the user you will continue in the next message.`;
 
       // ── Multi-pass loop: auto-continue when response is truncated ──
       let allTextParts = [];
@@ -1070,74 +1074,8 @@ export default function TakeoffNOVAPanel({
 
       {/* ═══ Bottom Section (pinned) ═══ */}
       <div style={{ flexShrink: 0, borderTop: `1px solid ${C.border}` }}>
-        {/* Preset Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, padding: "8px 10px 6px" }}>
-          {presets.map(p => (
-            <button
-              key={p.key}
-              onClick={p.action}
-              disabled={p.loading}
-              style={{
-                padding: "7px 6px",
-                background: C.bg,
-                border: `1px solid ${C.border}`,
-                borderRadius: 6,
-                cursor: p.loading ? "wait" : "pointer",
-                textAlign: "center",
-                transition: "all 0.15s",
-                position: "relative",
-              }}
-              onMouseEnter={e => {
-                if (!p.loading) e.currentTarget.style.borderColor = p.color + "40";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = C.border;
-              }}
-            >
-              {p.loading ? (
-                <div
-                  style={{
-                    width: 14,
-                    height: 14,
-                    margin: "0 auto 4px",
-                    border: `2px solid ${p.color}25`,
-                    borderTop: `2px solid ${p.color}`,
-                    borderRadius: "50%",
-                    animation: "spin 0.8s linear infinite",
-                  }}
-                />
-              ) : (
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 3 }}>
-                  <Ic d={p.icon} size={13} color={p.color} />
-                </div>
-              )}
-              <div style={{ fontSize: 9, fontWeight: 600, color: C.text, fontFamily: T.font.sans, lineHeight: 1.2 }}>
-                {p.label}
-              </div>
-              {p.badge && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 3,
-                    right: 3,
-                    fontSize: 7,
-                    fontWeight: 800,
-                    color: "#fff",
-                    background: p.color,
-                    borderRadius: 6,
-                    padding: "1px 4px",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {p.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Chat Input */}
-        <div style={{ padding: "4px 10px 10px" }}>
+        {/* Chat Input — above presets */}
+        <div style={{ padding: "8px 10px 4px" }}>
           <div
             style={{
               display: "flex",
@@ -1200,6 +1138,72 @@ export default function TakeoffNOVAPanel({
               <Ic d={I.send} size={11} color={novaChatInput.trim() && !novaChatLoading ? "#fff" : C.textDim} />
             </button>
           </div>
+        </div>
+
+        {/* Preset Grid — below chat input */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, padding: "4px 10px 8px" }}>
+          {presets.map(p => (
+            <button
+              key={p.key}
+              onClick={p.action}
+              disabled={p.loading}
+              style={{
+                padding: "7px 6px",
+                background: C.bg,
+                border: `1px solid ${C.border}`,
+                borderRadius: 6,
+                cursor: p.loading ? "wait" : "pointer",
+                textAlign: "center",
+                transition: "all 0.15s",
+                position: "relative",
+              }}
+              onMouseEnter={e => {
+                if (!p.loading) e.currentTarget.style.borderColor = p.color + "40";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = C.border;
+              }}
+            >
+              {p.loading ? (
+                <div
+                  style={{
+                    width: 14,
+                    height: 14,
+                    margin: "0 auto 4px",
+                    border: `2px solid ${p.color}25`,
+                    borderTop: `2px solid ${p.color}`,
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
+                  }}
+                />
+              ) : (
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 3 }}>
+                  <Ic d={p.icon} size={13} color={p.color} />
+                </div>
+              )}
+              <div style={{ fontSize: 9, fontWeight: 600, color: C.text, fontFamily: T.font.sans, lineHeight: 1.2 }}>
+                {p.label}
+              </div>
+              {p.badge && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 3,
+                    right: 3,
+                    fontSize: 7,
+                    fontWeight: 800,
+                    color: "#fff",
+                    background: p.color,
+                    borderRadius: 6,
+                    padding: "1px 4px",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {p.badge}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
     </div>

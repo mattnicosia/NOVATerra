@@ -454,7 +454,7 @@ export default function TakeoffsPage() {
   // ─── RENDER ─────────────────────────
 
   return (
-    <div style={{ display: "flex", flex: 1, gap: 0, position: "relative", overflow: "hidden" }}>
+    <div style={{ display: "flex", flex: 1, minHeight: 0, gap: 0, position: "relative", overflow: "hidden" }}>
       {/* ── Revision Impact Card ── */}
       <RevisionImpactCard
         revisionImpact={revisionImpact}
