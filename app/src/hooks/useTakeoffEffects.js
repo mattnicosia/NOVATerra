@@ -276,8 +276,17 @@ export default function useTakeoffEffects({
       if ((e.key === "Delete" || e.key === "Backspace") && !isTyping) {
         if (tkSelectedTakeoffId && tkMeasureState !== "measuring") {
           e.preventDefault();
-          useDrawingPipelineStore.getState().removeTakeoff(tkSelectedTakeoffId);
-          useDrawingPipelineStore.getState().setTkSelectedTakeoffId(null);
+          const s = useDrawingPipelineStore.getState();
+          const to = s.takeoffs.find(t => t.id === tkSelectedTakeoffId);
+          if (e.shiftKey || e.metaKey) {
+            // Shift+Delete or Cmd+Delete: delete entire takeoff
+            s.removeTakeoff(tkSelectedTakeoffId);
+            s.setTkSelectedTakeoffId(null);
+          } else if (to && (to.measurements || []).length > 0) {
+            // Backspace alone: undo last measurement (not entire takeoff)
+            const ms = to.measurements;
+            s.removeMeasurement(tkSelectedTakeoffId, ms[ms.length - 1].id);
+          }
         }
         return;
       }

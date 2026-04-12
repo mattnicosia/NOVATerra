@@ -12,6 +12,7 @@ import FormulaExpressionRow from "@/components/takeoffs/FormulaExpressionRow";
 import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine";
 import CodePicker from "@/components/takeoffs/CodePicker";
 import { TO_COLORS } from "@/utils/takeoffHelpers";
+import { hasAllowance } from "@/utils/allowances";
 
 export default function TakeoffRow({
   to,
@@ -330,16 +331,20 @@ export default function TakeoffRow({
             )}
               {to._aiCosts && (
                 <span
+                  className="nova-priced"
                   style={{
-                    color: C.accent,
+                    "--rc": "#7C5CFC",
+                    color: "#fff",
                     fontSize: 7,
                     fontWeight: T.fontWeight.bold,
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 2,
-                    background: `${C.accent}0A`,
-                    padding: "0 3px",
-                    borderRadius: 2,
+                    background: "linear-gradient(135deg, #7C5CFC, #6D28D9)",
+                    padding: "1px 5px",
+                    borderRadius: 3,
+                    letterSpacing: "0.5px",
+                    boxShadow: "0 0 6px #7C5CFC40",
                   }}
                   title={`NOVA: M $${fmt2(to._aiCosts.material)} · L $${fmt2(to._aiCosts.labor)} · E $${fmt2(to._aiCosts.equipment)}`}
                 >
@@ -905,6 +910,99 @@ export default function TakeoffRow({
                   </span>
                 </button>
               )}
+              {/* ── Estimate Actions (when linked item exists) ── */}
+              {(() => {
+                const li = itemById[to.linkedItemId];
+                if (!li) return null;
+                const isExcluded = !!li.excluded;
+                const isAllowance = hasAllowance(li);
+                const subCount = (li.subItems || []).length;
+                const setPricingModal = useUiStore.getState().setPricingModal;
+                const updateItem = useItemsStore.getState().updateItem;
+                const removeItem = useItemsStore.getState().removeItem;
+                const btnStyle = {
+                  width: "100%", padding: "7px 12px", border: "none",
+                  background: "transparent", color: C.text,
+                  display: "flex", alignItems: "center", gap: 8,
+                  fontSize: 12, cursor: "pointer", transition: T.transition.fast,
+                };
+                return (
+                  <>
+                    <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+                    <div style={{ padding: "4px 12px 2px", fontSize: 8, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      Estimate
+                    </div>
+                    {/* Allowance toggle */}
+                    <button
+                      onClick={() => {
+                        updateItem(li.id, "allowanceOf", isAllowance ? "" : "all");
+                        setActionMenuId(null); setActionConfirm(null);
+                      }}
+                      style={{ ...btnStyle, color: isAllowance ? C.orange : C.text }}
+                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+                      </svg>
+                      <span>{isAllowance ? "Remove Allowance" : "Flag as Allowance"}</span>
+                      {isAllowance && <span style={{ marginLeft: "auto", fontSize: 9, color: C.orange, fontWeight: 700 }}>ALLOW</span>}
+                    </button>
+                    {/* AI Price */}
+                    <button
+                      onClick={() => {
+                        setPricingModal(li);
+                        setActionMenuId(null); setActionConfirm(null);
+                      }}
+                      style={btnStyle}
+                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <Ic d={I.ai} size={11} color={C.accent} />
+                      <span style={{ color: C.accent }}>AI Price</span>
+                    </button>
+                    {/* Exclude toggle */}
+                    <button
+                      onClick={() => {
+                        updateItem(li.id, "excluded", !isExcluded);
+                        setActionMenuId(null); setActionConfirm(null);
+                      }}
+                      style={{ ...btnStyle, color: isExcluded ? C.orange : C.text }}
+                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                      </svg>
+                      <span>{isExcluded ? "Include in Estimate" : "Exclude from Estimate"}</span>
+                    </button>
+                    {/* Sub-items indicator */}
+                    {subCount > 0 && (
+                      <div style={{ padding: "5px 12px", fontSize: 11, color: C.textDim, display: "flex", alignItems: "center", gap: 6 }}>
+                        <Ic d={I.layers} size={11} color={C.textDim} />
+                        <span>{subCount} sub-item{subCount !== 1 ? "s" : ""} — expand panel for details</span>
+                      </div>
+                    )}
+                    {/* Delete from estimate */}
+                    <button
+                      onClick={() => {
+                        if (actionConfirm === "deleteItem") {
+                          removeItem(li.id);
+                          setActionMenuId(null); setActionConfirm(null);
+                        } else {
+                          setActionConfirm("deleteItem");
+                        }
+                      }}
+                      style={{ ...btnStyle, background: actionConfirm === "deleteItem" ? `${C.red}15` : "transparent", color: C.red }}
+                      onMouseEnter={e => { if (actionConfirm !== "deleteItem") e.currentTarget.style.background = `${C.red}10`; }}
+                      onMouseLeave={e => { if (actionConfirm !== "deleteItem") e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <Ic d={I.trash} size={11} color={C.red} />
+                      <span>{actionConfirm === "deleteItem" ? "Delete estimate item — confirm?" : "Delete from Estimate"}</span>
+                    </button>
+                  </>
+                );
+              })()}
               <div
                 style={{ height: 1, background: C.border, margin: "4px 8px" }}
               />
@@ -1099,6 +1197,97 @@ export default function TakeoffRow({
             );
           })()}
       </div>
+
+      {/* Inline measurement list — expands when row is selected */}
+      {isSelected && hasMeasurements && tkShowVars !== to.id && (
+        <div
+          style={{
+            background: `${to.color}08`,
+            borderLeft: `3px solid ${to.color}40`,
+            borderBottom: `1px solid ${C.border}`,
+            padding: "4px 8px 6px 8px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {(to.measurements || []).length} Measurement{(to.measurements || []).length !== 1 ? "s" : ""}
+            </span>
+            <span style={{ fontSize: 8, color: C.textDim }}>⌫ undo last · ⇧⌦ delete item</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {(to.measurements || []).map((m, idx) => {
+              const isLast = idx === (to.measurements || []).length - 1;
+              const label = m.type === "count"
+                ? "Click"
+                : m.type === "linear"
+                  ? `Line (${(m.points || []).length} pts)`
+                  : m.type === "area"
+                    ? `Area (${(m.points || []).length} pts)`
+                    : m.type;
+              const val = computeMeasurementValue ? computeMeasurementValue(m) : null;
+              return (
+                <div
+                  key={m.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "2px 4px",
+                    borderRadius: 3,
+                    background: isLast ? `${to.color}12` : "transparent",
+                    border: isLast ? `1px solid ${to.color}20` : "1px solid transparent",
+                  }}
+                >
+                  <span style={{ fontSize: 8, color: C.textDim, fontFamily: "monospace", minWidth: 18, textAlign: "right" }}>
+                    #{idx + 1}
+                  </span>
+                  <span style={{ flex: 1, fontSize: 9, color: C.text }}>{label}</span>
+                  {val !== null && val !== undefined && (
+                    <span style={{ fontSize: 8, color: C.accent, fontFamily: "monospace" }}>
+                      {m.type === "count" ? "×1" : fmt2(val)}
+                    </span>
+                  )}
+                  {m.location && (
+                    <span style={{ fontSize: 7, color: C.accent, fontWeight: 500 }}>{m.location}</span>
+                  )}
+                  {m.mode === "deduct" && (
+                    <span style={{ fontSize: 7, color: C.red, fontWeight: 700, padding: "0 3px", background: `${C.red}15`, borderRadius: 2 }}>DED</span>
+                  )}
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      const newMode = m.mode === "deduct" ? "add" : "deduct";
+                      setTakeoffs(takeoffs.map(t =>
+                        t.id === to.id
+                          ? { ...t, measurements: t.measurements.map(mm => mm.id === m.id ? { ...mm, mode: newMode } : mm) }
+                          : t
+                      ));
+                    }}
+                    title={m.mode === "deduct" ? "Switch to Add" : "Switch to Deduct"}
+                    style={{ background: "none", border: "none", color: m.mode === "deduct" ? C.green : C.textDim, fontSize: 9, cursor: "pointer", padding: "2px 3px", opacity: 0.6, borderRadius: 3, lineHeight: 1 }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
+                  >
+                    {m.mode === "deduct" ? "+" : "−"}
+                  </button>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      removeMeasurement(to.id, m.id);
+                    }}
+                    title={`Remove measurement #${idx + 1}`}
+                    style={{ background: "none", border: "none", color: C.red, fontSize: 10, cursor: "pointer", padding: "2px 3px", opacity: 0.5, borderRadius: 3, lineHeight: 1 }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Inline formula expression */}
       {hasFormula &&
