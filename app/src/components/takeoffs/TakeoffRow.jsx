@@ -1206,7 +1206,7 @@ export default function TakeoffRow({
       </div>
 
       {/* Inline measurement list — expands when row is selected */}
-      {isSelected && tkShowVars !== to.id && (
+      {isSelected && (
         <div
           style={{
             background: `${to.color}08`,
