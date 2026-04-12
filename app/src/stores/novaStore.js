@@ -124,6 +124,27 @@ export const useNovaStore = create((set, get) => ({
   // Reset to idle
   resetStatus: () => set({ status: "idle", activity: null, activeTask: null }),
 
+  // ══ Chat Console (multi-turn memory) ════════════════════════════
+  // chatMessages: what the user sees in the UI
+  // apiMessages:  full Anthropic content-block history sent to the API
+  chatOpen: false,
+  chatThinking: false,
+  chatEstimateId: null,
+  chatMessages: [],   // [{ role, text, toolActions, ts, error }]
+  apiMessages: [],    // [{ role, content }]  — verbatim Anthropic format
+
+  setChatOpen: v => set({ chatOpen: v }),
+  setChatThinking: v => set({ chatThinking: v }),
+
+  appendDisplayMessage: msg =>
+    set(s => ({ chatMessages: [...s.chatMessages, msg] })),
+
+  setApiMessages: msgs => set({ apiMessages: msgs }),
+
+  // Call when switching estimates — wipes conversation
+  clearChat: estimateId =>
+    set({ chatMessages: [], apiMessages: [], chatEstimateId: estimateId, chatThinking: false }),
+
   // ── Audio Assets (was novaAudioStore) ──
   audioAssets: {},
   audioVolumes: { drone: 1.0, textPing: 1.0, activation: 1.0 },
