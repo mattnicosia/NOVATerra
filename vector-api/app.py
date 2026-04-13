@@ -9,6 +9,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import base64
 import math
+import re
 import fitz  # PyMuPDF
 from collections import defaultdict
 
@@ -666,6 +667,208 @@ def extract():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════
+# /segment — Sheet layout segmentation
+# ═══════════════════════════════════════════════════════════════════
+
+_SCALE_PATTERNS = [
+    re.compile(r'(\d+/\d+)"\s*=\s*1\'', re.IGNORECASE),
+    re.compile(r'SCALE:\s*(\d+/\d+"?\s*=\s*[\d\'-]+)', re.IGNORECASE),
+    re.compile(r'(\d+)\s*:\s*(\d+)', re.IGNORECASE),
+    re.compile(r'NTS|NOT\s+TO\s+SCALE', re.IGNORECASE),
+]
+
+_VP_TYPE_MAP = {
+    "plan": ["plan", "floor", "level", "basement", "ground", "mezzanine"],
+    "rcp": ["reflected ceiling", "rcp", "ceiling plan"],
+    "elevation": ["elevation", "elev", "exterior"],
+    "section": ["section", "sect"],
+    "detail": ["detail", "dtl", "enlarged"],
+    "schedule": ["schedule", "sched"],
+}
+
+
+def _find_scale(text):
+    for pat in _SCALE_PATTERNS:
+        m = pat.search(text)
+        if m:
+            return m.group(0)
+    return None
+
+
+def _classify_vp(title):
+    if not title:
+        return "unknown"
+    t = title.lower()
+    for vtype, kws in _VP_TYPE_MAP.items():
+        if any(kw in t for kw in kws):
+            return vtype
+    return "unknown"
+
+
+def _rect_overlap(r1, r2):
+    x0 = max(r1[0], r2[0]); y0 = max(r1[1], r2[1])
+    x1 = min(r1[2], r2[2]); y1 = min(r1[3], r2[3])
+    if x1 <= x0 or y1 <= y0: return 0.0
+    inter = (x1 - x0) * (y1 - y0)
+    a1 = max((r1[2]-r1[0]) * (r1[3]-r1[1]), 1)
+    return inter / a1
+
+
+def _contains(outer, inner):
+    return outer[0] <= inner[0] and outer[1] <= inner[1] and outer[2] >= inner[2] and outer[3] >= inner[3]
+
+
+def segment_sheet(pdf_bytes, page_num=0):
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    if page_num >= len(doc):
+        doc.close()
+        return {"error": f"Page {page_num} out of range"}
+
+    page = doc[page_num]
+    pw, ph = page.rect.width, page.rect.height
+    page_area = pw * ph
+
+    # Tier 1: OCG layers
+    ocgs = doc.get_ocgs()
+    layers = [info.get("name", "") for info in ocgs.values()][:20] if ocgs else []
+
+    # Sheet label
+    sheet_label = ""
+    try: sheet_label = page.get_label() or ""
+    except: pass
+
+    sheet_type = "unknown"
+    if sheet_label:
+        prefix = sheet_label.upper().split("-")[0].strip() if "-" in sheet_label else sheet_label[0:1].upper()
+        sheet_type = {"A":"architectural","S":"structural","M":"mechanical","E":"electrical","P":"plumbing","C":"civil"}.get(prefix, "unknown")
+
+    # Text blocks
+    text_blocks = []
+    for block in page.get_text("dict").get("blocks", []):
+        if block.get("type") != 0: continue
+        for line in block.get("lines", []):
+            for span in line.get("spans", []):
+                t = span.get("text", "").strip()
+                if not t: continue
+                b = span.get("bbox", [0,0,0,0])
+                text_blocks.append({"text":t, "x":b[0], "y":b[1], "x2":b[2], "y2":b[3], "cx":(b[0]+b[2])/2, "cy":(b[1]+b[3])/2, "size":span.get("size",0)})
+
+    # Tier 2: Vector rectangles
+    drawings = page.get_drawings()
+    rects = []
+    for p in drawings:
+        w = p.get("width") or 0
+        if w < 0.1: continue
+        for item in p["items"]:
+            if item[0] == "re":
+                r = item[1]
+                rw, rh = abs(r.x1-r.x0), abs(r.y1-r.y0)
+                if rw < 20 or rh < 20: continue
+                area = rw * rh
+                rects.append({"rect":[r.x0,r.y0,r.x1,r.y1], "area":area, "area_pct":area/page_area, "lw":w})
+        if p.get("closePath") and len(p["items"]) == 4 and all(i[0]=="l" for i in p["items"]):
+            r = p["rect"]
+            rw, rh = abs(r.x1-r.x0), abs(r.y1-r.y0)
+            if rw > 50 and rh > 50:
+                area = rw * rh
+                rects.append({"rect":[r.x0,r.y0,r.x1,r.y1], "area":area, "area_pct":area/page_area, "lw":w})
+
+    # Sheet border
+    sb = {"rect":[0,0,pw,ph]}
+    for r in sorted(rects, key=lambda r: -r["area"]):
+        if r["area_pct"] > 0.85 and r["lw"] >= 0.8:
+            sb = {"rect":r["rect"]}; break
+
+    # Title block
+    tb = None
+    tb_cands = [r for r in rects if r["rect"][2]>pw*0.55 and r["rect"][3]>ph*0.55 and r["lw"]>=0.6 and 0.005<r["area_pct"]<0.25]
+    if tb_cands:
+        tbr = [min(c["rect"][0] for c in tb_cands), min(c["rect"][1] for c in tb_cands),
+               max(c["rect"][2] for c in tb_cands), max(c["rect"][3] for c in tb_cands)]
+        fields = {}
+        for t in text_blocks:
+            if tbr[0]<=t["cx"]<=tbr[2] and tbr[1]<=t["cy"]<=tbr[3]:
+                if not fields.get("project") and t["size"]>=10: fields["project"]=t["text"]
+                s = _find_scale(t["text"])
+                if s and not fields.get("scale"): fields["scale"]=s
+                if not fields.get("sheet_number") and re.match(r'^[A-Z]-?\d', t["text"]):
+                    fields["sheet_number"]=t["text"]
+                    if not sheet_label: sheet_label=t["text"]
+        tb = {"rect":tbr, "fields":fields}
+
+    # Viewports
+    tb_r = tb["rect"] if tb else [pw,ph,pw,ph]
+    vp_cands = [r for r in rects if 0.03<r["area_pct"]<0.85 and r["lw"]>=0.3 and _rect_overlap(r["rect"],tb_r)<0.6]
+    vp_cands.sort(key=lambda r: r["area"])
+    vps_raw = []
+    for c in vp_cands:
+        if any(_contains(v["rect"],c["rect"]) for v in vps_raw): continue
+        if any(_contains(c["rect"],v["rect"]) for v in vps_raw) and c["area_pct"]>0.4: continue
+        vps_raw.append(c)
+
+    viewports = []
+    for vp in vps_raw:
+        vr = vp["rect"]
+        title = ""
+        scale = ""
+        for t in text_blocks:
+            if vr[0]-10<=t["cx"]<=vr[2]+10 and vr[3]<=t["cy"]<=vr[3]+40 and t["size"]>=8:
+                if len(t["text"])>len(title): title=t["text"]
+            if vr[0]-10<=t["cx"]<=vr[2]+10 and vr[1]-40<=t["cy"]<=vr[1] and t["size"]>=8:
+                if len(t["text"])>len(title): title=t["text"]
+        for t in text_blocks:
+            if vr[0]-20<=t["cx"]<=vr[2]+20 and vr[1]-50<=t["cy"]<=vr[3]+50:
+                s = _find_scale(t["text"])
+                if s: scale=s; break
+        viewports.append({"rect":[round(v,1) for v in vr], "title":title.strip(), "scale":scale, "type":_classify_vp(title), "area_pct":round(vp["area_pct"]*100,1)})
+
+    # Notes/legends/schedules from orphan text
+    excl = [v["rect"] for v in viewports] + ([tb["rect"]] if tb else [])
+    orphans = [t for t in text_blocks if not any(r[0]<=t["cx"]<=r[2] and r[1]<=t["cy"]<=r[3] for r in excl)]
+    notes, legends, schedules = [], [], []
+    used = set()
+    for i,t in enumerate(orphans):
+        if i in used: continue
+        cluster = [t]; used.add(i)
+        for j,t2 in enumerate(orphans):
+            if j in used: continue
+            for ct in cluster:
+                if abs(t2["cx"]-ct["cx"])<200 and abs(t2["cy"]-ct["cy"])<40:
+                    cluster.append(t2); used.add(j); break
+        if len(cluster)>=2:
+            bbox = [min(t["x"] for t in cluster)-5, min(t["y"] for t in cluster)-5, max(t["x2"] for t in cluster)+5, max(t["y2"] for t in cluster)+5]
+            combined = " ".join(t["text"] for t in cluster).lower()
+            if "schedule" in combined or "sched" in combined: schedules.append({"rect":bbox,"type":"schedule"})
+            elif "legend" in combined or "symbol" in combined: legends.append({"rect":bbox})
+            else: notes.append({"rect":bbox, "type":"keynotes" if "key" in combined and "note" in combined else "notes"})
+
+    doc.close()
+    return {"page_width":round(pw,1), "page_height":round(ph,1), "has_layers":len(layers)>0, "layers":layers,
+            "sheet_label":sheet_label, "sheet_type":sheet_type,
+            "regions":{"sheet_border":sb, "title_block":tb, "viewports":viewports, "notes":notes, "legends":legends, "schedules":schedules}}
+
+
+@app.route("/segment", methods=["POST"])
+def segment_endpoint():
+    try:
+        data = request.get_json()
+        pdf_b64 = data.get("pdf_base64", "")
+        page_num = data.get("page_num", 0)
+        if pdf_b64.startswith("data:"):
+            pdf_b64 = pdf_b64.split(",", 1)[1]
+        pdf_bytes = base64.b64decode(pdf_b64)
+        result = segment_sheet(pdf_bytes, page_num)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "version": "2.0", "endpoints": ["/extract", "/analyze", "/segment"]})
 
 
 if __name__ == "__main__":
