@@ -28,3 +28,23 @@ Archive/
 # Apple Pages documents
 *.pages
 .gitnexus
+
+# Training data (large — stored locally, not in repo)
+training/dataset/train/
+training/dataset/val/
+training/dataset/discarded/
+training/dataset/*.cache
+training/models/
+training/archive/
+training/intake-template/
+training/corpus/
+training/visualizations/
+training/__pycache__/
+
+# ONNX model (12MB — deployed via Vercel, not git)
+app/public/models/*.onnx
+
+# Keep training scripts, configs, and metadata in git
+!training/config.yaml
+!training/dataset/dataset.yaml
+!training/render-api/

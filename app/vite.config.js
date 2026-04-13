@@ -51,6 +51,8 @@ export default defineConfig(({ mode }) => ({
           "data-carbon": ["./src/constants/embodiedCarbonDb.js"],
           "data-location": ["./src/constants/locationFactors.js"],
           "data-palettes": ["./src/constants/palettes.js"],
+          // ONNX Runtime Web — YOLO inference engine (~2MB, only loaded when model exists)
+          "onnx-runtime": ["onnxruntime-web"],
           // Isolate Supabase + Recharts + Framer Motion from main bundle
           supabase: ["@supabase/supabase-js"],
           charts: ["recharts"],

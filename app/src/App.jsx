@@ -114,6 +114,7 @@ const AdminUnitRatesPage = lazyRetry(() => import("@/pages/admin/AdminUnitRatesP
 const AdminFeedbackPage = lazyRetry(() => import("@/pages/admin/AdminFeedbackPage"));
 const AdminInvitesPage = lazyRetry(() => import("@/pages/admin/AdminInvitesPage"));
 const AdminAIConfigPage = lazyRetry(() => import("@/pages/admin/AdminAIConfigPage"));
+const AdminTrainingPage = lazyRetry(() => import("@/pages/admin/AdminTrainingPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -950,6 +951,14 @@ function AppContent() {
                     element={
                       <RouteErrorBoundary pageName="Admin AI Config">
                         <AdminAIConfigPage />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="training"
+                    element={
+                      <RouteErrorBoundary pageName="Admin Training">
+                        <AdminTrainingPage />
                       </RouteErrorBoundary>
                     }
                   />

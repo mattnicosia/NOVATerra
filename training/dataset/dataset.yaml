@@ -1,23 +1,11 @@
-names:
-  0: wall_linear
-  1: wall_area
-  2: floor_area
-  3: ceiling_area
-  4: roof_area
-  5: door
-  6: window
-  7: fixture_plumbing
-  8: fixture_electric
-  9: fixture_hvac
-  10: linear_misc
-  11: area_misc
-  12: count_misc
-  13: site_linear
-  14: site_area
-  15: site_count
-  16: foundation
-  17: structural
-nc: 18
-path: /Users/mattnicosia/Desktop/BLDG Estimator/training/dataset
+path: /Users/mattnicosia/Desktop/Projects/NOVATerra/training/dataset
 train: train/images
 val: val/images
+nc: 6
+names:
+  0: schedule_table
+  1: wall_linear
+  2: floor_area
+  3: door_window
+  4: fixture
+  5: annotation

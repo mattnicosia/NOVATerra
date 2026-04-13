@@ -37,6 +37,7 @@ import {
   extractBuildingParamsFromSchedules,
 } from "@/utils/romEngine";
 import { runParameterDetection } from "@/utils/parameterDetectionEngine";
+import { detectSchedules as yoloDetectSchedules, classifyScheduleFromOCR, getCapabilities } from "@/utils/unifiedDetector";
 import { extractDrawingNotes, buildNotesContext } from "@/utils/notesExtractor";
 import { extractTitleBlockFields, mapBuildingTypeKey, inferWorkType } from "@/utils/titleBlockExtractor";
 import { generateScopeOutline } from "@/utils/scopeOutlineGenerator";
@@ -203,8 +204,63 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     const ocrCacheHits = drawingImages.filter(r => !r.error && r.ocrText).length;
     console.log(`[scanRunner] Phase 0: OCR pre-pass complete — ${ocrCacheHits}/${currentDrawings.length} with text`);
 
-    // ── Phase 1: Detect schedules (uses cached OCR from Phase 0) ──
+    // ── Phase 0.5: Sheet Segmentation (identify viewports, title block, notes) ──
     checkAbort();
+    setScanProgress({
+      phase: "segment",
+      current: 0,
+      total: currentDrawings.length,
+      message: "Segmenting sheet layout...",
+    });
+
+    const segMap = new Map();
+    try {
+      const pdfDrawings = currentDrawings.filter(d => d.type === "pdf");
+      if (pdfDrawings.length > 0) {
+        const { segmentSheet } = await import("@/utils/sheetSegmenter");
+        const segResults = await batchAI(
+          pdfDrawings,
+          async (d, idx) => {
+            checkAbort();
+            setScanProgress({
+              phase: "segment",
+              current: idx + 1,
+              total: pdfDrawings.length,
+              message: `Segmenting sheet ${idx + 1}/${pdfDrawings.length}...`,
+            });
+            try {
+              const seg = await segmentSheet(d.id);
+              return { id: d.id, segmentation: seg };
+            } catch (err) {
+              console.warn(`[scanRunner] Segmentation failed for ${d.id.slice(0, 8)}:`, err.message);
+              return { id: d.id, segmentation: null };
+            }
+          },
+          3,
+        );
+        for (const r of segResults) {
+          if (r.segmentation) segMap.set(r.id, r.segmentation);
+        }
+      }
+    } catch (segErr) {
+      console.warn("[scanRunner] Phase 0.5 (segmentation) non-critical:", segErr.message);
+    }
+
+    const segmentedCount = segMap.size;
+    const layerCount = [...segMap.values()].filter(s => s.has_layers).length;
+    console.log(`[scanRunner] Phase 0.5: Segmented ${segmentedCount}/${currentDrawings.length} sheets (${layerCount} with OCG layers)`);
+
+    // ── Phase 1: Detect schedules ──
+    // Try YOLO first (free, instant), fall back to Claude (paid, slower)
+    checkAbort();
+    const capabilities = await getCapabilities();
+    const useYolo = capabilities.yolo;
+    if (useYolo) {
+      console.log("[scanRunner] Phase 1: Using YOLO for schedule detection (free, ~50ms/page)");
+    } else {
+      console.log("[scanRunner] Phase 1: YOLO model not available, using Claude Haiku ($0.01/page)");
+    }
+
     const detections = await batchAI(
       currentDrawings,
       async (d, idx) => {
@@ -213,7 +269,9 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           phase: "detect",
           current: idx + 1,
           total: currentDrawings.length,
-          message: `Scanning sheet ${idx + 1}/${currentDrawings.length}...`,
+          message: useYolo
+            ? `YOLO scanning sheet ${idx + 1}/${currentDrawings.length}...`
+            : `Scanning sheet ${idx + 1}/${currentDrawings.length}...`,
         });
 
         const cached = ocrMap.get(d.id);
@@ -221,7 +279,51 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         const optimized = cached.optimized;
         const ocrText = cached.ocrText || "";
 
-        const sheetLabel = d.sheetTitle || d.label || d.sheetNumber;
+        const seg = segMap.get(d.id);
+        const sheetLabel = seg?.sheet_label || d.sheetTitle || d.label || d.sheetNumber;
+
+        // ── YOLO fast path: detect schedule regions locally (free, ~50ms) ──
+        if (useYolo) {
+          try {
+            const imgDataUrl = `data:image/jpeg;base64,${optimized.base64}`;
+            const yoloResult = await yoloDetectSchedules(imgDataUrl);
+
+            if (yoloResult.schedules.length > 0) {
+              // Classify each detected schedule using OCR text
+              const classified = yoloResult.schedules.map(s => {
+                const schedType = classifyScheduleFromOCR(ocrText);
+                return {
+                  ...s,
+                  type: schedType !== "unknown" ? schedType : "detected",
+                  rowCount: 5, // assume parseable — Claude will verify in Phase 2
+                };
+              });
+
+              try {
+                const { logAICall } = await import("@/nova/learning/evaluationLogger");
+                logAICall({ phase: 'detect', model: 'yolo', inputSummary: `Sheet ${sheetLabel}`, aiResult: classified, latencyMs: yoloResult.inferenceMs || 0 });
+              } catch { /* optional */ }
+
+              return {
+                sheetId: d.id,
+                sheetLabel,
+                imgBase64: optimized.base64,
+                imgWidth: optimized.width,
+                imgHeight: optimized.height,
+                schedules: classified,
+                ocrText,
+                _detectedBy: "yolo",
+              };
+            }
+            // YOLO found nothing on this sheet — still return (may be a floor plan, not a schedule sheet)
+            return { sheetId: d.id, sheetLabel, imgBase64: optimized.base64, imgWidth: optimized.width, imgHeight: optimized.height, schedules: [], ocrText, _detectedBy: "yolo" };
+          } catch (yoloErr) {
+            console.warn(`[scanRunner] YOLO failed on sheet ${sheetLabel}, falling back to Claude:`, yoloErr.message);
+            // Fall through to Claude
+          }
+        }
+
+        // ── Claude fallback: send full image to Haiku for detection ──
         const prompt = buildDetectionPrompt(sheetLabel, ocrText);
         const { systemPrompt: detectionSys } = novaPlans.augmentDetectionPrompt(sheetLabel, ocrText);
         const detectStart = Date.now();
@@ -250,6 +352,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
             imgHeight: optimized.height,
             schedules: detected,
             ocrText,
+            _detectedBy: "claude",
           };
         } catch {
           return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
@@ -257,6 +360,12 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       },
       3,
     );
+
+    // Log detection method breakdown
+    const yoloCount = detections.filter(d => d._detectedBy === "yolo").length;
+    const claudeCount = detections.filter(d => d._detectedBy === "claude").length;
+    const totalScheds = detections.reduce((s, d) => s + (d.schedules?.length || 0), 0);
+    console.log(`[scanRunner] Phase 1 complete: ${totalScheds} schedules detected (YOLO: ${yoloCount} sheets, Claude: ${claudeCount} sheets)`);
 
     const schedulesToParse = [];
     detections.forEach(det => {

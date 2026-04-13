@@ -21,6 +21,7 @@ import { processLogo } from "@/utils/imageUtils";
 
 import LogoPill from "@/components/shared/LogoPill";
 import EstimatorSettingsPanel from "@/components/settings/EstimatorSettingsPanel";
+// TrainingSystemPanel moved to /admin/training
 
 export default function SettingsPage() {
   const C = useTheme();

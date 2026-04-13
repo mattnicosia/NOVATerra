@@ -1,0 +1,116 @@
+# NOVATerra Unified Training Configuration
+# ═══════════════════════════════════════════
+
+# Dataset
+dataset:
+  path: ./dataset
+  train: train/images
+  val: val/images
+  split_ratio: 0.8
+  seed: 42
+
+# 6-class system (consolidated from original 18)
+classes:
+  0: schedule_table    # Any schedule, table, or legend region
+  1: wall_linear       # Wall line segments (linear)
+  2: floor_area        # Floor/slab/ceiling area regions
+  3: door_window       # Doors and windows (counted elements)
+  4: fixture           # Plumbing, electrical, HVAC fixtures
+  5: annotation        # Dimensions, notes, callouts, detail markers
+
+# Class mapping from old 18-class to new 6-class
+class_migration:
+  # old_id: new_id
+  0: 1    # wall_linear → wall_linear
+  1: 2    # wall_area → floor_area (area measurement)
+  2: 2    # floor_area → floor_area
+  3: 2    # ceiling_area → floor_area (area measurement)
+  4: 2    # roof_area → floor_area (area measurement)
+  5: 3    # door → door_window
+  6: 3    # window → door_window
+  7: 4    # fixture_plumbing → fixture
+  8: 4    # fixture_electric → fixture
+  9: 4    # fixture_hvac → fixture
+  10: 5   # linear_misc → annotation
+  11: 2   # area_misc → floor_area
+  12: 4   # count_misc → fixture (most were small fixture markers)
+  13: 5   # site_linear → annotation
+  14: 2   # site_area → floor_area
+  15: 4   # site_count → fixture
+  16: 1   # foundation → wall_linear
+  17: 1   # structural → wall_linear
+
+# Overlay color heuristics (HSV ranges for schedule tables)
+schedule_detection:
+  # Schedules are typically rectangular, large, contain grid lines
+  min_aspect_ratio: 1.5     # wider than tall
+  min_area_pct: 3.0         # at least 3% of page
+  max_area_pct: 50.0        # not the whole page
+  grid_line_threshold: 5    # minimum internal lines to be a table
+
+# YOLO training (for legacy/comparison)
+yolo:
+  model: yolov8n.pt
+  epochs: 100
+  patience: 20
+  imgsz: 640
+  batch: 8
+  device: mps
+  augmentation:
+    hsv_h: 0.0
+    hsv_s: 0.0
+    hsv_v: 0.2
+    degrees: 0.0
+    translate: 0.1
+    scale: 0.3
+    flipud: 0.0
+    fliplr: 0.5
+    mosaic: 0.5
+    mixup: 0.0
+
+# Florence-2 fine-tuning
+florence2:
+  base_model: microsoft/Florence-2-large
+  lora:
+    rank: 32
+    alpha: 64
+    target_modules: all
+    dropout: 0.05
+  training:
+    learning_rate: 2.0e-4
+    epochs: 5
+    batch_size: 4
+    warmup_ratio: 0.1
+    weight_decay: 0.01
+    fp16: true
+  export:
+    format: onnx
+    quantize: int8
+    opset: 17
+
+# YOLO-World (zero-shot, no training)
+yolo_world:
+  model: yolov8s-worldv2.pt
+  prompts:
+    - "door"
+    - "window"
+    - "toilet"
+    - "sink"
+    - "bathtub"
+    - "shower"
+    - "light fixture"
+    - "electrical outlet"
+    - "HVAC diffuser"
+    - "fire extinguisher"
+    - "elevator"
+    - "staircase"
+    - "schedule table"
+  export:
+    format: onnx
+    quantize: int8
+    imgsz: 640
+
+# Source directories
+sources:
+  takeoffs_dropbox: "/Users/mattnicosia/Matt Nicosia Dropbox/BLDG/BLDG Estimator/Takeoffs"
+  intake_plans: "./intake-template/plan-sets"

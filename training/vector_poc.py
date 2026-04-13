@@ -895,6 +895,381 @@ def run_poc(pdf_path, page_num=0, scale_px_per_ft=None):
     return output
 
 
+# ═══════════════════════════════════════════════════════════════════
+# Sheet Segmentation — identify regions before detection
+# ═══════════════════════════════════════════════════════════════════
+
+import re as _re
+
+# Scale notation patterns
+_SCALE_PATTERNS = [
+    _re.compile(r'(\d+/\d+)"\s*=\s*1\'', _re.IGNORECASE),          # 1/4" = 1'-0"
+    _re.compile(r'SCALE:\s*(\d+/\d+"?\s*=\s*[\d\'-]+)', _re.IGNORECASE),  # SCALE: 1/4" = 1'-0"
+    _re.compile(r'(\d+)\s*:\s*(\d+)', _re.IGNORECASE),              # 1:50
+    _re.compile(r'NTS|NOT\s+TO\s+SCALE', _re.IGNORECASE),           # NTS
+]
+
+# Viewport title keywords
+_VP_TYPE_MAP = {
+    "plan": ["plan", "floor", "level", "basement", "ground", "mezzanine", "penthouse", "lower"],
+    "rcp": ["reflected ceiling", "rcp", "ceiling plan"],
+    "elevation": ["elevation", "elev", "exterior"],
+    "section": ["section", "sect", "cross section", "longitudinal"],
+    "detail": ["detail", "dtl", "enlarged", "blow-up"],
+    "schedule": ["schedule", "sched"],
+}
+
+
+def _rect_overlap_pct(r1, r2):
+    """Fraction of r1 overlapping with r2."""
+    x0 = max(r1[0], r2[0])
+    y0 = max(r1[1], r2[1])
+    x1 = min(r1[2], r2[2])
+    y1 = min(r1[3], r2[3])
+    if x1 <= x0 or y1 <= y0:
+        return 0.0
+    inter = (x1 - x0) * (y1 - y0)
+    area1 = (r1[2] - r1[0]) * (r1[3] - r1[1])
+    return inter / max(area1, 1)
+
+
+def _rect_contains(outer, inner):
+    """Does outer fully contain inner?"""
+    return (outer[0] <= inner[0] and outer[1] <= inner[1] and
+            outer[2] >= inner[2] and outer[3] >= inner[3])
+
+
+def _classify_viewport(title):
+    """Classify viewport type from title text."""
+    if not title:
+        return "unknown"
+    lower = title.lower()
+    for vp_type, keywords in _VP_TYPE_MAP.items():
+        if any(kw in lower for kw in keywords):
+            return vp_type
+    return "unknown"
+
+
+def _find_scale_in_text(text):
+    """Extract scale notation from text."""
+    for pat in _SCALE_PATTERNS:
+        m = pat.search(text)
+        if m:
+            return m.group(0)
+    return None
+
+
+def segment_sheet(pdf_path_or_bytes, page_num=0):
+    """
+    Segment a construction drawing sheet into semantic regions.
+
+    Returns:
+      {
+        "page_width": float, "page_height": float,
+        "has_layers": bool,
+        "layers": [str],
+        "sheet_label": str,
+        "sheet_type": str,
+        "regions": {
+          "sheet_border": {"rect": [x1,y1,x2,y2]},
+          "title_block": {"rect": [...], "fields": {}},
+          "viewports": [{"rect": [...], "title": str, "scale": str, "type": str}],
+          "notes": [{"rect": [...], "type": str}],
+          "legends": [{"rect": [...]}],
+          "schedules": [{"rect": [...]}],
+        }
+      }
+    """
+    if isinstance(pdf_path_or_bytes, bytes):
+        doc = fitz.open(stream=pdf_path_or_bytes, filetype="pdf")
+    else:
+        doc = fitz.open(str(pdf_path_or_bytes))
+
+    if page_num >= len(doc):
+        doc.close()
+        return {"error": f"Page {page_num} out of range (doc has {len(doc)} pages)"}
+
+    page = doc[page_num]
+    pw, ph = page.rect.width, page.rect.height
+    page_area = pw * ph
+
+    # ── Tier 1: Check OCG layers ──
+    ocgs = doc.get_ocgs()
+    layer_names = [info.get("name", "") for info in ocgs.values()] if ocgs else []
+    has_layers = len(layer_names) > 0
+
+    # ── Sheet label from page label ──
+    sheet_label = ""
+    try:
+        sheet_label = page.get_label() or ""
+    except Exception:
+        pass
+
+    # Classify sheet type from label prefix
+    sheet_type = "unknown"
+    label_upper = sheet_label.upper().strip()
+    if label_upper:
+        prefix = label_upper.split("-")[0].strip() if "-" in label_upper else label_upper[0]
+        type_map = {"A": "architectural", "S": "structural", "M": "mechanical",
+                     "E": "electrical", "P": "plumbing", "C": "civil",
+                     "L": "landscape", "G": "general", "I": "interior"}
+        sheet_type = type_map.get(prefix, "unknown")
+
+    # ── Extract all vector paths ──
+    drawings = page.get_drawings()
+
+    # ── Extract text blocks ──
+    text_dict = page.get_text("dict")
+    text_blocks = []
+    for block in text_dict.get("blocks", []):
+        if block.get("type") != 0:  # text blocks only
+            continue
+        for line in block.get("lines", []):
+            for span in line.get("spans", []):
+                text = span.get("text", "").strip()
+                if not text:
+                    continue
+                bbox = span.get("bbox", [0, 0, 0, 0])
+                text_blocks.append({
+                    "text": text,
+                    "x": bbox[0], "y": bbox[1],
+                    "x2": bbox[2], "y2": bbox[3],
+                    "cx": (bbox[0] + bbox[2]) / 2,
+                    "cy": (bbox[1] + bbox[3]) / 2,
+                    "size": span.get("size", 0),
+                    "font": span.get("font", ""),
+                    "flags": span.get("flags", 0),
+                })
+
+    # ── Tier 2: Find rectangles from vector geometry ──
+    rectangles = []
+    for p in drawings:
+        w = p.get("width") or 0
+        if w < 0.1:
+            continue
+
+        for item in p["items"]:
+            # Native rectangle
+            if item[0] == "re":
+                rect = item[1]
+                rw = abs(rect.x1 - rect.x0)
+                rh = abs(rect.y1 - rect.y0)
+                if rw < 20 or rh < 20:
+                    continue
+                area = rw * rh
+                rectangles.append({
+                    "rect": [rect.x0, rect.y0, rect.x1, rect.y1],
+                    "width": rw, "height": rh,
+                    "area": area, "area_pct": area / page_area,
+                    "line_weight": w,
+                })
+
+        # Also check if the path itself forms a large rectangle (4 lines, closed)
+        if p.get("closePath") and len(p["items"]) == 4:
+            all_lines = all(item[0] == "l" for item in p["items"])
+            if all_lines:
+                r = p["rect"]
+                rw = abs(r.x1 - r.x0)
+                rh = abs(r.y1 - r.y0)
+                if rw > 50 and rh > 50:
+                    area = rw * rh
+                    rectangles.append({
+                        "rect": [r.x0, r.y0, r.x1, r.y1],
+                        "width": rw, "height": rh,
+                        "area": area, "area_pct": area / page_area,
+                        "line_weight": w,
+                    })
+
+    # ── Find sheet border ──
+    sheet_border = None
+    for r in sorted(rectangles, key=lambda r: -r["area"]):
+        if r["area_pct"] > 0.85 and r["line_weight"] >= 0.8:
+            sheet_border = {"rect": r["rect"]}
+            break
+    if not sheet_border:
+        sheet_border = {"rect": [0, 0, pw, ph]}
+
+    # ── Find title block ──
+    title_block = None
+    tb_candidates = [r for r in rectangles
+                     if r["rect"][2] > pw * 0.55
+                     and r["rect"][3] > ph * 0.55
+                     and r["line_weight"] >= 0.6
+                     and 0.005 < r["area_pct"] < 0.25]
+
+    if tb_candidates:
+        # Union all overlapping candidates in the bottom-right
+        min_x = min(c["rect"][0] for c in tb_candidates)
+        min_y = min(c["rect"][1] for c in tb_candidates)
+        max_x = max(c["rect"][2] for c in tb_candidates)
+        max_y = max(c["rect"][3] for c in tb_candidates)
+        tb_rect = [min_x, min_y, max_x, max_y]
+
+        # Extract text fields within title block
+        tb_fields = {}
+        for t in text_blocks:
+            if min_x <= t["cx"] <= max_x and min_y <= t["cy"] <= max_y:
+                text_lower = t["text"].lower()
+                if not tb_fields.get("project") and t["size"] >= 10:
+                    tb_fields["project"] = t["text"]
+                scale = _find_scale_in_text(t["text"])
+                if scale and not tb_fields.get("scale"):
+                    tb_fields["scale"] = scale
+                if not tb_fields.get("sheet_number") and _re.match(r'^[A-Z]-?\d', t["text"]):
+                    tb_fields["sheet_number"] = t["text"]
+                    if not sheet_label:
+                        sheet_label = t["text"]
+
+        title_block = {"rect": tb_rect, "fields": tb_fields}
+
+    # ── Find viewports ──
+    tb_rect_for_overlap = title_block["rect"] if title_block else [pw, ph, pw, ph]
+    sb_rect = sheet_border["rect"]
+
+    vp_candidates = []
+    for r in rectangles:
+        if r["area_pct"] < 0.03 or r["area_pct"] > 0.85:
+            continue
+        if r["line_weight"] < 0.3:
+            continue
+        # Skip if overlaps >60% with title block
+        if _rect_overlap_pct(r["rect"], tb_rect_for_overlap) > 0.6:
+            continue
+        # Skip if it IS the sheet border
+        if r["area_pct"] > 0.83:
+            continue
+        vp_candidates.append(r)
+
+    # Remove candidates that fully contain others (keep inner viewports)
+    vp_candidates.sort(key=lambda r: r["area"])
+    viewports_raw = []
+    for c in vp_candidates:
+        # Check if this candidate is already contained by a smaller accepted viewport
+        contained = any(_rect_contains(v["rect"], c["rect"]) for v in viewports_raw)
+        if contained:
+            continue
+        # Check if this candidate contains an already-accepted viewport (it's a grouping border)
+        contains_existing = any(_rect_contains(c["rect"], v["rect"]) for v in viewports_raw)
+        if contains_existing and c["area_pct"] > 0.4:
+            continue  # skip large grouping borders
+        viewports_raw.append(c)
+
+    # For each viewport, find title + scale from nearby text
+    viewports = []
+    for vp in viewports_raw:
+        vr = vp["rect"]
+        vp_title = ""
+        vp_scale = ""
+
+        # Search for title: text just below viewport bottom or above viewport top
+        for t in text_blocks:
+            # Below bottom edge (within 30pt)
+            if (vr[0] - 10 <= t["cx"] <= vr[2] + 10 and
+                    vr[3] <= t["cy"] <= vr[3] + 40 and
+                    t["size"] >= 8):
+                if len(t["text"]) > len(vp_title) and t["text"].replace(" ", "").isalpha() is False:
+                    vp_title = t["text"]
+            # Above top edge
+            if (vr[0] - 10 <= t["cx"] <= vr[2] + 10 and
+                    vr[1] - 40 <= t["cy"] <= vr[1] and
+                    t["size"] >= 8):
+                if len(t["text"]) > len(vp_title):
+                    vp_title = t["text"]
+
+        # Search for scale near viewport
+        for t in text_blocks:
+            if (vr[0] - 20 <= t["cx"] <= vr[2] + 20 and
+                    vr[1] - 50 <= t["cy"] <= vr[3] + 50):
+                s = _find_scale_in_text(t["text"])
+                if s:
+                    vp_scale = s
+                    break
+
+        vp_type = _classify_viewport(vp_title)
+
+        viewports.append({
+            "rect": [round(v, 1) for v in vr],
+            "title": vp_title.strip(),
+            "scale": vp_scale,
+            "type": vp_type,
+            "area_pct": round(vp["area_pct"] * 100, 1),
+        })
+
+    # ── Find notes, legends, schedules from orphan text clusters ──
+    excluded_rects = [v["rect"] for v in viewports]
+    if title_block:
+        excluded_rects.append(title_block["rect"])
+
+    def _point_in_any_rect(cx, cy, rects):
+        for r in rects:
+            if r[0] <= cx <= r[2] and r[1] <= cy <= r[3]:
+                return True
+        return False
+
+    orphan_texts = [t for t in text_blocks
+                    if not _point_in_any_rect(t["cx"], t["cy"], excluded_rects)]
+
+    # Simple spatial clustering of orphan texts
+    notes_regions = []
+    if orphan_texts:
+        # Cluster by proximity (within 40pt gap)
+        used = set()
+        for i, t in enumerate(orphan_texts):
+            if i in used:
+                continue
+            cluster = [t]
+            used.add(i)
+            for j, t2 in enumerate(orphan_texts):
+                if j in used:
+                    continue
+                for ct in cluster:
+                    if (abs(t2["cx"] - ct["cx"]) < 200 and abs(t2["cy"] - ct["cy"]) < 40):
+                        cluster.append(t2)
+                        used.add(j)
+                        break
+
+            if len(cluster) >= 2:
+                cx_min = min(t["x"] for t in cluster) - 5
+                cy_min = min(t["y"] for t in cluster) - 5
+                cx_max = max(t["x2"] for t in cluster) + 5
+                cy_max = max(t["y2"] for t in cluster) + 5
+                combined_text = " ".join(t["text"] for t in cluster).lower()
+
+                region_type = "notes"
+                if "schedule" in combined_text or "sched" in combined_text:
+                    region_type = "schedule"
+                elif "legend" in combined_text or "symbol" in combined_text:
+                    region_type = "legend"
+                elif "key" in combined_text and "note" in combined_text:
+                    region_type = "keynotes"
+                elif "general" in combined_text and "note" in combined_text:
+                    region_type = "general_notes"
+
+                notes_regions.append({
+                    "rect": [round(cx_min, 1), round(cy_min, 1), round(cx_max, 1), round(cy_max, 1)],
+                    "type": region_type,
+                })
+
+    doc.close()
+
+    return {
+        "page_width": round(pw, 1),
+        "page_height": round(ph, 1),
+        "has_layers": has_layers,
+        "layers": layer_names[:20],  # cap at 20 layers
+        "sheet_label": sheet_label,
+        "sheet_type": sheet_type,
+        "regions": {
+            "sheet_border": sheet_border,
+            "title_block": title_block,
+            "viewports": viewports,
+            "notes": [n for n in notes_regions if n["type"] in ("notes", "keynotes", "general_notes")],
+            "legends": [n for n in notes_regions if n["type"] == "legend"],
+            "schedules": [n for n in notes_regions if n["type"] == "schedule"],
+        },
+    }
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         # Default: run on 36 Old School House Road floor plan (page 4)

@@ -52,9 +52,11 @@ export const useDrawingPipelineStore = create((set, get) => ({
   aiLabelLoading: false,
   autoLabelProgress: null,
   vectorData: {},
+  segmentationData: {},
 
   setDrawings: v => set({ drawings: v }),
   setVectorData: (drawingId, data) => set(s => ({ vectorData: { ...s.vectorData, [drawingId]: data } })),
+  setSegmentationData: (drawingId, data) => set(s => ({ segmentationData: { ...s.segmentationData, [drawingId]: data } })),
   setSelectedDrawingId: v => set({ selectedDrawingId: v }),
   setPdfCanvases: v => set({ pdfCanvases: v }),
   setDrawingScales: v => set({ drawingScales: v }),

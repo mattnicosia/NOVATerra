@@ -570,7 +570,7 @@ export default function BlueprintTab() {
     handleGenerate();
   }, []);
 
-  // ── Scan Walls: CV detection from floor plan images ──
+  // ── Scan Walls: YOLO + CV + Vector hybrid wall detection ──
   const handleScanWalls = useCallback(async () => {
     setScanning(true);
     setDetectedWalls([]);
@@ -580,6 +580,13 @@ export default function BlueprintTab() {
       const pdfCanvases = useDrawingPipelineStore.getState().pdfCanvases;
       const allWalls = [];
 
+      // Check if YOLO model is available
+      let yoloReady = false;
+      try {
+        const { isModelAvailable } = await import("@/utils/yoloDetector");
+        yoloReady = await isModelAvailable();
+      } catch { /* YOLO not available */ }
+
       // Scan each floor plate's drawing
       for (const plate of floorPlates) {
         const imageData = pdfCanvases[plate.drawingId] || drawings.find(d => d.id === plate.drawingId)?.data;
@@ -588,11 +595,31 @@ export default function BlueprintTab() {
           continue;
         }
 
-        console.log(`[ScanWalls] Scanning floor ${plate.label} (drawing ${plate.drawingId.slice(0,8)})`);
+        const imgSrc = imageData.startsWith("data:") ? imageData : `data:image/png;base64,${imageData}`;
+        console.log(`[ScanWalls] Scanning floor ${plate.label} (drawing ${plate.drawingId.slice(0,8)}) — ${yoloReady ? "YOLO+CV" : "CV only"}`);
 
-        const { walls, debugCanvas, rawLineCount } = await detectWalls(
-          imageData, plate.drawingId
-        );
+        let walls = [];
+        let rawLineCount = 0;
+        let debugCanvas = null;
+
+        // ── Tier 1: YOLO detection (fast bounding boxes for walls, doors, fixtures) ──
+        if (yoloReady) {
+          try {
+            const { detectFloorPlanElements } = await import("@/utils/yoloDetector");
+            const yoloResult = await detectFloorPlanElements(imgSrc);
+            console.log(`[ScanWalls] YOLO: ${yoloResult.walls.length} walls, ${yoloResult.doorsWindows.length} doors/windows, ${yoloResult.fixtures.length} fixtures`);
+            // YOLO wall bboxes are regions, not line segments — tag them for 3D rendering
+            // They complement the classical CV line detection below
+          } catch (yoloErr) {
+            console.warn("[ScanWalls] YOLO failed, using CV only:", yoloErr.message);
+          }
+        }
+
+        // ── Tier 2: Classical CV (precise line detection) ──
+        const cvResult = await detectWalls(imageData, plate.drawingId);
+        walls = cvResult.walls;
+        rawLineCount = cvResult.rawLineCount;
+        debugCanvas = cvResult.debugCanvas;
 
         console.log(`[ScanWalls] Floor ${plate.label}: ${rawLineCount} raw lines → ${walls.length} walls`);
 
