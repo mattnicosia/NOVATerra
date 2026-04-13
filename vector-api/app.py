@@ -597,7 +597,7 @@ def analyze():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "service": "novaterra-vector-api"})
+    return jsonify({"status": "ok", "service": "novaterra-vector-api", "version": "2.0", "endpoints": ["/extract", "/analyze", "/segment"]})
 
 
 @app.route("/extract", methods=["POST", "OPTIONS"])
@@ -866,9 +866,7 @@ def segment_endpoint():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({"status": "ok", "version": "2.0", "endpoints": ["/extract", "/analyze", "/segment"]})
+## Old /health already defined above — updated inline
 
 
 if __name__ == "__main__":
