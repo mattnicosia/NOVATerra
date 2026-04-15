@@ -2,6 +2,7 @@
 import React from "react";
 import { card, sectionLabel } from "@/utils/styles";
 import { generateScopeTemplate } from "@/constants/scopeTemplates";
+import { sortDivisionNames } from "@/utils/csiFormat";
 import { fmt } from "./romFormatters";
 
 export default function RomScopeDetail({
@@ -40,7 +41,7 @@ export default function RomScopeDetail({
         }}>Hide</button>
       </div>
 
-      {Object.entries(byDiv).sort(([a], [b]) => a.localeCompare(b)).map(([divCode, items]) => {
+      {Object.entries(byDiv).sort(([a], [b]) => sortDivisionNames(a, b)).map(([divCode, items]) => {
         const divName = divisions?.[divCode]?.name || `Division ${divCode}`;
         const activeItems = items.filter(i => !excludedItems.has(i.code));
         const divTotal = activeItems.reduce((sum, i) => sum + (i.midCost || 0), 0);

@@ -13,6 +13,7 @@ const NAV = [
   { to: "/admin/embeddings", label: "Embeddings", icon: I.intelligence },
   { to: "/admin/ai-config", label: "AI Config", icon: I.ai },
   { to: "/admin/training", label: "Training", icon: I.ai },
+  { to: "/admin/testing", label: "AI Testing", icon: I.report },
 ];
 
 export default function AdminLayout() {

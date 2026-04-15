@@ -8,6 +8,7 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { normalizeProposal, getNormalizationTrace } from "@/utils/normalizationEngine";
 import { validateProposal, getStatusColor, getStatusLabel } from "@/utils/proposalValidation";
+import { sortDivisionNames } from "@/utils/csiFormat";
 
 const ff = { fontFamily: "'Switzer', -apple-system, sans-serif" };
 
@@ -132,7 +133,7 @@ function ProposalsTab() {
         const trace = getNormalizationTrace(p);
         const norm = normalizeProposal(p);
         const validation = validateProposal(p, proposals);
-        const divs = Object.entries(norm.divisions).sort(([a], [b]) => a.localeCompare(b));
+        const divs = Object.entries(norm.divisions).sort(([a], [b]) => sortDivisionNames(a, b));
         const sectionLabel = { fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, marginTop: 20, ...ff };
         const metaLabel = { color: "rgba(255,255,255,0.35)", fontSize: 10, ...ff };
         const metaValue = { color: "#EEEDF5", fontSize: 13, fontWeight: 500, ...ff };
@@ -318,7 +319,7 @@ function CalibrationTab() {
 
   const factors = useMemo(() => getCalibrationFactors(), [getCalibrationFactors]);
 
-  const divEntries = Object.entries(factors).sort(([a], [b]) => a.localeCompare(b));
+  const divEntries = Object.entries(factors).sort(([a], [b]) => sortDivisionNames(a, b));
 
   return (
     <div>

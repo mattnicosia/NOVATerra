@@ -4,6 +4,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { getBuildingTypeLabel, getWorkTypeLabel, getOutcomeInfo, OUTCOME_STATUSES, LOST_REASONS, getStructuralSystemLabel, getDeliveryMethodLabel } from "@/constants/constructionTypes";
 import { resolveLocationFactors } from "@/constants/locationFactors";
 import { extractYear, getEscalationFactor, formatEscalation } from "@/utils/costEscalation";
+import { sortDivisionNames } from "@/utils/csiFormat";
 import { getCurrentYear } from "@/constants/constructionCostIndex";
 import { MARKUP_CATEGORIES, classifyMarkup } from "@/constants/markupTaxonomy";
 import Ic from "@/components/shared/Ic";
@@ -247,7 +248,7 @@ export default function ProposalTable({
                 {/* Division breakdown */}
                 {divCount > 0 && (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 3, marginBottom: 10 }}>
-                    {Object.entries(entry.divisions).sort(([a], [b]) => a.localeCompare(b)).map(([div, cost]) => {
+                    {Object.entries(entry.divisions).sort(([a], [b]) => sortDivisionNames(a, b)).map(([div, cost]) => {
                       const divInfo = ROM_DIVISIONS.find(d => d.code === div);
                       return (
                         <div key={div} style={{ display: "flex", justifyContent: "space-between", padding: "3px 6px", borderRadius: 3, background: C.bg2, fontSize: 10 }}>

@@ -3,6 +3,7 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, bt } from "@/utils/styles";
 import { CODE_SYSTEMS } from "@/constants/codeSystems";
+import { sortDivisionNames, sortCodes } from "@/utils/csiFormat";
 
 export default function DivisionTree({
   C,
@@ -80,7 +81,7 @@ export default function DivisionTree({
           All Items ({elements.length})
         </div>
         {Object.entries(dbTree)
-          .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
+          .sort(([a], [b]) => sortDivisionNames(a, b))
           .map(([dc, div], dIdx) => (
             <div
               key={dc}
@@ -149,7 +150,7 @@ export default function DivisionTree({
               {dbExpandedDivs.has(dc) && (
                 <>
                   {Object.entries(div.subs)
-                    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+                    .sort(([a], [b]) => sortCodes(a, b))
                     .map(([subKey, sub], sIdx) => {
                       const isActive = dbSelectedSub === subKey;
                       const hasItems = sub.count > 0;

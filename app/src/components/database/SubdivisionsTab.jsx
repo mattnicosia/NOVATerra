@@ -4,6 +4,7 @@ import { SUBDIVISION_BENCHMARKS } from "@/constants/subdivisionBenchmarks";
 import { getConfidenceTier } from "@/utils/confidenceEngine";
 import { generateSubdivisionBreakdown } from "@/utils/subdivisionAI";
 import { CSI } from "@/constants/csi";
+import { sortDivisionNames } from "@/utils/csiFormat";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
@@ -39,7 +40,7 @@ export default function SubdivisionsTab({ C, T }) {
   const setLlmRefinement = useSubdivisionStore(s => s.setLlmRefinement);
 
   const benchmarkSubs = SUBDIVISION_BENCHMARKS[selectedBuildingType] || {};
-  const divCodes = Object.keys(benchmarkSubs).sort();
+  const divCodes = Object.keys(benchmarkSubs).sort((a, b) => sortDivisionNames(a, b));
 
   const toggleDiv = dc => {
     setExpandedDivs(prev => {

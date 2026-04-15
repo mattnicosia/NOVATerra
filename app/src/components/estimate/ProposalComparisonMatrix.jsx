@@ -5,6 +5,7 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { analyzeGaps, normalizeCSI } from "@/utils/scopeGapEngine";
 import { CSI } from "@/constants/csi";
+import { sortDivisionNames } from "@/utils/csiFormat";
 
 const fmt = v =>
   new Intl.NumberFormat("en-US", {
@@ -40,7 +41,7 @@ export default function ProposalComparisonMatrix({ bidPackage, proposals, estima
       estimateGrandTotal += itemTotal;
     }
 
-    const divisions = Object.keys(estimateDivisions).sort();
+    const divisions = Object.keys(estimateDivisions).sort((a, b) => sortDivisionNames(a, b));
 
     // Analyze each proposal
     const subColumns = proposals.map(p => {

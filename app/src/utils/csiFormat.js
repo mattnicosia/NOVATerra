@@ -93,9 +93,12 @@ export function subdivisionFromCode(code) {
  * Handles display format "06 - Wood" by extracting the code portion.
  */
 export function sortCodes(a, b) {
-  const na = normalizeCode(divisionFromCode(a) === a ? a : divisionFromCode(a));
-  const nb = normalizeCode(divisionFromCode(b) === b ? b : divisionFromCode(b));
-  // Pad to fixed width for natural string comparison
+  // For display format "06 - Wood", extract just the code portion
+  const rawA = a.includes(" - ") ? a.split(" - ")[0].trim() : a;
+  const rawB = b.includes(" - ") ? b.split(" - ")[0].trim() : b;
+  const na = normalizeCode(rawA);
+  const nb = normalizeCode(rawB);
+  // Pad each segment to fixed width for natural string comparison
   const pa = na.split(".").map(s => s.padStart(4, "0")).join(".");
   const pb = nb.split(".").map(s => s.padStart(4, "0")).join(".");
   return pa.localeCompare(pb);

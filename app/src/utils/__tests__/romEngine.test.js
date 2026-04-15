@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { sortDivisionNames } from "@/utils/csiFormat";
 
 // Mock external dependencies
 vi.mock("@/constants/seedAssemblies", () => ({
@@ -731,5 +732,30 @@ describe("edge cases", () => {
     const rom = generateBaselineROM(10000, "restaurant");
     expect(rom.divisions["22"]).toBeDefined();
     expect(rom.divisions["22"].perSF.mid).toBe(42);
+  });
+
+  // ── Division ordering behavior ──────────────────────────────────
+
+  it("division keys sorted with sortDivisionNames produce CSI numeric order", () => {
+    const rom = generateBaselineROM(10000, "commercial-office");
+    const codes = Object.keys(rom.divisions).sort(sortDivisionNames);
+    for (let i = 1; i < codes.length; i++) {
+      expect(parseInt(codes[i], 10)).toBeGreaterThanOrEqual(parseInt(codes[i - 1], 10));
+    }
+  });
+
+  it("ROM divisions contain only valid 2-digit CSI codes", () => {
+    const rom = generateBaselineROM(10000, "commercial-office");
+    Object.keys(rom.divisions).forEach(code => {
+      expect(code).toMatch(/^\d{2}$/);
+    });
+  });
+
+  it("ROM totals.mid equals sum of all division mid values", () => {
+    const rom = generateBaselineROM(10000, "commercial-office");
+    const sumMid = Object.values(rom.divisions).reduce(
+      (sum, d) => sum + (d.total?.mid || 0), 0
+    );
+    expect(rom.totals.mid).toBeCloseTo(sumMid, 0);
   });
 });

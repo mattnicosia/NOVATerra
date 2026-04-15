@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx";
 import { nn } from "@/utils/format";
 import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
+import { sortDivisionNames } from "@/utils/csiFormat";
 
 // ── Cell formatting helpers ──────────────────────────────────────
 const CURRENCY_FMT = "$#,##0.00";
@@ -144,7 +145,7 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
   ];
 
   // Sort items by division for clean grouping
-  const sortedItems = [...items].sort((a, b) => (a.division || "").localeCompare(b.division || ""));
+  const sortedItems = [...items].sort((a, b) => sortDivisionNames(a.division || "", b.division || ""));
 
   const itemRows = sortedItems.map(it => {
     const q = nn(it.quantity);
@@ -231,7 +232,7 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
 
   const divHeaders = ["Division", "Items", "Material", "Labor", "Equipment", "Subcontractor", "Total", "% of Direct"];
   const divRows = Object.entries(divData)
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => sortDivisionNames(a, b))
     .map(([div, d]) => {
       const total = d.mat + d.lab + d.equip + d.sub;
       return [div, d.count, d.mat, d.lab, d.equip, d.sub, total, totals.direct > 0 ? total / totals.direct : 0];

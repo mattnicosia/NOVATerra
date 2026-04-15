@@ -9,6 +9,7 @@ import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useUiStore } from "@/stores/uiStore";
 import { callAnthropic, pdfBlock } from "@/utils/ai";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
+import { sortDivisionNames } from "@/utils/csiFormat";
 import {
   saveMasterData,
   saveUploadQueue,
@@ -414,7 +415,7 @@ export default function HistoricalProposalsPanel() {
         <div style={{ padding: 10, background: C.bg2, borderRadius: 8, border: `1px solid ${C.border}`, marginBottom: 14 }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: C.accent, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>NOVA Calibration Factors</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {Object.entries(calibrationFactors).sort(([a], [b]) => a.localeCompare(b)).map(([div, factor]) => {
+            {Object.entries(calibrationFactors).sort(([a], [b]) => sortDivisionNames(a, b)).map(([div, factor]) => {
               const divInfo = ROM_DIVISIONS.find(d => d.code === div);
               const pct = Math.round((factor - 1) * 100);
               const color = pct > 0 ? C.red : pct < 0 ? C.green : C.textDim;

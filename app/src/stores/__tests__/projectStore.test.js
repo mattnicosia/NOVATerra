@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { sortDivisionNames } from "@/utils/csiFormat";
 
 // ── Mock external dependencies BEFORE importing the store ───────────
 vi.mock("@/utils/storage", () => ({
@@ -189,6 +190,71 @@ describe("projectStore", () => {
       const hidden = { "csi-commercial": { divisions: ["05", "14"], subdivisions: [] } };
       getState().setHiddenCodes(hidden);
       expect(getState().hiddenCodes).toEqual(hidden);
+    });
+  });
+
+  // ── 8. Division ordering behavior ─────────────────────────────────
+
+  describe("getDivisions behavior", () => {
+    it("returns display-format strings (code - name)", () => {
+      const divs = getState().getDivisions();
+      divs.forEach(d => {
+        expect(d).toMatch(/^\d{2} - .+/);
+      });
+    });
+
+    it("includes standard CSI divisions", () => {
+      const divs = getState().getDivisions();
+      const codes = divs.map(d => d.split(" - ")[0]);
+      expect(codes).toContain("03");
+      expect(codes).toContain("06");
+      expect(codes).toContain("09");
+      expect(codes).toContain("26");
+    });
+
+    it("does not include hidden divisions", () => {
+      getState().setHiddenCodes({ "csi-commercial": { divisions: ["05"], subdivisions: [] } });
+      const divs = getState().getDivisions();
+      const codes = divs.map(d => d.split(" - ")[0]);
+      expect(codes).not.toContain("05");
+    });
+
+    it("sorts correctly with sortDivisionNames at consumer level", () => {
+      const divs = getState().getDivisions();
+      const sorted = [...divs].sort(sortDivisionNames);
+      const codes = sorted.map(d => parseInt(d.split(" - ")[0], 10));
+      for (let i = 1; i < codes.length; i++) {
+        expect(codes[i]).toBeGreaterThanOrEqual(codes[i - 1]);
+      }
+    });
+  });
+
+  // ── 9. divFromCode stability ─────────────────────────────────────
+
+  describe("divFromCode", () => {
+    it("returns consistent display format for subdivision code", () => {
+      expect(getState().divFromCode("03.300")).toBe("03 - Concrete");
+    });
+
+    it("returns consistent display format for bare division code", () => {
+      expect(getState().divFromCode("03")).toBe("03 - Concrete");
+    });
+
+    it("produces same output for same input (stability)", () => {
+      const r1 = getState().divFromCode("06.110");
+      const r2 = getState().divFromCode("06.110");
+      expect(r1).toBe(r2);
+    });
+
+    it("normalizes single-digit codes", () => {
+      const result = getState().divFromCode("3");
+      expect(result).toMatch(/^03/);
+    });
+
+    it("returns empty string for falsy input", () => {
+      expect(getState().divFromCode("")).toBe("");
+      expect(getState().divFromCode(null)).toBe("");
+      expect(getState().divFromCode(undefined)).toBe("");
     });
   });
 });

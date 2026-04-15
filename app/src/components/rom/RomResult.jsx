@@ -6,6 +6,7 @@ import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { generateSubdivisionROM } from "@/utils/romEngine";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 
+import { sortDivisionNames } from "@/utils/csiFormat";
 import { BUILDING_TYPE_LABELS, DEFAULT_MARKUPS, DEFAULT_SOFT_COSTS, fmt, fmtSF, fmtNum } from "./romFormatters";
 import RomProjectSummary from "./RomProjectSummary";
 import RomNarrative from "./RomNarrative";
@@ -100,7 +101,7 @@ export default function RomResult({ rom, email }) {
 
   // ── Derived data ──
   const { divisions, totals: rawTotals, projectSF, jobType } = rom;
-  const divEntries = Object.entries(divisions).sort(([a], [b]) => a.localeCompare(b));
+  const divEntries = Object.entries(divisions).sort(([a], [b]) => sortDivisionNames(a, b));
 
   const getDivisionMultiplier = (divCode) => divisionAdjustments[divCode] || 1.0;
 

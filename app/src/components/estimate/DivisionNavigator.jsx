@@ -4,6 +4,7 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { GradientBar } from "@/components/intelligence/PureCSSChart";
 import { fmt } from "@/utils/format";
+import { sortDivisionNames } from "@/utils/csiFormat";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
@@ -42,11 +43,7 @@ export default function DivisionNavigator({ activeDivision, onSelectDivision }) 
                 ? "partial"
                 : "empty",
       }))
-      .sort((a, b) => {
-        const aNum = parseInt((a.code.match(/^\d+/) || ["99"])[0], 10);
-        const bNum = parseInt((b.code.match(/^\d+/) || ["99"])[0], 10);
-        return aNum - bNum;
-      });
+      .sort((a, b) => sortDivisionNames(a.code, b.code));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 

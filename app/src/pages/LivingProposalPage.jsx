@@ -16,6 +16,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
+const sortDivisionNames = (a, b) => {
+  const codeA = (a.split(" - ")[0] || "").padStart(2, "0");
+  const codeB = (b.split(" - ")[0] || "").padStart(2, "0");
+  return codeA.localeCompare(codeB);
+};
+
 export default function LivingProposalPage() {
   const slug = window.location.pathname.split("/p/")[1]?.split("/")[0]?.split("?")[0];
 
@@ -382,7 +388,7 @@ export default function LivingProposalPage() {
           <h2 style={S.sectionTitle}>Line Items</h2>
           <div style={{ fontSize: 12, color: C.textDim, marginBottom: 16 }}>{snap.itemCount} items across {Object.keys(divisions).length} divisions</div>
 
-          {Object.entries(divisions).sort(([a], [b]) => a.localeCompare(b)).map(([divName, items]) => {
+          {Object.entries(divisions).sort(([a], [b]) => sortDivisionNames(a, b)).map(([divName, items]) => {
             const divTotal = items.reduce((s, it) => {
               const q = parseFloat(it.quantity) || 0;
               return s + q * ((parseFloat(it.material) || 0) + (parseFloat(it.labor) || 0) + (parseFloat(it.equipment) || 0) + (parseFloat(it.subcontractor) || 0));
