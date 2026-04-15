@@ -624,28 +624,26 @@ export default function TakeoffRow({
               title="More actions"
               style={{
                 width: 24,
-                height: 24,
-                border: actionMenuId === to.id ? `1px solid ${C.accent}40` : `1px solid ${C.border}`,
+                height: 22,
+                border: actionMenuId === to.id ? `1px solid ${C.accent}50` : `1px solid ${C.accent}20`,
                 background:
-                  actionMenuId === to.id ? `${C.accent}18` : C.bg2,
-                color: actionMenuId === to.id ? C.accent : C.textMuted,
+                  actionMenuId === to.id ? `${C.accent}20` : `${C.accent}08`,
                 borderRadius: 5,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: 2,
                 transition: "all 0.15s ease",
                 cursor: "pointer",
                 flexShrink: 0,
                 position: "relative",
                 zIndex: 2,
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent + "60"; e.currentTarget.style.color = C.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = actionMenuId === to.id ? C.accent + "40" : C.border; e.currentTarget.style.color = actionMenuId === to.id ? C.accent : C.textMuted; }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.accent + "18"; e.currentTarget.style.borderColor = C.accent + "40"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = actionMenuId === to.id ? C.accent + "20" : C.accent + "08"; e.currentTarget.style.borderColor = actionMenuId === to.id ? C.accent + "50" : C.accent + "20"; }}
             >
-              ···
+              <svg width="10" height="10" viewBox="0 0 10 10" style={{ transform: actionMenuId === to.id ? "rotate(180deg)" : "none", transition: "transform 0.2s ease" }}>
+                <path d="M2 3.5L5 6.5L8 3.5" stroke={actionMenuId === to.id ? C.accent : C.accent + "80"} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
           </div>
           {/* Floating action menu — portal to body to escape transform clipping */}
