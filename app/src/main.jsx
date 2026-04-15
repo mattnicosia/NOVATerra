@@ -11,6 +11,15 @@ import "./App.css";
 console.log("[NOVA] Build:", __BUILD_TS__);
 window.__NOVA_BUILD = __BUILD_TS__; // eslint-disable-line no-undef
 
+// ── Dev-only: expose stores for AI estimator simulation ──────
+if (import.meta.env.DEV) {
+  import("@/stores/authStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.auth = m.useAuthStore; });
+  import("@/stores/estimatesStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.estimates = m.useEstimatesStore; });
+  import("@/stores/itemsStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.items = m.useItemsStore; });
+  import("@/stores/projectStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.project = m.useProjectStore; });
+  import("@/stores/uiStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.ui = m.useUiStore; });
+}
+
 // ── Auto-reload on stale chunk errors (after new deployments) ──
 // When Vercel deploys a new build, old chunk hashes become 404s.
 // Catch the dynamic import error and reload once to get fresh chunks.
