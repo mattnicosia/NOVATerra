@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -7,7 +7,7 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, bt } from "@/utils/styles";
 import { nn, fmt2 } from "@/utils/format";
-import { hasAllowance, getAllowanceFields, getItemAllowanceTotal, generateAllowanceNote } from "@/utils/allowances";
+import { hasAllowance, hasExclusion, getAllowanceFields, getExcludedFields, getItemAllowanceTotal, getItemExcludedTotal, generateAllowanceNote, generateExclusionNote } from "@/utils/allowances";
 
 export default function NotesPanel({ inline = false }) {
   const C = useTheme();
@@ -26,7 +26,15 @@ export default function NotesPanel({ inline = false }) {
   const showToast = useUiStore(s => s.showToast);
 
   const [tab, setTab] = useState("exclusions");
+  const notesTabHint = useUiStore(s => s.notesTabHint);
+  useEffect(() => {
+    if (notesTabHint) {
+      setTab(notesTabHint);
+      useUiStore.getState().setNotesTabHint(null);
+    }
+  }, [notesTabHint]);
   const allowanceItems = items.filter(hasAllowance);
+  const excludedItems = items.filter(hasExclusion);
   const catColors = { note: C.green, clarification: C.blue, qualification: C.purple };
 
 
@@ -111,7 +119,7 @@ export default function NotesPanel({ inline = false }) {
           {[
             { key: "allowances", label: "Allowances", count: allowanceItems.length, color: C.orange },
             { key: "notes", label: "Notes", count: clarifications.length, color: C.blue },
-            { key: "exclusions", label: "Exclusions", count: exclusions.length, color: C.purple },
+            { key: "exclusions", label: "Exclusions", count: exclusions.length + excludedItems.length, color: C.red || "#e05252" },
           ].map(t => (
             <button
               key={t.key}
@@ -153,6 +161,54 @@ export default function NotesPanel({ inline = false }) {
           {/* EXCLUSIONS TAB */}
           {tab === "exclusions" && (
             <div>
+              {/* Auto-generated from item status */}
+              {excludedItems.length > 0 && (
+                <>
+                  <div style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                    From Estimate ({excludedItems.length})
+                  </div>
+                  {excludedItems.map(item => {
+                    const note = generateExclusionNote(item);
+                    const total = getItemExcludedTotal(item);
+                    const fields = getExcludedFields(item);
+                    return (
+                      <div key={item.id} style={{
+                        marginBottom: 8, borderLeft: `3px solid ${C.red || "#e05252"}`,
+                        padding: "6px 10px", background: `${C.red || "#e05252"}06`, borderRadius: 4,
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>
+                            {item.code && <span style={{ color: C.red || "#e05252", marginRight: 4 }}>{item.code}</span>}
+                            {item.description || "Untitled"}
+                          </div>
+                          {total > 0 && (
+                            <span style={{ fontSize: 10, color: C.red || "#e05252", fontWeight: 600, fontFeatureSettings: "'tnum'" }}>
+                              ${fmt2(total).replace("$", "")}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.textDim, lineHeight: 1.4 }}>
+                          {note}
+                        </div>
+                        {fields.length > 0 && fields.length < 4 && (
+                          <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                            {fields.map(f => (
+                              <span key={f} style={{ fontSize: 8, fontWeight: 600, color: C.red || "#e05252", background: `${C.red || "#e05252"}12`, padding: "1px 5px", borderRadius: 3 }}>
+                                {f.toUpperCase().slice(0, 4)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {exclusions.length > 0 && (
+                    <div style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, marginTop: 12 }}>
+                      Manual
+                    </div>
+                  )}
+                </>
+              )}
               {exclusions.map(ex => (
                 <div
                   key={ex.id}

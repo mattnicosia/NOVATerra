@@ -21,6 +21,54 @@ export const DEFAULT_MARKUP_ORDER = [
   { key: "insurance", label: "Insurance", compound: false, active: false },
 ];
 
+// ── Legacy → new status model migration ──────────────────────────────
+// Runs on every setItems call to transparently upgrade old items.
+// - `excluded: true` → `status: "excluded"`
+// - `allowanceOf: "all"` or `allowanceOf: { material: true, ... }` → `status: "allowance"` + `columnStatus`
+// Idempotent: items that already have `status` are returned unchanged.
+function _migrateItemStatus(item) {
+  // Already migrated or new item
+  if (item.status) return item;
+
+  const next = { ...item };
+
+  // Legacy boolean exclude
+  if (item.excluded) {
+    next.status = "excluded";
+    next.columnStatus = {};
+    delete next.excluded;
+    return next;
+  }
+
+  // Legacy allowanceOf
+  const ao = item.allowanceOf;
+  if (ao) {
+    if (typeof ao === "string" && ao) {
+      // "all" or any truthy string → row-level allowance
+      next.status = "allowance";
+      next.columnStatus = {};
+    } else if (typeof ao === "object") {
+      const flaggedCols = ["material", "labor", "equipment", "subcontractor"].filter(c => ao[c]);
+      if (flaggedCols.length === 4) {
+        // All 4 columns → row-level allowance
+        next.status = "allowance";
+        next.columnStatus = {};
+      } else if (flaggedCols.length > 0) {
+        // Partial → firm row with column overrides
+        next.status = "firm";
+        next.columnStatus = {};
+        flaggedCols.forEach(c => { next.columnStatus[c] = "allowance"; });
+      }
+    }
+    if (next.status) return next;
+  }
+
+  // Default: firm
+  next.status = "firm";
+  next.columnStatus = next.columnStatus || {};
+  return next;
+}
+
 // ── Debounce tracker for field edits (updateItem, updateSubItem) ──
 // Coalesces rapid same-field edits into a single undo entry
 let _lastEdit = { id: null, field: null, origValue: null, timer: null };
@@ -137,7 +185,7 @@ export const useItemsStore = create((set, get) => ({
   changeOrders: [],
   projectAssemblies: [],
 
-  setItems: v => set({ items: v }),
+  setItems: v => set({ items: (v || []).map(_migrateItemStatus) }),
   // Normalize all item codes to standard format and repair division labels
   // from code when a stale blob left them blank/incomplete.
   normalizeAllCodes: () => set(s => {
@@ -208,8 +256,11 @@ export const useItemsStore = create((set, get) => ({
       specSection: "",
       specText: "",
       specVariantLabel: "",
+      status: "firm",           // "firm" | "excluded" | "allowance"
+      columnStatus: {},          // { material, labor, equipment, subcontractor } — per-column override, inherits from status if absent
       allowanceOf: "",
       allowanceSubMarkup: "",
+      wasteFactor: 0,            // percentage applied to quantity for proposal language
       locationLocked: false,
       subItems: preset?.subItems || [],
       bidContext: bidContext || "base",
@@ -346,6 +397,52 @@ export const useItemsStore = create((set, get) => ({
 
   // Get count of NOVA-proposed items that haven't been reviewed
   getNovaProposedCount: () => get().items.filter(it => it.novaProposed).length,
+
+  // ── Status management (exclude / allowance / firm) ──
+
+  setItemStatus: (id, status) => {
+    const item = get().items.find(it => it.id === id);
+    if (!item) return;
+    const prev = { status: item.status || "firm", columnStatus: { ...(item.columnStatus || {}) } };
+    set(s => ({
+      items: s.items.map(it =>
+        it.id !== id ? it : { ...it, status, columnStatus: {} },
+      ),
+    }));
+    useUndoStore.getState().push({
+      action: `Set ${status}`,
+      undo: () => set(s => ({ items: s.items.map(it => it.id !== id ? it : { ...it, ...prev }) })),
+      redo: () => set(s => ({ items: s.items.map(it => it.id !== id ? it : { ...it, status, columnStatus: {} }) })),
+      timestamp: Date.now(),
+    });
+  },
+
+  setColumnStatus: (id, column, colStatus) => {
+    const item = get().items.find(it => it.id === id);
+    if (!item) return;
+    const prevCS = { ...(item.columnStatus || {}) };
+    const nextCS = { ...prevCS, [column]: colStatus };
+    // If column status matches row status, remove the override
+    if (colStatus === (item.status || "firm")) delete nextCS[column];
+    set(s => ({
+      items: s.items.map(it =>
+        it.id !== id ? it : { ...it, columnStatus: nextCS },
+      ),
+    }));
+    useUndoStore.getState().push({
+      action: `Set ${column} ${colStatus}`,
+      undo: () => set(s => ({ items: s.items.map(it => it.id !== id ? it : { ...it, columnStatus: prevCS }) })),
+      redo: () => set(s => ({ items: s.items.map(it => it.id !== id ? it : { ...it, columnStatus: nextCS }) })),
+      timestamp: Date.now(),
+    });
+  },
+
+  // Convenience: get resolved status for a column (for UI display)
+  getColumnStatus: (item, col) => {
+    const cs = item.columnStatus;
+    if (cs && cs[col]) return cs[col];
+    return item.status || "firm";
+  },
 
   removeItem: id => {
     const items = get().items;
@@ -557,34 +654,46 @@ export const useItemsStore = create((set, get) => ({
     return { mat: resolved.mat, lab: resolved.lab, equip: resolved.equip };
   },
 
+  // Resolve effective status for a cost column — columnStatus override > item.status
+  _colStatus: (item, col) => {
+    const cs = item.columnStatus;
+    if (cs && cs[col]) return cs[col];
+    return item.status || "firm";
+  },
+
   getItemTotal: item => {
+    // Row-level excluded → entire item is zero
+    if (item.status === "excluded" && (!item.columnStatus || Object.keys(item.columnStatus).length === 0)) return 0;
     const q = nn(item.quantity);
     const mult = get()._getLaborMult();
     const loc = item.locationLocked ? { mat: 1, lab: 1, equip: 1 } : get()._getLocationFactors();
-    return (
-      q *
-      (nn(item.material) * loc.mat +
-        nn(item.labor) * mult * loc.lab +
-        nn(item.equipment) * loc.equip +
-        nn(item.subcontractor))
-    );
+    const cs = get()._colStatus;
+    // Excluded columns contribute 0
+    const mat = cs(item, "material") === "excluded" ? 0 : nn(item.material) * loc.mat;
+    const lab = cs(item, "labor") === "excluded" ? 0 : nn(item.labor) * mult * loc.lab;
+    const eqp = cs(item, "equipment") === "excluded" ? 0 : nn(item.equipment) * loc.equip;
+    const sub = cs(item, "subcontractor") === "excluded" ? 0 : nn(item.subcontractor);
+    return q * (mat + lab + eqp + sub);
   },
 
   getTotals: () => {
     const { items, markup, markupOrder, customMarkups } = get();
     const mult = get()._getLaborMult();
     const globalLoc = get()._getLocationFactors();
+    const cs = get()._colStatus;
     let material = 0,
       labor = 0,
       equipment = 0,
       sub = 0;
     items.forEach(it => {
+      // Row-level excluded with no column overrides → skip entirely
+      if (it.status === "excluded" && (!it.columnStatus || Object.keys(it.columnStatus).length === 0)) return;
       const q = nn(it.quantity);
       const loc = it.locationLocked ? { mat: 1, lab: 1, equip: 1 } : globalLoc;
-      material += q * nn(it.material) * loc.mat;
-      labor += q * nn(it.labor) * loc.lab;
-      equipment += q * nn(it.equipment) * loc.equip;
-      sub += q * nn(it.subcontractor);
+      if (cs(it, "material") !== "excluded") material += q * nn(it.material) * loc.mat;
+      if (cs(it, "labor") !== "excluded") labor += q * nn(it.labor) * loc.lab;
+      if (cs(it, "equipment") !== "excluded") equipment += q * nn(it.equipment) * loc.equip;
+      if (cs(it, "subcontractor") !== "excluded") sub += q * nn(it.subcontractor);
     });
     // Apply labor multiplier
     labor = labor * mult;
@@ -627,17 +736,19 @@ export const useItemsStore = create((set, get) => ({
 
     const mult = get()._getLaborMult();
     const globalLoc = get()._getLocationFactors();
+    const cs = get()._colStatus;
     let material = 0,
       labor = 0,
       equipment = 0,
       sub = 0;
     filtered.forEach(it => {
+      if (it.status === "excluded" && (!it.columnStatus || Object.keys(it.columnStatus).length === 0)) return;
       const q = nn(it.quantity);
       const loc = it.locationLocked ? { mat: 1, lab: 1, equip: 1 } : globalLoc;
-      material += q * nn(it.material) * loc.mat;
-      labor += q * nn(it.labor) * loc.lab;
-      equipment += q * nn(it.equipment) * loc.equip;
-      sub += q * nn(it.subcontractor);
+      if (cs(it, "material") !== "excluded") material += q * nn(it.material) * loc.mat;
+      if (cs(it, "labor") !== "excluded") labor += q * nn(it.labor) * loc.lab;
+      if (cs(it, "equipment") !== "excluded") equipment += q * nn(it.equipment) * loc.equip;
+      if (cs(it, "subcontractor") !== "excluded") sub += q * nn(it.subcontractor);
     });
     labor = labor * mult;
     const direct = material + labor + equipment + sub;

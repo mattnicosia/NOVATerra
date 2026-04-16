@@ -761,10 +761,11 @@ describe("itemsStore (builder store)", () => {
 
   // ─── Simple Setters ────────────────────────────────────────────
   describe("simple setters", () => {
-    it("setItems replaces items array", () => {
+    it("setItems replaces items array (with status migration)", () => {
       const items = [{ id: "x", description: "Direct" }];
       getState().setItems(items);
-      expect(getState().items).toEqual(items);
+      // setItems applies legacy migration: adds status + columnStatus
+      expect(getState().items).toEqual([{ id: "x", description: "Direct", status: "firm", columnStatus: {} }]);
     });
 
     it("setChangeOrders replaces change orders", () => {

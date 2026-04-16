@@ -151,6 +151,12 @@ export const useUiStore = create((set, _get) => ({
   dismissRevisionImpact: () => set({ revisionReport: null, revisionImpact: null }),
 
   setShowNotesPanel: v => set({ showNotesPanel: v }),
+  // Request left panel tab switch from deeply nested components (e.g. action menus)
+  requestLeftPanelTab: null,
+  setRequestLeftPanelTab: v => set({ requestLeftPanelTab: v }),
+  // Hint for which sub-tab to open inside Notes panel (allowances/exclusions/notes)
+  notesTabHint: null,
+  setNotesTabHint: v => set({ notesTabHint: v }),
   setAiChatOpen: v => set({ aiChatOpen: v }),
   setAiChatInput: v => set({ aiChatInput: v }),
   setAiChatLoading: v => set({ aiChatLoading: v }),

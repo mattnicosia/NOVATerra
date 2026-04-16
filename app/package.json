@@ -40,6 +40,9 @@
     "framer-motion": "^12.35.0",
     "html2pdf.js": "^0.14.0",
     "mapbox-gl": "^3.20.0",
+    "meshline": "^3.3.1",
+    "obug": "^2.1.1",
+    "onnxruntime-web": "^1.21.0",
     "postprocessing": "^6.39.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -51,7 +54,6 @@
     "three": "^0.183.1",
     "web-ifc": "^0.0.75",
     "web-vitals": "^5.2.0",
-    "onnxruntime-web": "^1.21.0",
     "xlsx": "^0.18.5",
     "zustand": "^4.5.0"
   },

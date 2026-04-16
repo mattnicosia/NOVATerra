@@ -18,6 +18,7 @@ if (import.meta.env.DEV) {
   import("@/stores/itemsStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.items = m.useItemsStore; });
   import("@/stores/projectStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.project = m.useProjectStore; });
   import("@/stores/uiStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.ui = m.useUiStore; });
+  import("@/stores/drawingPipelineStore").then(m => { window.__NOVA_STORES = window.__NOVA_STORES || {}; window.__NOVA_STORES.drawings = m.useDrawingPipelineStore; });
 }
 
 // ── Auto-reload on stale chunk errors (after new deployments) ──

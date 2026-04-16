@@ -183,6 +183,15 @@ export default function TakeoffsPage() {
   const [pageFilter, setPageFilter] = useState(() => sessionStorage.getItem("bldg-pageFilter") || "all");
   const [leftPanelTab, setLeftPanelTab] = useState("estimate");
   const [tkPanelMode, _setTkPanelMode] = useState("open");
+
+  // Watch for tab switch requests from deeply nested components (e.g. action menus)
+  const requestedTab = useUiStore(s => s.requestLeftPanelTab);
+  useEffect(() => {
+    if (requestedTab) {
+      setLeftPanelTab(requestedTab);
+      useUiStore.getState().setRequestLeftPanelTab(null);
+    }
+  }, [requestedTab]);
   useEffect(() => { sessionStorage.setItem("bldg-pageFilter", pageFilter); }, [pageFilter]);
 
   // Restore/persist tkVisibility — fall back to "all" if "active" but no selection

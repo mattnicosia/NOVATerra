@@ -12,7 +12,7 @@ import FormulaExpressionRow from "@/components/takeoffs/FormulaExpressionRow";
 import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine";
 import CodePicker from "@/components/takeoffs/CodePicker";
 import { TO_COLORS } from "@/utils/takeoffHelpers";
-import { hasAllowance } from "@/utils/allowances";
+import { hasAllowance, hasExclusion, isFullyExcluded, resolveColumnStatus } from "@/utils/allowances";
 
 export default function TakeoffRow({
   to,
@@ -87,6 +87,10 @@ export default function TakeoffRow({
   const noScale =
     hasMeasurements && measuredQty === null && unitToTool(to.unit) !== "count";
   const hasFormula = !!(to.formula && to.formula.trim());
+  // Status of linked estimate item for row styling
+  const linkedItem = itemById[to.linkedItemId];
+  const linkedStatus = linkedItem?.status || "firm";
+  const linkedExcluded = linkedItem ? isFullyExcluded(linkedItem) : false;
   const displayQty = hasMeasurements
     ? hasFormula && computedQty !== null
       ? computedQty
@@ -146,7 +150,7 @@ export default function TakeoffRow({
               ? `inset 0 0 0 1px ${to.color}20`
               : "none",
           transition: "background 100ms ease-out",
-          opacity: isHidden ? 0.4 : 1,
+          opacity: isHidden ? 0.4 : linkedExcluded ? 0.55 : 1,
         }}
       >
         {/* Play / Pause / Stop — also drag handle for reordering */}
@@ -492,7 +496,7 @@ export default function TakeoffRow({
             ))}
           </select>
         </div>
-        {/* Cost columns */}
+        {/* Cost columns with status indicators */}
         {tkPanelTier !== "compact" &&
           (() => {
             const linkedItem = itemById[to.linkedItemId];
@@ -507,6 +511,27 @@ export default function TakeoffRow({
             const itemTotal = getItemTotal(linkedItem);
             const itemQty = nn(linkedItem.quantity);
             const unitCost = itemQty > 0 ? itemTotal / itemQty : 0;
+            const liStatus = linkedItem.status || "firm";
+            const fullyExcluded = isFullyExcluded(linkedItem);
+            const anyAllowance = hasAllowance(linkedItem);
+            const anyExclusion = hasExclusion(linkedItem);
+            // Status indicator dot/badge for the total column
+            const statusIndicator = fullyExcluded
+              ? { color: C.red, label: "EXCL", bg: `${C.red}15` }
+              : anyAllowance && anyExclusion
+                ? { color: C.orange, label: "MIX", bg: `${C.orange}12` }
+                : anyAllowance
+                  ? { color: C.orange, label: "ALLOW", bg: `${C.orange}12` }
+                  : anyExclusion
+                    ? { color: C.red, label: "PART", bg: `${C.red}10` }
+                    : null;
+            // Build cost breakdown tooltip with column statuses
+            const colTip = ["material", "labor", "equipment", "subcontractor"].map(col => {
+              const cs = resolveColumnStatus(linkedItem, col);
+              const val = nn(linkedItem[col]);
+              const flag = cs === "excluded" ? " [EXCL]" : cs === "allowance" ? " [ALLOW]" : "";
+              return `${col[0].toUpperCase()}: $${fmt2(val)}${flag}`;
+            }).join(" · ");
             return (
               <>
                 <div
@@ -515,14 +540,16 @@ export default function TakeoffRow({
                     textAlign: "right",
                     fontSize: 9,
                     fontFeatureSettings: "'tnum'",
-                    color: C.textDim,
+                    color: fullyExcluded ? C.red : C.textDim,
                     padding: "2px 2px",
+                    textDecoration: fullyExcluded ? "line-through" : "none",
+                    opacity: fullyExcluded ? 0.5 : 1,
                   }}
                   onClick={e => {
                     e.stopPropagation();
                     setCostEditId(costEditId === to.id ? null : to.id);
                   }}
-                  title={`M: $${fmt2(nn(linkedItem.material))} · L: $${fmt2(nn(linkedItem.labor))} · E: $${fmt2(nn(linkedItem.equipment))} · S: $${fmt2(nn(linkedItem.subcontractor))}`}
+                  title={colTip}
                 >
                   ${fmt2(unitCost)}
                 </div>
@@ -533,15 +560,39 @@ export default function TakeoffRow({
                     fontSize: 10,
                     fontWeight: 700,
                     fontFeatureSettings: "'tnum'",
-                    color: C.green,
+                    color: fullyExcluded ? C.red : C.green,
                     padding: "2px 2px",
+                    textDecoration: fullyExcluded ? "line-through" : "none",
+                    opacity: fullyExcluded ? 0.5 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: 3,
                   }}
                   onClick={e => {
                     e.stopPropagation();
                     setCostEditId(costEditId === to.id ? null : to.id);
                   }}
                 >
-                  {fmt(itemTotal)}
+                  {statusIndicator && (
+                    <span
+                      data-status-badge={statusIndicator.label.toLowerCase()}
+                      style={{
+                        fontSize: 6,
+                        fontWeight: 700,
+                        color: statusIndicator.color,
+                        background: statusIndicator.bg,
+                        padding: "1px 3px",
+                        borderRadius: 2,
+                        letterSpacing: 0.3,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {statusIndicator.label}
+                    </span>
+                  )}
+                  <span>{fmt(itemTotal)}</span>
                 </div>
               </>
             );
@@ -908,7 +959,7 @@ export default function TakeoffRow({
                   </span>
                 </button>
               )}
-              {/* ── Estimate Actions ── */}
+              {/* ── Status & Estimate Actions ── */}
               {(() => {
                 const li = itemById[to.linkedItemId];
                 if (!li) return (
@@ -919,11 +970,13 @@ export default function TakeoffRow({
                     </div>
                   </>
                 );
-                const isExcluded = !!li.excluded;
-                const isAllowance = hasAllowance(li);
+                const itemStatus = li.status || "firm";
+                const isAllowance = itemStatus === "allowance" || hasAllowance(li);
+                const isExcluded = itemStatus === "excluded" || hasExclusion(li);
                 const subCount = (li.subItems || []).length;
                 const setPricingModal = useUiStore.getState().setPricingModal;
-                const updateItem = useItemsStore.getState().updateItem;
+                const setItemStatus = useItemsStore.getState().setItemStatus;
+                const setColumnStatus = useItemsStore.getState().setColumnStatus;
                 const removeItem = useItemsStore.getState().removeItem;
                 const btnStyle = {
                   width: "100%", padding: "7px 12px", border: "none",
@@ -931,28 +984,93 @@ export default function TakeoffRow({
                   display: "flex", alignItems: "center", gap: 8,
                   fontSize: 12, cursor: "pointer", transition: T.transition.fast,
                 };
+                const statusIcon = (status) => {
+                  if (status === "firm") return (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  );
+                  if (status === "allowance") return (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+                    </svg>
+                  );
+                  return (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                    </svg>
+                  );
+                };
+                const statusColor = (status) => status === "firm" ? C.green : status === "allowance" ? C.orange : C.red;
+                const statusLabel = { firm: "Firm", allowance: "Allowance", excluded: "Excluded" };
                 return (
                   <>
+                    {/* ── Status Section (top of menu) ── */}
+                    <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+                    <div style={{ padding: "4px 12px 2px", fontSize: 8, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      Status
+                    </div>
+                    {["firm", "allowance", "excluded"].map(s => (
+                      <button
+                        key={s}
+                        data-status-option={s}
+                        onClick={() => {
+                          setItemStatus(li.id, s);
+                          setActionMenuId(null); setActionConfirm(null);
+                        }}
+                        style={{
+                          ...btnStyle,
+                          color: statusColor(s),
+                          background: itemStatus === s ? `${statusColor(s)}12` : "transparent",
+                          fontWeight: itemStatus === s ? 600 : 400,
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = `${statusColor(s)}10`)}
+                        onMouseLeave={e => (e.currentTarget.style.background = itemStatus === s ? `${statusColor(s)}12` : "transparent")}
+                      >
+                        {statusIcon(s)}
+                        <span>{statusLabel[s]}</span>
+                        {itemStatus === s && <span style={{ marginLeft: "auto", fontSize: 8, opacity: 0.7 }}>●</span>}
+                      </button>
+                    ))}
+                    {/* ── Quick column shortcuts ── */}
+                    <div style={{ padding: "2px 12px 2px", fontSize: 8, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>
+                      Column Shortcuts
+                    </div>
+                    {[
+                      { label: "Exclude Material", col: "material", status: "excluded" },
+                      { label: "Material Allowance", col: "material", status: "allowance" },
+                      { label: "Exclude Labor", col: "labor", status: "excluded" },
+                      { label: "Exclude Sub", col: "subcontractor", status: "excluded" },
+                    ].map(({ label, col, status: cs }) => {
+                      const current = resolveColumnStatus(li, col);
+                      const active = current === cs;
+                      return (
+                        <button
+                          key={label}
+                          data-column-shortcut={label.toLowerCase().replace(/\s+/g, "-")}
+                          onClick={() => {
+                            setColumnStatus(li.id, col, active ? "firm" : cs);
+                            setActionMenuId(null); setActionConfirm(null);
+                          }}
+                          style={{
+                            ...btnStyle,
+                            fontSize: 11,
+                            padding: "5px 12px 5px 20px",
+                            color: active ? statusColor(cs) : C.textDim,
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <span style={{ fontSize: 10 }}>{active ? "✓" : "○"}</span>
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
+                    {/* ── Estimate section ── */}
                     <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
                     <div style={{ padding: "4px 12px 2px", fontSize: 8, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
                       Estimate
                     </div>
-                    {/* Allowance toggle */}
-                    <button
-                      onClick={() => {
-                        updateItem(li.id, "allowanceOf", isAllowance ? "" : "all");
-                        setActionMenuId(null); setActionConfirm(null);
-                      }}
-                      style={{ ...btnStyle, color: isAllowance ? C.orange : C.text }}
-                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-                      </svg>
-                      <span>{isAllowance ? "Remove Allowance" : "Flag as Allowance"}</span>
-                      {isAllowance && <span style={{ marginLeft: "auto", fontSize: 9, color: C.orange, fontWeight: 700 }}>ALLOW</span>}
-                    </button>
                     {/* AI Price */}
                     <button
                       onClick={() => {
@@ -966,21 +1084,24 @@ export default function TakeoffRow({
                       <Ic d={I.ai} size={11} color={C.accent} />
                       <span style={{ color: C.accent }}>AI Price</span>
                     </button>
-                    {/* Exclude toggle */}
-                    <button
-                      onClick={() => {
-                        updateItem(li.id, "excluded", !isExcluded);
-                        setActionMenuId(null); setActionConfirm(null);
-                      }}
-                      style={{ ...btnStyle, color: isExcluded ? C.orange : C.text }}
-                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
-                      </svg>
-                      <span>{isExcluded ? "Include in Estimate" : "Exclude from Estimate"}</span>
-                    </button>
+                    {/* Reintroduce to Bid (only for excluded items) */}
+                    {isExcluded && (
+                      <button
+                        data-reintroduce-btn="true"
+                        onClick={() => {
+                          setItemStatus(li.id, "firm");
+                          setActionMenuId(null); setActionConfirm(null);
+                        }}
+                        style={{ ...btnStyle, color: C.green }}
+                        onMouseEnter={e => (e.currentTarget.style.background = `${C.green}10`)}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                        </svg>
+                        <span>Reintroduce to Bid</span>
+                      </button>
+                    )}
                     {/* Sub-items indicator */}
                     {subCount > 0 && (
                       <div style={{ padding: "5px 12px", fontSize: 11, color: C.textDim, display: "flex", alignItems: "center", gap: 6 }}>

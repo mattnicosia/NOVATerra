@@ -224,32 +224,222 @@ describe('Grand Total Calculation', () => {
       { quantity: 100, material: 25, labor: 15, equipment: 5, subcontractor: 0 },
       { quantity: 1, material: 0, labor: 0, equipment: 0, subcontractor: 50000 },
     ];
-    // Item 1: 100 * (25+15+5) = 4,500
-    // Item 2: 1 * 50,000 = 50,000
-    // Direct: 54,500
-
     const markup = { overhead: 10, profit: 10, contingency: 5, tax: 8.25 };
     const order = [
       { key: 'overhead', label: 'Overhead', compound: false },
       { key: 'profit', label: 'Profit', compound: false },
       { key: 'contingency', label: 'Contingency', compound: false },
     ];
-
     const result = calculateTotals(items, markup, order);
-
-    // Direct = 54,500
     const direct = 54500;
     expect(result.direct).toBe(direct);
-
-    // Markups (all non-compound, all on direct):
-    // OH: 10% of 54500 = 5450 → running = 59950
-    // Profit: 10% of 54500 = 5450 → running = 65400
-    // Contingency: 5% of 54500 = 2725 → running = 68125
     const postMarkup = direct + direct * 0.10 + direct * 0.10 + direct * 0.05;
     expect(postMarkup).toBeCloseTo(68125, 0);
-
-    // Tax: 8.25% of 68125 = 5620.31
     const grand = postMarkup * (1 + 0.0825);
     expect(result.grand).toBeCloseTo(grand, 0);
+  });
+});
+
+// ── Exclude / Allowance accounting ──────────────────────────────────────
+
+// Helper: resolve column status (mirrors itemsStore._colStatus)
+function colStatus(item, col) {
+  const cs = item.columnStatus;
+  if (cs && cs[col]) return cs[col];
+  return item.status || "firm";
+}
+
+// Line item total respecting exclude (mirrors updated itemsStore.getItemTotal)
+function lineItemTotalWithStatus(item, laborMult = 1.0, locationFactors = { mat: 1, lab: 1, equip: 1 }) {
+  if (item.status === "excluded" && (!item.columnStatus || Object.keys(item.columnStatus).length === 0)) return 0;
+  const q = nn(item.quantity);
+  const loc = item.locationLocked ? { mat: 1, lab: 1, equip: 1 } : locationFactors;
+  const mat = colStatus(item, "material") === "excluded" ? 0 : nn(item.material) * loc.mat;
+  const lab = colStatus(item, "labor") === "excluded" ? 0 : nn(item.labor) * laborMult * loc.lab;
+  const eqp = colStatus(item, "equipment") === "excluded" ? 0 : nn(item.equipment) * loc.equip;
+  const sub = colStatus(item, "subcontractor") === "excluded" ? 0 : nn(item.subcontractor);
+  return q * (mat + lab + eqp + sub);
+}
+
+describe('Exclude/Allowance Status Model', () => {
+  it('firm item total unchanged from legacy calculation', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, status: "firm" };
+    expect(lineItemTotalWithStatus(item)).toBe(lineItemTotal(item));
+    expect(lineItemTotalWithStatus(item)).toBe(100);
+  });
+
+  it('excluded row-level returns 0', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, status: "excluded" };
+    expect(lineItemTotalWithStatus(item)).toBe(0);
+  });
+
+  it('allowance row-level still counts in total (same as firm)', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, status: "allowance" };
+    expect(lineItemTotalWithStatus(item)).toBe(100);
+  });
+
+  it('column-level exclude zeroes only that column', () => {
+    const item = {
+      quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0,
+      status: "firm", columnStatus: { material: "excluded" },
+    };
+    // Only labor + equipment: 10 * (3 + 2) = 50
+    expect(lineItemTotalWithStatus(item)).toBe(50);
+  });
+
+  it('column-level exclude on multiple columns', () => {
+    const item = {
+      quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 10,
+      status: "firm", columnStatus: { material: "excluded", equipment: "excluded" },
+    };
+    // Only labor + sub: 10 * (3 + 10) = 130
+    expect(lineItemTotalWithStatus(item)).toBe(130);
+  });
+
+  it('excluded row with column override re-includes that column', () => {
+    const item = {
+      quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0,
+      status: "excluded", columnStatus: { labor: "firm" },
+    };
+    // Row excluded, but labor overridden to firm → only labor: 10 * 3 = 30
+    // Material inherits "excluded", equipment inherits "excluded", sub inherits "excluded"
+    expect(lineItemTotalWithStatus(item)).toBe(30);
+  });
+
+  it('column-level allowance does NOT exclude from total', () => {
+    const item = {
+      quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0,
+      status: "firm", columnStatus: { material: "allowance" },
+    };
+    // Allowance still counted, same as firm: 10 * (5+3+2) = 100
+    expect(lineItemTotalWithStatus(item)).toBe(100);
+  });
+
+  it('mixed: material excluded, labor allowance, rest firm', () => {
+    const item = {
+      quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 1,
+      status: "firm", columnStatus: { material: "excluded", labor: "allowance" },
+    };
+    // Material excluded (0), labor allowance (still counted: 3), equip firm (2), sub firm (1)
+    // 10 * (0 + 3 + 2 + 1) = 60
+    expect(lineItemTotalWithStatus(item)).toBe(60);
+  });
+
+  it('no status field defaults to firm (backward compat)', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0 };
+    expect(lineItemTotalWithStatus(item)).toBe(100);
+  });
+
+  it('empty columnStatus inherits row status', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, status: "excluded", columnStatus: {} };
+    expect(lineItemTotalWithStatus(item)).toBe(0);
+  });
+});
+
+// ── Legacy migration ────────────────────────────────────────────────────
+
+// Mirror of _migrateItemStatus from itemsStore (tested standalone so we don't
+// need to spin up the full Zustand store in a unit test)
+function migrateItemStatus(item) {
+  if (item.status) return item;
+  const next = { ...item };
+
+  if (item.excluded) {
+    next.status = "excluded";
+    next.columnStatus = {};
+    delete next.excluded;
+    return next;
+  }
+
+  const ao = item.allowanceOf;
+  if (ao) {
+    if (typeof ao === "string" && ao) {
+      next.status = "allowance";
+      next.columnStatus = {};
+    } else if (typeof ao === "object") {
+      const flaggedCols = ["material", "labor", "equipment", "subcontractor"].filter(c => ao[c]);
+      if (flaggedCols.length === 4) {
+        next.status = "allowance";
+        next.columnStatus = {};
+      } else if (flaggedCols.length > 0) {
+        next.status = "firm";
+        next.columnStatus = {};
+        flaggedCols.forEach(c => { next.columnStatus[c] = "allowance"; });
+      }
+    }
+    if (next.status) return next;
+  }
+
+  next.status = "firm";
+  next.columnStatus = next.columnStatus || {};
+  return next;
+}
+
+describe('Legacy Status Migration', () => {
+  it('item with no status defaults to firm', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0 };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("firm");
+    expect(migrated.columnStatus).toEqual({});
+  });
+
+  it('item with status already set is unchanged', () => {
+    const item = { quantity: 10, material: 5, status: "excluded", columnStatus: { labor: "firm" } };
+    const migrated = migrateItemStatus(item);
+    expect(migrated).toBe(item); // same reference, not copied
+  });
+
+  it('excluded: true migrates to status: "excluded"', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, excluded: true };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("excluded");
+    expect(migrated.columnStatus).toEqual({});
+    expect(migrated.excluded).toBeUndefined();
+    // Verify accounting: excluded item should be zero
+    expect(lineItemTotalWithStatus(migrated)).toBe(0);
+  });
+
+  it('excluded: false does NOT migrate to excluded', () => {
+    const item = { quantity: 10, material: 5, labor: 3, excluded: false };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("firm");
+  });
+
+  it('allowanceOf: "all" migrates to status: "allowance"', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, allowanceOf: "all" };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("allowance");
+    expect(migrated.columnStatus).toEqual({});
+    // Allowance stays in total (same as firm)
+    expect(lineItemTotalWithStatus(migrated)).toBe(100);
+  });
+
+  it('allowanceOf: { material: true } migrates to column-level allowance', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, allowanceOf: { material: true } };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("firm");
+    expect(migrated.columnStatus).toEqual({ material: "allowance" });
+    // Material is allowance (still in total), so total unchanged
+    expect(lineItemTotalWithStatus(migrated)).toBe(100);
+  });
+
+  it('allowanceOf: all 4 columns → row-level allowance', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 1, allowanceOf: { material: true, labor: true, equipment: true, subcontractor: true } };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("allowance");
+    expect(migrated.columnStatus).toEqual({});
+  });
+
+  it('allowanceOf: partial object → firm + column overrides', () => {
+    const item = { quantity: 10, material: 5, labor: 3, equipment: 2, subcontractor: 0, allowanceOf: { material: true, labor: true } };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("firm");
+    expect(migrated.columnStatus).toEqual({ material: "allowance", labor: "allowance" });
+  });
+
+  it('allowanceOf: empty string does not trigger allowance', () => {
+    const item = { quantity: 10, material: 5, allowanceOf: "" };
+    const migrated = migrateItemStatus(item);
+    expect(migrated.status).toBe("firm");
   });
 });

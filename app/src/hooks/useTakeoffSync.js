@@ -52,8 +52,11 @@ export function useTakeoffSync() {
         if (idx === -1) return;
         const computedQty = getComputedQtyCtx(to, scaleCtx);
         const targetQty = computedQty !== null ? Math.round(computedQty * 100) / 100 : 0;
-        if (nn(nextItems[idx].quantity) !== targetQty) {
-          nextItems[idx] = { ...nextItems[idx], quantity: targetQty };
+        const updates = {};
+        if (nn(nextItems[idx].quantity) !== targetQty) updates.quantity = targetQty;
+        if (to.unit && nextItems[idx].unit !== to.unit) updates.unit = to.unit;
+        if (Object.keys(updates).length > 0) {
+          nextItems[idx] = { ...nextItems[idx], ...updates };
           changed = true;
         }
       });

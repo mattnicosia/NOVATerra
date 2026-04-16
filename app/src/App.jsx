@@ -18,6 +18,7 @@ import useAutoResponseTimers from "@/hooks/useAutoResponseTimers";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useAutoDiscovery } from "@/hooks/useAutoDiscovery";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
+import { APP_VERSION } from "@/constants/version";
 import AutoResponseBanner from "@/components/shared/AutoResponseBanner";
 const DraftApprovalPanel = lazy(() => import("@/components/shared/DraftApprovalPanel"));
 
@@ -1011,6 +1012,13 @@ function AppContent() {
       )}
       <Toast />
       <SyncStatusBar />
+      {/* Version label — fixed bottom-left, always visible */}
+      <div style={{
+        position: "fixed", bottom: 8, left: 12, zIndex: 9990,
+        fontSize: 9, fontWeight: 500, letterSpacing: 0.3,
+        color: "rgba(255,255,255,0.18)", fontFamily: "system-ui, sans-serif",
+        pointerEvents: "none", userSelect: "none",
+      }}>v{APP_VERSION}</div>
       <Suspense fallback={null}><SpotlightOverlay /></Suspense>
       <Suspense fallback={null}><ConflictMergeModal /></Suspense>
       <Suspense fallback={null}><AutopilotPanel /></Suspense>

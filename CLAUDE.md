@@ -9,8 +9,8 @@ On every user prompt, start with a brief header before working:
 ## Build & Deploy
 - Node path: `/Users/mattnicosia/local/node/bin/node`
 - PATH: `export PATH="/Users/mattnicosia/local/node/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"`
-- Build: `npx vite build` from `app/` dir
-- Deploy: `npx vercel --prod` from `app/` dir (or `./deploy.sh` from repo root)
+- Build (local check only): `npx vite build` from `app/` dir
+- Deploy: `rm -rf dist && npx vercel --prod` from `app/` dir — MUST delete dist/ first so Vercel runs the full build including API serverless functions. Pre-built dist/ causes Vercel to skip function compilation → API 404s.
 - Production: `https://app-nova-42373ca7.vercel.app`
 - GitHub auto-deploy is disabled for main — always deploy via CLI
 - Do NOT set Vercel rootDirectory to "app" — it breaks CLI deploys from app/

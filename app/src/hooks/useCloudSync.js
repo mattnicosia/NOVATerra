@@ -651,8 +651,26 @@ async function syncEstimates() {
           const cloudEntry = cloudIndexMap.get(ce.estimate_id);
           if (cloudEntry) {
             const localEntry = idbIndexMap.get(ce.estimate_id);
-            // Merge cloud entry fields into local entry
-            idbIndexMap.set(ce.estimate_id, { ...localEntry, ...cloudEntry });
+            // ── FIX: Normalized column fields are authoritative — never let legacy blob overwrite them ──
+            // The legacy blob (from user_data) may contain stale values from other org members.
+            // Fields that exist in the normalized user_estimates columns must be preserved from localEntry.
+            const normalizedFields = {
+              assignedTo: localEntry?.assignedTo,
+              status: localEntry?.status,
+              visibility: localEntry?.visibility,
+              name: localEntry?.name,
+              client: localEntry?.client,
+              bidDue: localEntry?.bidDue,
+              grandTotal: localEntry?.grandTotal,
+              buildingType: localEntry?.buildingType,
+              workType: localEntry?.workType,
+              projectSF: localEntry?.projectSF,
+              estimateNumber: localEntry?.estimateNumber,
+              lastModified: localEntry?.lastModified,
+              draft: localEntry?.draft,
+            };
+            // Spread order: local base → cloud blob extras → normalized overrides
+            idbIndexMap.set(ce.estimate_id, { ...localEntry, ...cloudEntry, ...normalizedFields });
           }
         }
       }

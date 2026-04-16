@@ -1,6 +1,9 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
+import { useUiStore } from "@/stores/uiStore";
+import { useGroupsStore } from "@/stores/groupsStore";
 import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
@@ -8,8 +11,240 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 // styles utils available if needed: inp, nInp, bt
 import { nn, fmt, pct } from "@/utils/format";
+import { hasAllowance, hasExclusion, isFullyExcluded, resolveColumnStatus } from "@/utils/allowances";
 import { TRADE_MAP } from "@/constants/tradeGroupings";
 import { useLevelingBids } from "@/hooks/useLevelingBids";
+
+/* ─── Row Action Chevron — status & column shortcuts for leveling view ─── */
+function LevelRowAction({ itemId, C }) {
+  const T = C.T;
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const [section, setSection] = useState(null);
+  const ref = useRef(null);
+  const item = useItemsStore(s => s.items.find(i => i.id === itemId));
+  const itemStatus = item?.status || "firm";
+  const isInAlt = item && (item.bidContext || "base") !== "base";
+  const isExcludedOrAllow = itemStatus === "excluded" || itemStatus === "allowance";
+  const hasAnyColAllow = item && ["material","labor","equipment","subcontractor"].some(c => resolveColumnStatus(item, c) === "allowance");
+  const hasAnyColExcl = item && ["material","labor","equipment","subcontractor"].some(c => resolveColumnStatus(item, c) === "excluded");
+
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target) && !e.target.closest("[data-lv-action]")) setOpen(false); };
+    document.addEventListener("click", h);
+    return () => document.removeEventListener("click", h);
+  }, [open]);
+
+  if (!item) return null;
+
+  const switchToNotes = (notesTab) => {
+    useUiStore.getState().setNotesTabHint(notesTab);
+    useUiStore.getState().setRequestLeftPanelTab("notes");
+  };
+  const showToast = useUiStore.getState().showToast;
+
+  const handleAllowance = () => {
+    const next = itemStatus === "allowance" ? "firm" : "allowance";
+    useItemsStore.getState().setItemStatus(item.id, next);
+    if (next !== "firm") switchToNotes("allowances");
+  };
+  const handleExclusion = () => {
+    const next = itemStatus === "excluded" ? "firm" : "excluded";
+    useItemsStore.getState().setItemStatus(item.id, next);
+    if (next !== "firm") switchToNotes("exclusions");
+  };
+  const handleAlternate = () => {
+    const name = item.description || "Untitled";
+    const newGroupId = useGroupsStore.getState().addGroup(`Alt: ${name}`, "deduct", null);
+    useItemsStore.getState().updateItem(item.id, "bidContext", newGroupId);
+    showToast(`Moved to Alternate: ${name}`);
+    useUiStore.getState().setRequestLeftPanelTab("scenarios");
+    setOpen(false);
+  };
+  const handleReintroduce = () => {
+    if (isInAlt) {
+      const prevContext = item.bidContext;
+      useItemsStore.getState().updateItem(item.id, "bidContext", "base");
+      const remaining = useItemsStore.getState().items.filter(i => (i.bidContext || "base") === prevContext);
+      if (remaining.length === 0) useGroupsStore.getState().removeGroup(prevContext);
+      showToast("Returned to Base Bid");
+    } else {
+      useItemsStore.getState().setItemStatus(item.id, "firm");
+    }
+    setOpen(false);
+  };
+
+  const COLS = [
+    { key: "material", label: "Matl" },
+    { key: "labor", label: "Labor" },
+    { key: "equipment", label: "Equip" },
+    { key: "subcontractor", label: "Sub" },
+  ];
+
+  const colBadge = (letter, color, active) => ({
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    height: 22, padding: "0 6px", borderRadius: 4, fontSize: 8, fontWeight: 800,
+    letterSpacing: 0.3, cursor: "pointer", transition: "all 0.12s",
+    background: active ? `${color}25` : "transparent",
+    color: active ? color : C.textDim,
+    border: active ? `1.5px solid ${color}` : `1px solid ${C.border}`,
+  });
+
+  const handleColToggle = (col, targetStatus) => {
+    const current = resolveColumnStatus(item, col);
+    const next = current === targetStatus ? "firm" : targetStatus;
+    useItemsStore.getState().setColumnStatus(item.id, col, next);
+    if (next !== "firm") switchToNotes(targetStatus === "allowance" ? "allowances" : "exclusions");
+  };
+
+  const handleAllToggle = (targetStatus) => {
+    const next = itemStatus === targetStatus ? "firm" : targetStatus;
+    useItemsStore.getState().setItemStatus(item.id, next);
+    if (next !== "firm") switchToNotes(targetStatus === "allowance" ? "allowances" : "exclusions");
+  };
+
+  return (
+    <>
+      <button
+        data-lv-action="true"
+        onClick={e => {
+          e.stopPropagation();
+          if (open) { setOpen(false); setSection(null); } else {
+            const r = e.currentTarget.getBoundingClientRect();
+            setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+            if (itemStatus === "allowance" || hasAnyColAllow) setSection("allowance");
+            else if (itemStatus === "excluded" || hasAnyColExcl) setSection("exclusion");
+            else setSection(null);
+            setOpen(true);
+          }
+        }}
+        style={{
+          width: 22, height: 20, flexShrink: 0, border: open ? `1px solid ${C.accent}50` : `1px solid ${C.accent}20`,
+          background: open ? `${C.accent}20` : `${C.accent}08`, borderRadius: 4,
+          display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.15s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = C.accent + "18"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = open ? C.accent + "20" : C.accent + "08"; }}
+      >
+        <svg width="9" height="9" viewBox="0 0 10 10" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+          <path d="M2 3.5L5 6.5L8 3.5" stroke={open ? C.accent : C.accent + "80"} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && createPortal(
+        <div ref={ref} style={{ position: "fixed", top: pos?.top || 0, right: pos?.right || 0, zIndex: 100010, minWidth: 220, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: T.shadow.lg, padding: "6px 0" }} onClick={e => e.stopPropagation()}>
+
+          {/* ── Allowance header ── */}
+          {(() => {
+            const isActive = itemStatus === "allowance" || hasAnyColAllow;
+            const isOpen = section === "allowance";
+            return (
+              <>
+                <div
+                  onClick={() => setSection(isOpen ? null : "allowance")}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", color: isActive ? C.orange : C.text, fontWeight: isActive ? 600 : 400, fontSize: 12, transition: "background 80ms" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${C.orange}08`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{ ...colBadge("A", C.orange, isActive), width: 20, height: 18, padding: 0 }}>A</span>
+                  <span>Allowance</span>
+                  {isActive && <span style={{ marginLeft: "auto", fontSize: 8, color: C.orange }}>●</span>}
+                  <svg width="8" height="8" viewBox="0 0 10 10" style={{ marginLeft: isActive ? 4 : "auto", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke={C.textDim} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                {isOpen && (
+                  <div style={{ display: "flex", gap: 4, padding: "2px 12px 8px 38px", flexWrap: "wrap" }}>
+                    <span onClick={() => handleAllToggle("allowance")} style={colBadge("A", C.orange, itemStatus === "allowance")}>All</span>
+                    {COLS.map(c => {
+                      const active = resolveColumnStatus(item, c.key) === "allowance";
+                      return <span key={c.key} onClick={() => handleColToggle(c.key, "allowance")} style={colBadge("A", C.orange, active)}>{c.label}</span>;
+                    })}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
+          {/* ── Exclusion header ── */}
+          {(() => {
+            const isActive = itemStatus === "excluded" || hasAnyColExcl;
+            const isOpen = section === "exclusion";
+            const red = C.red || "#e05252";
+            return (
+              <>
+                <div
+                  onClick={() => setSection(isOpen ? null : "exclusion")}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", color: isActive ? red : C.text, fontWeight: isActive ? 600 : 400, fontSize: 12, transition: "background 80ms" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${red}08`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{ ...colBadge("E", red, isActive), width: 20, height: 18, padding: 0 }}>E</span>
+                  <span>Exclusion</span>
+                  {isActive && <span style={{ marginLeft: "auto", fontSize: 8, color: red }}>●</span>}
+                  <svg width="8" height="8" viewBox="0 0 10 10" style={{ marginLeft: isActive ? 4 : "auto", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke={C.textDim} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                {isOpen && (
+                  <div style={{ display: "flex", gap: 4, padding: "2px 12px 8px 38px", flexWrap: "wrap" }}>
+                    <span onClick={() => handleAllToggle("excluded")} style={colBadge("E", red, itemStatus === "excluded")}>All</span>
+                    {COLS.map(c => {
+                      const active = resolveColumnStatus(item, c.key) === "excluded";
+                      return <span key={c.key} onClick={() => handleColToggle(c.key, "excluded")} style={colBadge("E", red, active)}>{c.label}</span>;
+                    })}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
+          {/* ── Alternate ── */}
+          {!isInAlt && (
+            <>
+              <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+              <div
+                onClick={handleAlternate}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", color: C.accent, fontSize: 12, transition: "background 80ms" }}
+                onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}08`)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                <span style={{ ...colBadge("Alt", C.accent, false), padding: "0 4px" }}>Alt</span>
+                <span>Move to Alternate</span>
+              </div>
+            </>
+          )}
+
+          {/* ── Reintroduce ── */}
+          {(isExcludedOrAllow || isInAlt) && (
+            <>
+              <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+              <div
+                onClick={handleReintroduce}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", color: C.green, fontSize: 11, transition: "background 80ms" }}
+                onMouseEnter={e => (e.currentTarget.style.background = `${C.green}10`)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                <span>{isInAlt ? "Return to Base Bid" : "Reintroduce to Bid"}</span>
+              </div>
+            </>
+          )}
+
+          {/* ── Done ── */}
+          <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+          <div
+            onClick={() => setOpen(false)}
+            style={{ textAlign: "center", padding: "5px 12px", cursor: "pointer", color: C.textDim, fontSize: 10, transition: "background 80ms" }}
+            onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >Done</div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 /* ─── Cell status definitions ─── */
 const CELL_STATUSES = [
@@ -1385,13 +1620,22 @@ function SubdivisionGroup({
       {/* ─── Item rows (hidden when collapsed) ─── */}
       {!isCollapsed &&
         sub.items.map((item, rowIdx) => {
+          const rowExcluded = isFullyExcluded(item);
+          const rowAllow = hasAllowance(item);
           return (
-            <tr key={item.id} style={{ background: rowIdx % 2 === 0 ? "transparent" : `${C.text}03` }}>
+            <tr key={item.id} style={{
+              background: rowIdx % 2 === 0 ? "transparent" : `${C.text}03`,
+              opacity: rowExcluded ? 0.5 : 1,
+              borderLeft: rowExcluded ? `3px solid ${C.red || "#e05252"}` : rowAllow ? `3px solid ${C.orange}` : undefined,
+            }}>
               <td style={{ ...tdStyle(C), textAlign: "center", color: C.textDim, fontSize: 9 }}>{rowIdx + 1}</td>
               <td style={{ ...tdStyle(C), fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{item.code || "—"}</td>
               <td style={{ ...tdStyle(C), fontSize: 11, color: C.text, fontWeight: 500 }}>
                 <div
-                  style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }}
+                  style={{
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280,
+                    textDecoration: rowExcluded ? "line-through" : "none",
+                  }}
                   title={item.description}
                 >
                   {item.description || "Untitled"}
@@ -1477,7 +1721,9 @@ function SubdivisionGroup({
                   </td>
                 );
               })}
-              <td style={{ ...tdStyle(C), width: 36 }} />
+              <td style={{ ...tdStyle(C), width: 36, textAlign: "center" }}>
+                <LevelRowAction itemId={item.id} C={C} />
+              </td>
             </tr>
           );
         })}
