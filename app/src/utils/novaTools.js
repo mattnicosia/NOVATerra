@@ -687,6 +687,7 @@ export async function executeNovaTool(toolName, toolInput) {
         specialist,
         label: result.label,
         text: result.text,
+        toolCalls: result.toolCalls || [],
         error: result.error || undefined,
       };
     }

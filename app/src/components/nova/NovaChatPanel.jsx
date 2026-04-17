@@ -630,9 +630,34 @@ function ToolActionCard({ action, accent, surface, border, green, amber, textSec
     const q = toolInput?.query;
     const t = result?.text;
     const err = result?.error;
+    const subTools = Array.isArray(result?.toolCalls) ? result.toolCalls : [];
+    const toolLabel = {
+      search_cost_database: "cost DB",
+      search_proposals: "proposals",
+      search_my_history: "history",
+      calculate_totals: "totals",
+    };
     summary = (
       <div style={{ fontSize: 11, color: textSec, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
         {q && <div style={{ opacity: 0.75, fontStyle: "italic", marginBottom: 4 }}>“{q}”</div>}
+        {subTools.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 5 }}>
+            {subTools.map((tc, k) => (
+              <span key={k} style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: tc.error ? "#EF4444" : accent,
+                background: tc.error ? "#EF444418" : `${accent}14`,
+                border: `1px solid ${tc.error ? "#EF444455" : `${accent}33`}`,
+                borderRadius: 8,
+                padding: "1px 6px",
+                letterSpacing: "0.02em",
+              }}>
+                {toolLabel[tc.name] || tc.name}
+              </span>
+            ))}
+          </div>
+        )}
         {err ? <div style={{ color: "#EF4444" }}>Error: {err}</div> : (t || "").slice(0, 400)}
         {(t || "").length > 400 && <span style={{ opacity: 0.6 }}>…</span>}
       </div>
