@@ -73,6 +73,9 @@ injectAnalytics();
 // ── Core Web Vitals (LCP, FID, CLS, TTFB, INP → analytics) ──
 import("@/utils/webVitals").then(m => m.reportWebVitals()).catch(() => {});
 
+// ── History indexer — loaded eagerly so window.__novaBackfillHistory is available from console ──
+import("@/utils/historyIndexer").catch(() => {});
+
 // ── Root Error Boundary ───────────────────────────────────────
 class RootErrorBoundary extends Component {
   constructor(props) {

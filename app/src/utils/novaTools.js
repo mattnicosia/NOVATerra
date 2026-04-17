@@ -163,6 +163,29 @@ export const NOVA_TOOLS = [
     },
   },
   {
+    name: "search_my_history",
+    description:
+      "Search the user's PAST ESTIMATES AND LINE ITEMS across every project they've ever estimated. Use this for questions like 'what did I pay for framing on the last 5 projects?', 'show me my historical $/SF for office buildouts', 'have I estimated this before?'. Returns matching line items (with project context, unit costs, quantities) and/or estimate-level rollups (with total cost, $/SF, building type). This is the user's own private history, not generic cost data.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Natural-language search. Be specific: 'steel stud framing 5/8\" gyp' beats 'framing'. Include building type or trade if relevant.",
+        },
+        scope: {
+          type: "string",
+          enum: ["items", "estimates", "both"],
+          description:
+            "'items' = individual line items, 'estimates' = project-level rollups, 'both' = mix. Default 'both'.",
+        },
+        limit: { type: "number", description: "Max results per scope (default 8, cap 20)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
     name: "consult_specialist",
     description:
       "Delegate a sub-question to a specialist sub-agent with its own extended thinking budget and focused prompt. Use this when a query requires deep analysis in one domain (cost benchmarking, scope completeness, or drawing interpretation) rather than direct action. You can call this tool MULTIPLE times in parallel in a single turn — the specialists will think simultaneously and their results are synthesized together. Do NOT use for simple lookups, direct actions, or questions already answerable from the estimate context.",
@@ -587,6 +610,62 @@ export async function executeNovaTool(toolName, toolInput) {
         }));
       }
       return { success: true, action: "query_project_info", ...result };
+    }
+
+    case "search_my_history": {
+      const { searchSimilar } = await import("@/utils/vectorSearch");
+      const { query, scope = "both", limit: rawLimit } = toolInput || {};
+      const limit = Math.min(20, Math.max(1, parseInt(rawLimit, 10) || 8));
+      if (!query) return { success: false, message: "query required" };
+
+      const kinds = scope === "items" ? ["estimate_item"]
+                  : scope === "estimates" ? ["user_estimate"]
+                  : ["estimate_item", "user_estimate"];
+
+      const { results } = await searchSimilar(query, { kinds, limit, threshold: 0.25 });
+
+      // Shape results for the LLM: surface the useful metadata inline
+      const shaped = (results || []).map(r => {
+        const m = r.metadata || {};
+        if (r.kind === "user_estimate") {
+          return {
+            type: "estimate",
+            project: m.projectName,
+            buildingType: m.buildingType,
+            projectSF: m.projectSF,
+            totalCost: m.totalCost,
+            perSF: m.perSF,
+            itemCount: m.itemCount,
+            estimateId: m.estimateId,
+            similarity: Number(r.similarity?.toFixed?.(3) || 0),
+            summary: r.content,
+          };
+        }
+        return {
+          type: "item",
+          project: m.projectName,
+          buildingType: m.buildingType,
+          description: m.description,
+          code: m.code,
+          division: m.division,
+          trade: m.trade,
+          unit: m.unit,
+          quantity: m.quantity,
+          unitCost: m.unitCost,
+          lineTotal: m.lineTotal,
+          estimateId: m.estimateId,
+          similarity: Number(r.similarity?.toFixed?.(3) || 0),
+        };
+      });
+
+      return {
+        success: true,
+        action: "search_my_history",
+        query,
+        scope,
+        count: shaped.length,
+        results: shaped,
+      };
     }
 
     case "consult_specialist": {

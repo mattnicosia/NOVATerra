@@ -758,6 +758,11 @@ export async function saveEstimate(overrideId, options = {}) {
     cloudSync.pushEstimate(id, data)
       .then(() => {
         clearDirtyEstimate(id);
+        // Schedule cross-estimate memory indexing (debounced 30s).
+        // Fire-and-forget — never blocks the save flow.
+        import("@/utils/historyIndexer")
+          .then(mod => mod.scheduleIndexEstimate(id, useProjectStore.getState().project, useItemsStore.getState().items))
+          .catch(() => { /* indexer is best-effort */ });
       })
       .catch(err => {
         console.warn("[usePersistence] Cloud push failed (estimate or index):", err?.message);

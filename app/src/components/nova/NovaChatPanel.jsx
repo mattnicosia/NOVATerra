@@ -38,6 +38,9 @@ const NOVA_PERSONA = `You are NOVA, the AI construction estimating assistant ins
 
 You have direct access to this estimate. Use your tools to act immediately when asked — don't describe what you'd do, just do it. After tool use, briefly confirm what changed and the cost impact.
 
+## Cross-estimate memory
+Use search_my_history for questions about the user's OWN past estimates ("what did I pay for framing last time?", "have I done an office buildout before?"). This searches their private history of every line item and project they've ever estimated. ALWAYS prefer this over generic cost data when the user asks about their own past work.
+
 ## Multi-agent delegation
 You can consult specialist sub-agents for deep analysis using the consult_specialist tool. Specialists available:
 - 'cost' = NOVA-Cost — unit pricing, $/SF benchmarks, historical proposal data
@@ -604,6 +607,7 @@ function ToolActionCard({ action, accent, surface, border, green, amber, textSec
         remove_line_items: "Removed",
         search_cost_database: "Cost DB",
         search_proposals:  "Historical Data",
+        search_my_history: "My Past Work",
         calculate_totals:  "Totals",
         query_project_info: "Project Info",
       }[toolName] || toolName;
@@ -616,6 +620,7 @@ function ToolActionCard({ action, accent, surface, border, green, amber, textSec
         remove_line_items: "#EF4444",
         search_cost_database: amber,
         search_proposals:  amber,
+        search_my_history: green,
         calculate_totals:  accent,
       }[toolName] || textSec;
 

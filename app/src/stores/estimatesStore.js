@@ -473,6 +473,11 @@ export const useEstimatesStore = create((set, get) => ({
     } catch (err) {
       console.warn("[deleteEstimate] Cloud sync failed, will retry on next sync:", err.message);
     }
+
+    // STEP 4: Remove cross-estimate memory embeddings — fire-and-forget
+    import("@/utils/historyIndexer")
+      .then(mod => mod.removeEstimateEmbeddings(id))
+      .catch(() => { /* indexer is best-effort */ });
   },
 
   duplicateEstimate: async id => {
