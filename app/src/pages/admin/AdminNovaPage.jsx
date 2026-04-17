@@ -2,17 +2,20 @@
 // Live visibility into NOVA's brain: proposals, calibration pipeline, knowledge base
 // Matt's eyes only — admin-gated
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { normalizeProposal, getNormalizationTrace } from "@/utils/normalizationEngine";
 import { validateProposal, getStatusColor, getStatusLabel } from "@/utils/proposalValidation";
 import { sortDivisionNames } from "@/utils/csiFormat";
+import { backfillAll } from "@/utils/historyIndexer";
+import { indexSpecBook, listSpecBooks, removeSpecBook } from "@/utils/specIndexer";
 
 const ff = { fontFamily: "'Switzer', -apple-system, sans-serif" };
 
 const TABS = [
+  { key: "data", label: "Data" },
   { key: "proposals", label: "Proposals" },
   { key: "calibration", label: "Calibration" },
   { key: "pipeline", label: "Pipeline" },
@@ -24,6 +27,236 @@ function fmt(n) {
   if (n >= 1000000) return `$${(n / 1000000).toFixed(2)}M`;
   if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
   return `$${n.toLocaleString()}`;
+}
+
+/* ── DATA TAB — NOVA ingestion (history backfill + spec books) ── */
+function DataTab() {
+  const [backfillProgress, setBackfillProgress] = useState(null); // { current, total, label }
+  const [backfillResult, setBackfillResult] = useState(null);
+  const [backfillError, setBackfillError] = useState(null);
+  const [backfillRunning, setBackfillRunning] = useState(false);
+
+  const [specBooks, setSpecBooks] = useState([]);
+  const [specUpload, setSpecUpload] = useState(null); // { phase, progress, chunks, total, bookName }
+  const [specError, setSpecError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const refreshSpecs = useCallback(async () => {
+    try {
+      const books = await listSpecBooks();
+      setSpecBooks(books);
+    } catch (err) {
+      console.warn("[DataTab] listSpecBooks failed:", err?.message || err);
+    }
+  }, []);
+
+  useEffect(() => { refreshSpecs(); }, [refreshSpecs]);
+
+  const runBackfill = async () => {
+    setBackfillRunning(true);
+    setBackfillError(null);
+    setBackfillResult(null);
+    setBackfillProgress({ current: 0, total: 0, label: "Starting..." });
+    try {
+      const result = await backfillAll((current, total, label) => {
+        setBackfillProgress({ current, total, label });
+      });
+      setBackfillResult(result);
+      setBackfillProgress(null);
+    } catch (err) {
+      setBackfillError(err?.message || String(err));
+      setBackfillProgress(null);
+    } finally {
+      setBackfillRunning(false);
+    }
+  };
+
+  const handleSpecFile = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSpecError(null);
+    setSpecUpload({ phase: "starting", progress: 0, bookName: file.name });
+    try {
+      const result = await indexSpecBook(file, {}, progress => {
+        setSpecUpload(cur => ({ ...cur, ...progress, bookName: file.name }));
+      });
+      setSpecUpload({ phase: "done", progress: 100, bookName: file.name, result });
+      await refreshSpecs();
+      setTimeout(() => setSpecUpload(null), 3000);
+    } catch (err) {
+      setSpecError(err?.message || String(err));
+      setSpecUpload(null);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveSpec = async specBookId => {
+    if (!window.confirm("Remove this spec book? NOVA will no longer be able to search it.")) return;
+    try {
+      await removeSpecBook(specBookId);
+      await refreshSpecs();
+    } catch (err) {
+      alert("Remove failed: " + (err?.message || err));
+    }
+  };
+
+  const Panel = ({ title, desc, children }) => (
+    <div style={{
+      padding: 20, marginBottom: 20,
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10,
+    }}>
+      <div style={{ fontSize: 11, color: "#00D4AA", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600, ...ff }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 6, marginBottom: 16, lineHeight: 1.5, ...ff }}>
+        {desc}
+      </div>
+      {children}
+    </div>
+  );
+
+  const BtnPrimary = ({ onClick, disabled, children }) => (
+    <button onClick={onClick} disabled={disabled} style={{
+      padding: "10px 18px", fontSize: 12, fontWeight: 600, letterSpacing: "0.04em",
+      background: disabled ? "rgba(0,212,170,0.15)" : "#00D4AA",
+      color: disabled ? "rgba(255,255,255,0.4)" : "#000",
+      border: "none", borderRadius: 7, cursor: disabled ? "default" : "pointer",
+      transition: "all 120ms", ...ff,
+    }}>
+      {children}
+    </button>
+  );
+
+  return (
+    <div>
+      {/* ── Cross-estimate memory ── */}
+      <Panel
+        title="Cross-estimate memory"
+        desc={"Index every line item and estimate rollup in your history to pgvector. NOVA can then answer questions like \"what did I pay for framing last project?\" against your real prices — not generic cost data. Each save auto-reindexes; this button is for the first-time backfill (~$0.40 for a typical book of business)."}
+      >
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <BtnPrimary onClick={runBackfill} disabled={backfillRunning}>
+            {backfillRunning ? "Indexing..." : "Index All Estimates"}
+          </BtnPrimary>
+          {backfillProgress && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", ...ff }}>
+              <span style={{ color: "#EEEDF5", fontWeight: 600 }}>
+                {backfillProgress.current}/{backfillProgress.total || "?"}
+              </span>
+              {" — "}
+              <span style={{ opacity: 0.7 }}>{backfillProgress.label}</span>
+            </div>
+          )}
+          {backfillResult && !backfillRunning && (
+            <div style={{ fontSize: 12, color: "#00D4AA", ...ff }}>
+              ✓ Indexed {backfillResult.total} estimates
+            </div>
+          )}
+          {backfillError && (
+            <div style={{ fontSize: 12, color: "#EF4444", ...ff }}>Error: {backfillError}</div>
+          )}
+        </div>
+        {backfillProgress && backfillProgress.total > 0 && (
+          <div style={{ marginTop: 12, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{
+              width: `${Math.round((backfillProgress.current / backfillProgress.total) * 100)}%`,
+              height: "100%", background: "#00D4AA", transition: "width 200ms",
+            }} />
+          </div>
+        )}
+      </Panel>
+
+      {/* ── Spec books ── */}
+      <Panel
+        title="Spec books"
+        desc={"Upload a project spec book PDF. We parse by CSI section (MasterFormat), chunk by Part 1/2/3, and embed each section. NOVA's search_specs tool + NOVA-Scope specialist both use these for grounded spec answers. Works best on PDFs with printed SECTION XX XX XX headers."}
+      >
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <BtnPrimary onClick={() => fileInputRef.current?.click()} disabled={!!specUpload && specUpload.phase !== "done"}>
+            {specUpload && specUpload.phase !== "done" ? "Indexing..." : "Upload Spec Book (PDF)"}
+          </BtnPrimary>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleSpecFile}
+            style={{ display: "none" }}
+          />
+          {specUpload && specUpload.phase !== "done" && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", ...ff }}>
+              <span style={{ color: "#EEEDF5", fontWeight: 600 }}>{specUpload.progress || 0}%</span>
+              {" — "}
+              <span style={{ opacity: 0.7 }}>
+                {specUpload.phase}
+                {specUpload.bookName ? ` · ${specUpload.bookName}` : ""}
+                {specUpload.chunks ? ` · ${specUpload.chunks} chunks` : ""}
+              </span>
+            </div>
+          )}
+          {specUpload?.phase === "done" && (
+            <div style={{ fontSize: 12, color: "#00D4AA", ...ff }}>
+              ✓ Indexed {specUpload.result?.chunkCount || "?"} chunks from {specUpload.bookName}
+            </div>
+          )}
+          {specError && (
+            <div style={{ fontSize: 12, color: "#EF4444", ...ff }}>Error: {specError}</div>
+          )}
+        </div>
+        {specUpload && specUpload.phase !== "done" && (
+          <div style={{ marginTop: 12, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{
+              width: `${specUpload.progress || 0}%`,
+              height: "100%", background: "#00D4AA", transition: "width 200ms",
+            }} />
+          </div>
+        )}
+
+        {/* Indexed books list */}
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10, ...ff }}>
+            Indexed ({specBooks.length})
+          </div>
+          {specBooks.length === 0 && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontStyle: "italic", ...ff }}>
+              No spec books indexed yet.
+            </div>
+          )}
+          {specBooks.map(book => (
+            <div key={book.specBookId} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "10px 12px", marginBottom: 6,
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.05)", borderRadius: 7,
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: "#EEEDF5", fontWeight: 500, ...ff, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {book.name}
+                </div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2, ...ff }}>
+                  {book.sectionCount} sections
+                  {book.divisions.length > 0 && ` · ${book.divisions.length} divisions`}
+                  {book.uploadedAt && ` · ${new Date(book.uploadedAt).toLocaleDateString()}`}
+                </div>
+              </div>
+              <button
+                onClick={() => handleRemoveSpec(book.specBookId)}
+                style={{
+                  padding: "6px 10px", fontSize: 10, fontWeight: 600,
+                  background: "transparent", color: "rgba(239,68,68,0.8)",
+                  border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6,
+                  cursor: "pointer", letterSpacing: "0.04em", ...ff,
+                }}
+              >
+                REMOVE
+              </button>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
 }
 
 /* ── PROPOSALS TAB ── */
@@ -570,6 +803,7 @@ export default function AdminNovaPage() {
       </div>
 
       {/* Tab content */}
+      {tab === "data" && <DataTab />}
       {tab === "proposals" && <ProposalsTab />}
       {tab === "calibration" && <CalibrationTab />}
       {tab === "pipeline" && <PipelineTab />}
