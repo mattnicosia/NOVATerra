@@ -32,8 +32,13 @@ if (SENTRY_DSN && import.meta.env.PROD) {
     release: typeof __BUILD_TS__ !== "undefined" ? String(__BUILD_TS__) : undefined, // eslint-disable-line no-undef
     tracesSampleRate: 0.1,
     replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 1.0,
-    integrations: [Sentry.browserTracingIntegration(), Sentry.replayIntegration()],
+    // Low sample rate — session replay captures estimate + pricing data which is PII-adjacent.
+    // Bump this opt-in later via a feature flag if you need replays for specific debug scenarios.
+    replaysOnErrorSampleRate: 0.1,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
+    ],
     beforeSend(event) {
       // Drop noise: chunk-load errors are handled by the auto-reload below
       const msg = event.exception?.values?.[0]?.value || "";

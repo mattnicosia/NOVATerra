@@ -462,7 +462,7 @@ export default function NovaChatPanel() {
         {streamingText && !chatThinking && (
           <div style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
             <div style={{ width: 20, height: 20, marginTop: 1, flexShrink: 0 }}>
-              <NovaPresence size={20} accent={accent} state="speaking" live />
+              <NovaPresence size={20} accent={accent} state="speaking" live={false} />
             </div>
             <div style={{
               maxWidth: "75%", padding: "8px 11px", fontSize: 13, lineHeight: 1.5,
@@ -479,7 +479,7 @@ export default function NovaChatPanel() {
         {thinkingActive && (
           <div style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
             <div style={{ width: 22, height: 22, flexShrink: 0 }}>
-              <NovaPresence size={22} accent={accent} state="thinking" live />
+              <NovaPresence size={22} accent={accent} state="thinking" live={false} />
             </div>
             <div style={{
               padding: "8px 12px", background: surface, border: `1px solid ${accent}33`,
@@ -502,7 +502,7 @@ export default function NovaChatPanel() {
         {chatThinking && !thinkingActive && !streamingText && (
           <div style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
             <div style={{ width: 20, height: 20, flexShrink: 0 }}>
-              <NovaPresence size={20} accent={accent} state="thinking" live />
+              <NovaPresence size={20} accent={accent} state="thinking" live={false} />
             </div>
             <div style={{
               padding: "10px 12px", background: surface, border: `1px solid ${border}`,

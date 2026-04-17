@@ -210,12 +210,34 @@ export async function indexEstimate(estimateId, project, items) {
 }
 
 // Debounced indexing — call after each save, coalesces rapid edits.
+// We deep-clone the inputs at schedule time so the timer fires against a frozen
+// snapshot even if the Zustand stores mutate in place or the user switches
+// estimates within the debounce window.
 export function scheduleIndexEstimate(estimateId, project, items) {
   if (!estimateId) return;
   if (pendingTimers.has(estimateId)) clearTimeout(pendingTimers.get(estimateId));
+
+  let projSnapshot = null;
+  let itemsSnapshot = [];
+  try {
+    projSnapshot = project ? structuredClone(project) : null;
+    itemsSnapshot = Array.isArray(items) ? structuredClone(items) : [];
+  } catch {
+    // structuredClone can fail on unserializable values (functions, DOM nodes).
+    // Fall back to a shallow JSON round-trip which is safe for plain data.
+    try {
+      projSnapshot = project ? JSON.parse(JSON.stringify(project)) : null;
+      itemsSnapshot = items ? JSON.parse(JSON.stringify(items)) : [];
+    } catch {
+      // Last resort — live refs. Rare, not worth crashing the save flow.
+      projSnapshot = project || null;
+      itemsSnapshot = Array.isArray(items) ? items : [];
+    }
+  }
+
   const handle = setTimeout(() => {
     pendingTimers.delete(estimateId);
-    indexEstimate(estimateId, project, items).catch(err => {
+    indexEstimate(estimateId, projSnapshot, itemsSnapshot).catch(err => {
       console.warn("[historyIndexer] background index failed:", err?.message || err);
     });
   }, INDEX_DEBOUNCE_MS);

@@ -389,10 +389,20 @@ export async function callAnthropicStreamingWithTools({
           if (ev.message?.usage) _trackUsage(ev.message.usage.input_tokens, ev.message.usage.output_tokens);
           break;
 
-        case "content_block_start":
-          blocks[ev.index] = { ...ev.content_block, inputJson: "", thinkingText: "" };
+        case "content_block_start": {
+          // Merge into any existing accumulator so a retry/duplicate start doesn't wipe state.
+          // Only initialize fields that don't exist yet.
+          const existing = blocks[ev.index] || {};
+          blocks[ev.index] = {
+            ...ev.content_block,
+            inputJson: existing.inputJson || "",
+            thinkingText: existing.thinkingText || "",
+            signature: existing.signature || "",
+            text: existing.text || "",
+          };
           if (ev.content_block.type === "thinking" && onThinking) onThinking();
           break;
+        }
 
         case "content_block_delta": {
           const blk = blocks[ev.index];
@@ -409,6 +419,9 @@ export async function callAnthropicStreamingWithTools({
             blk.inputJson = (blk.inputJson || "") + d.partial_json;
           } else if (d.type === "thinking_delta") {
             blk.thinkingText = (blk.thinkingText || "") + d.thinking;
+          } else if (d.type === "signature_delta") {
+            // Thinking blocks are signed — must preserve or next turn 400s.
+            blk.signature = (blk.signature || "") + (d.signature || "");
           }
           break;
         }
@@ -424,6 +437,10 @@ export async function callAnthropicStreamingWithTools({
           if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
           if (ev.usage) _trackUsage(ev.usage.input_tokens, ev.usage.output_tokens);
           break;
+
+        case "error":
+          // Anthropic emits { type: "error", error: { type, message } } mid-stream on rate limits, etc.
+          throw new Error(`Anthropic stream error: ${ev.error?.message || "unknown"}`);
       }
     }
   }
@@ -434,7 +451,12 @@ export async function callAnthropicStreamingWithTools({
     .map(([, blk]) => {
       if (blk.type === "tool_use") return { type: "tool_use", id: blk.id, name: blk.name, input: blk.input || {} };
       if (blk.type === "text") return { type: "text", text: blk.text || "" };
-      if (blk.type === "thinking") return { type: "thinking", thinking: blk.thinkingText || "" };
+      if (blk.type === "thinking") {
+        // Include signature — API rejects unsigned thinking blocks on subsequent turns
+        const out = { type: "thinking", thinking: blk.thinkingText || "" };
+        if (blk.signature) out.signature = blk.signature;
+        return out;
+      }
       return blk;
     });
 
