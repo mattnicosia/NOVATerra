@@ -25,8 +25,8 @@ import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 // Per-specialist tool allowlist. Names must exist in NOVA_TOOLS (novaTools.js).
 // consult_specialist is deliberately NOT on any allowlist — prevents recursion.
 const SPECIALIST_TOOLS = {
-  cost: ["search_cost_database", "search_my_history", "calculate_totals"],
-  scope: ["search_my_history", "search_proposals", "calculate_totals"],
+  cost: ["search_cost_database", "search_my_history", "search_specs", "calculate_totals"],
+  scope: ["search_my_history", "search_proposals", "search_specs", "calculate_totals"],
   plans: [], // vision-only — no tool calls, just reads attached PDFs
 };
 
@@ -43,6 +43,7 @@ export const SPECIALISTS = {
 You have tools. USE THEM before answering — a grounded number beats a confident guess.
 - search_my_history — the user's OWN past estimates. First stop for "is this priced right?" — what did THEY actually pay for similar scope?
 - search_cost_database — generic cost DB for similar materials/assemblies. Use when user's own history doesn't cover the trade.
+- search_specs — project spec books. Use when a price question depends on spec requirements (higher-grade material = higher cost).
 - calculate_totals — current estimate totals by division/trade with $/SF.
 
 When asked about costs, $/SF, or pricing reasonableness:
@@ -65,6 +66,7 @@ Keep responses under 200 words. Lead with the answer, follow with evidence.`,
     systemPrompt: `You are NOVA-Scope, an expert in construction scope completeness and coordination.
 
 You have tools. USE THEM when they'd sharpen the answer.
+- search_specs — the PROJECT'S uploaded spec books. Use this FIRST when asking "what's in scope" — specs are authoritative over general knowledge.
 - search_my_history — the user's past estimates. Use to see what scope items typically appear on THIS user's projects of similar type.
 - search_proposals — historical proposals library. Use to benchmark scope against similar building types.
 - calculate_totals — see current coverage by division/trade.

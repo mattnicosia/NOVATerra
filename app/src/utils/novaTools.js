@@ -163,6 +163,31 @@ export const NOVA_TOOLS = [
     },
   },
   {
+    name: "search_specs",
+    description:
+      "Search the user's indexed SPEC BOOKS for relevant spec section language. Use this when the user asks about specific CSI sections (e.g., 'what does 09 21 16 require?'), material requirements, submittal requirements, or anything that would be written in a project specification. Also use when setting up a line item and you need to cite the spec section. Returns matching spec chunks with section number, title, page range, and text content. Prefer THIS over search_cost_database when the user asks about requirements vs pricing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Natural language search. Can be a CSI code ('09 21 16'), a material ('gypsum board type X'), or a requirement ('submittal for concrete mix design').",
+        },
+        section: {
+          type: "string",
+          description: "Optional: filter to a specific CSI section number like '09 21 16'",
+        },
+        division: {
+          type: "string",
+          description: "Optional: filter to a specific division like '09' or '03'",
+        },
+        limit: { type: "number", description: "Max results (default 5, cap 15)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
     name: "search_my_history",
     description:
       "Search the user's PAST ESTIMATES AND LINE ITEMS across every project they've ever estimated. Use this for questions like 'what did I pay for framing on the last 5 projects?', 'show me my historical $/SF for office buildouts', 'have I estimated this before?'. Returns matching line items (with project context, unit costs, quantities) and/or estimate-level rollups (with total cost, $/SF, building type). This is the user's own private history, not generic cost data.",
@@ -610,6 +635,55 @@ export async function executeNovaTool(toolName, toolInput) {
         }));
       }
       return { success: true, action: "query_project_info", ...result };
+    }
+
+    case "search_specs": {
+      const { searchSimilar } = await import("@/utils/vectorSearch");
+      const { query, section, division, limit: rawLimit } = toolInput || {};
+      const limit = Math.min(15, Math.max(1, parseInt(rawLimit, 10) || 5));
+      if (!query) return { success: false, message: "query required" };
+
+      // Run vector search first, then filter client-side by section/division if provided.
+      const { results } = await searchSimilar(query, {
+        kinds: ["spec"],
+        limit: limit * 3, // over-fetch so filter has results
+        threshold: 0.2,
+      });
+
+      let filtered = results || [];
+      if (section) {
+        const normSec = String(section).replace(/\s/g, "");
+        filtered = filtered.filter(r => (r.metadata?.sectionNumber || "").replace(/\s/g, "") === normSec);
+      }
+      if (division) {
+        const divCode = String(division).match(/^\d{2}/)?.[0];
+        if (divCode) {
+          filtered = filtered.filter(r => (r.metadata?.sectionNumber || "").trim().startsWith(divCode));
+        }
+      }
+      filtered = filtered.slice(0, limit);
+
+      const shaped = filtered.map(r => {
+        const m = r.metadata || {};
+        return {
+          specBook: m.specBookName,
+          section: m.sectionNumber,
+          title: m.sectionTitle,
+          division: m.division,
+          pages: m.pageStart && m.pageEnd ? `${m.pageStart}-${m.pageEnd}` : null,
+          part: m.partNumber || null,
+          similarity: Number(r.similarity?.toFixed?.(3) || 0),
+          excerpt: (r.content || "").slice(0, 1200),
+        };
+      });
+
+      return {
+        success: true,
+        action: "search_specs",
+        query,
+        count: shaped.length,
+        results: shaped,
+      };
     }
 
     case "search_my_history": {

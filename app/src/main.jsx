@@ -80,6 +80,8 @@ import("@/utils/webVitals").then(m => m.reportWebVitals()).catch(() => {});
 
 // ── History indexer — loaded eagerly so window.__novaBackfillHistory is available from console ──
 import("@/utils/historyIndexer").catch(() => {});
+// ── Spec indexer — loaded eagerly so window.__novaIndexSpec / __novaListSpecs / __novaRemoveSpec are available ──
+import("@/utils/specIndexer").catch(() => {});
 
 // ── Root Error Boundary ───────────────────────────────────────
 class RootErrorBoundary extends Component {

@@ -571,6 +571,7 @@ function ToolActionCard({ action, accent, surface, border, green, amber, textSec
         search_cost_database: "Cost DB",
         search_proposals:  "Historical Data",
         search_my_history: "My Past Work",
+        search_specs:      "Spec Books",
         calculate_totals:  "Totals",
         query_project_info: "Project Info",
       }[toolName] || toolName;
@@ -584,6 +585,7 @@ function ToolActionCard({ action, accent, surface, border, green, amber, textSec
         search_cost_database: amber,
         search_proposals:  amber,
         search_my_history: green,
+        search_specs:      "#60A5FA",
         calculate_totals:  accent,
       }[toolName] || textSec;
 
@@ -635,6 +637,7 @@ function ToolActionCard({ action, accent, surface, border, green, amber, textSec
       search_cost_database: "cost DB",
       search_proposals: "proposals",
       search_my_history: "history",
+      search_specs: "specs",
       calculate_totals: "totals",
     };
     summary = (
