@@ -38,7 +38,19 @@ const NOVA_PERSONA = `You are NOVA, the AI construction estimating assistant ins
 
 You have direct access to this estimate. Use your tools to act immediately when asked — don't describe what you'd do, just do it. After tool use, briefly confirm what changed and the cost impact.
 
-Rules:
+## Multi-agent delegation
+You can consult specialist sub-agents for deep analysis using the consult_specialist tool. Specialists available:
+- 'cost' = NOVA-Cost — unit pricing, $/SF benchmarks, historical proposal data
+- 'scope' = NOVA-Scope — CSI division coverage, scope gaps, completeness audits
+- 'plans' = NOVA-Plans — drawing interpretation (needs PDFs attached to user message)
+
+When to delegate:
+- Analytical questions spanning multiple items/divisions ("what am I missing?", "is this priced right?")
+- Cross-domain questions — call MULTIPLE specialists in parallel in a single turn. They think simultaneously, you synthesize.
+- Do NOT delegate simple actions (add item, update cost, calculate totals) — do those yourself.
+- When you delegate, briefly tell the user which specialist(s) you consulted, then present the synthesized answer.
+
+## Rules
 - Lead with the answer or action, not a preamble
 - Cite item IDs when referencing specific line items
 - Use $/SF comparisons when discussing cost levels
@@ -117,6 +129,10 @@ export default function NovaChatPanel() {
     const pdfAttachments = await attachReferencedPdfs(text, drawingsNow);
     const attachedLabels = pdfAttachments.map(a => a.drawing.sheetNumber || a.drawing.label || "Sheet");
 
+    // Hand off PDFs to the sub-agent layer so NOVA-Plans can attach them when
+    // consulted. Cleared in finally to avoid leaking into the next turn.
+    globalThis.__novaPendingPdfs = pdfAttachments;
+
     store.appendDisplayMessage({
       role: "user",
       text,
@@ -159,14 +175,20 @@ export default function NovaChatPanel() {
           break;
         }
 
-        // Execute tools — clear streaming text while working
+        // Execute tools in parallel — Promise.all so multiple consult_specialist
+        // calls (or any independent tools) actually fan out simultaneously.
         setStreamingText("");
-        setThinkingActive(false);
+        setThinkingActive(toolUses.some(tu => tu.name === "consult_specialist"));
+        const executedAll = await Promise.all(
+          toolUses.map(async tu => {
+            let result;
+            try { result = await executeNovaTool(tu.name, tu.input); }
+            catch (toolErr) { result = { error: toolErr.message }; }
+            return { tu, result };
+          }),
+        );
         const toolResultBlocks = [];
-        for (const tu of toolUses) {
-          let result;
-          try { result = await executeNovaTool(tu.name, tu.input); }
-          catch (toolErr) { result = { error: toolErr.message }; }
+        for (const { tu, result } of executedAll) {
           toolActions.push({ toolName: tu.name, input: tu.input, result });
           toolResultBlocks.push({
             type: "tool_result",
@@ -174,6 +196,7 @@ export default function NovaChatPanel() {
             content: typeof result === "string" ? result : JSON.stringify(result),
           });
         }
+        setThinkingActive(false);
 
         currentApiMsgs = [...currentApiMsgs, { role: "user", content: toolResultBlocks }];
         if (iter === MAX_TOOL_ITERS - 1) finalText = responseText || "Done.";
@@ -199,6 +222,7 @@ export default function NovaChatPanel() {
       });
     } finally {
       useNovaStore.getState().setChatThinking(false);
+      globalThis.__novaPendingPdfs = [];
     }
   }, [input, chatThinking, buildSystemPromptArray]);
 
@@ -570,24 +594,30 @@ export default function NovaChatPanel() {
 function ToolActionCard({ action, accent, surface, border, green, amber, textSec, font }) {
   const { toolName, input: toolInput, result } = action;
 
-  const label = {
-    add_line_items:    "Added to Estimate",
-    update_line_items: "Updated",
-    remove_line_items: "Removed",
-    search_cost_database: "Cost DB",
-    search_proposals:  "Historical Data",
-    calculate_totals:  "Totals",
-    query_project_info: "Project Info",
-  }[toolName] || toolName;
+  const specialistLabel = toolName === "consult_specialist" ? (result?.label || toolInput?.specialist || "Specialist") : null;
 
-  const labelColor = {
-    add_line_items:    green,
-    update_line_items: accent,
-    remove_line_items: "#EF4444",
-    search_cost_database: amber,
-    search_proposals:  amber,
-    calculate_totals:  accent,
-  }[toolName] || textSec;
+  const label = specialistLabel
+    ? `Consulted: ${specialistLabel}`
+    : {
+        add_line_items:    "Added to Estimate",
+        update_line_items: "Updated",
+        remove_line_items: "Removed",
+        search_cost_database: "Cost DB",
+        search_proposals:  "Historical Data",
+        calculate_totals:  "Totals",
+        query_project_info: "Project Info",
+      }[toolName] || toolName;
+
+  const labelColor = specialistLabel
+    ? accent
+    : {
+        add_line_items:    green,
+        update_line_items: accent,
+        remove_line_items: "#EF4444",
+        search_cost_database: amber,
+        search_proposals:  amber,
+        calculate_totals:  accent,
+      }[toolName] || textSec;
 
   // Summarise what was added/updated for display
   let summary = null;
@@ -628,6 +658,17 @@ function ToolActionCard({ action, accent, surface, border, green, amber, textSec
   } else if (toolName === "calculate_totals" && result) {
     const resText = typeof result === "string" ? result : JSON.stringify(result);
     summary = <div style={{ fontSize: 11, color: textSec, whiteSpace: "pre-wrap" }}>{resText.slice(0, 200)}</div>;
+  } else if (toolName === "consult_specialist") {
+    const q = toolInput?.query;
+    const t = result?.text;
+    const err = result?.error;
+    summary = (
+      <div style={{ fontSize: 11, color: textSec, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+        {q && <div style={{ opacity: 0.75, fontStyle: "italic", marginBottom: 4 }}>“{q}”</div>}
+        {err ? <div style={{ color: "#EF4444" }}>Error: {err}</div> : (t || "").slice(0, 400)}
+        {(t || "").length > 400 && <span style={{ opacity: 0.6 }}>…</span>}
+      </div>
+    );
   }
 
   return (

@@ -5,6 +5,7 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { nn } from "@/utils/format";
+import { runSubagent, SPECIALISTS } from "@/utils/novaSubagents";
 
 // ── Tool Definitions (Anthropic tool use schema) ──────────────────────
 
@@ -159,6 +160,28 @@ export const NOVA_TOOLS = [
         },
       },
       required: [],
+    },
+  },
+  {
+    name: "consult_specialist",
+    description:
+      "Delegate a sub-question to a specialist sub-agent with its own extended thinking budget and focused prompt. Use this when a query requires deep analysis in one domain (cost benchmarking, scope completeness, or drawing interpretation) rather than direct action. You can call this tool MULTIPLE times in parallel in a single turn — the specialists will think simultaneously and their results are synthesized together. Do NOT use for simple lookups, direct actions, or questions already answerable from the estimate context.",
+    input_schema: {
+      type: "object",
+      properties: {
+        specialist: {
+          type: "string",
+          enum: ["cost", "scope", "plans"],
+          description:
+            "Which specialist to consult. 'cost' = NOVA-Cost (unit pricing, $/SF benchmarks, historical data). 'scope' = NOVA-Scope (CSI division coverage, scope gaps, completeness). 'plans' = NOVA-Plans (drawing interpretation — requires PDFs attached to the current user message).",
+        },
+        query: {
+          type: "string",
+          description:
+            "The focused sub-question to send to the specialist. Phrase it clearly and include any item IDs, sheet numbers, or specific scope in question. The specialist sees the full estimate context automatically — you don't need to restate it.",
+        },
+      },
+      required: ["specialist", "query"],
     },
   },
   {
@@ -564,6 +587,29 @@ export async function executeNovaTool(toolName, toolInput) {
         }));
       }
       return { success: true, action: "query_project_info", ...result };
+    }
+
+    case "consult_specialist": {
+      const { specialist, query } = toolInput || {};
+      if (!specialist || !SPECIALISTS[specialist]) {
+        return {
+          success: false,
+          action: "consult_specialist",
+          message: `Unknown specialist: ${specialist}. Valid: ${Object.keys(SPECIALISTS).join(", ")}`,
+        };
+      }
+      // Read attached PDFs from a short-lived registry populated by NovaChatPanel
+      // before the tool loop runs (the main agent's user message blocks).
+      const pdfs = globalThis.__novaPendingPdfs || [];
+      const result = await runSubagent(specialist, query, pdfs);
+      return {
+        success: !result.error,
+        action: "consult_specialist",
+        specialist,
+        label: result.label,
+        text: result.text,
+        error: result.error || undefined,
+      };
     }
 
     case "filter_takeoff_suggestions": {
