@@ -14,11 +14,25 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
-import { callAnthropic, buildProjectContext, INTERPRET_MODEL } from "@/utils/ai-core";
+import { callAnthropicStreamingWithTools, buildProjectContext, buildCachedSystem, INTERPRET_MODEL } from "@/utils/ai-core";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
+import { attachReferencedPdfs, buildUserContentWithPdfs, stripPdfBlocksFromHistory } from "@/utils/novaPdfAttach";
+import NovaPresence from "@/components/nova/NovaPresence";
 import { fmt } from "@/utils/format";
 
 const MAX_TOOL_ITERS = 5;
+
+// Detect queries that benefit from extended thinking vs. direct-action queries
+function getThinkingConfig(text) {
+  const lower = text.toLowerCase().trim();
+  // Direct actions → no thinking needed, just execute fast
+  if (/^(add|remove|delete|update|change|set|show|list|calculate|compute|give me|what is|how much|total|sum)\b/.test(lower)) return null;
+  // Analytical / advisory queries → enable extended thinking
+  if (/missing|gap|complet|reasonable|accurate|recommend|should i|compare|benchmark|analyz|review|audit|narrative|scope|coverage|risk|check|validat|improv|optim/.test(lower)) {
+    return { type: "enabled", budget_tokens: 8000 };
+  }
+  return null;
+}
 
 const NOVA_PERSONA = `You are NOVA, the AI construction estimating assistant inside NOVATerra. You are a senior commercial construction estimator — you think in CSI divisions, unit costs, and scope completeness.
 
@@ -54,6 +68,8 @@ export default function NovaChatPanel() {
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
 
   const [input, setInput] = useState("");
+  const [streamingText, setStreamingText] = useState("");
+  const [thinkingActive, setThinkingActive] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -74,69 +90,83 @@ export default function NovaChatPanel() {
     if (chatOpen) setTimeout(() => inputRef.current?.focus(), 120);
   }, [chatOpen]);
 
-  // ── System prompt — rebuilt on each call with fresh store state ──
-  const buildSystemPrompt = useCallback(() => {
+  // ── System prompt — cached array, rebuilt with fresh store state each call ──
+  const buildSystemPromptArray = useCallback(() => {
     const ctx = buildProjectContext({
       project: useProjectStore.getState().project,
       items: useItemsStore.getState().items,
       drawings: useDrawingPipelineStore.getState().drawings,
     });
-    return `${NOVA_PERSONA}\n\n${ctx}`;
+    return buildCachedSystem(`${NOVA_PERSONA}\n\n${ctx}`);
   }, []);
 
-  // ── Core send handler — agentic tool-use loop ──
+  // ── Core send handler — streaming agentic loop with extended thinking ──
   const handleSend = useCallback(async (overrideText) => {
     const text = (overrideText ?? input).trim();
     if (!text || chatThinking) return;
     setInput("");
+    setStreamingText("");
+    setThinkingActive(false);
 
     const store = useNovaStore.getState();
-    store.appendDisplayMessage({ role: "user", text, ts: Date.now() });
     store.setChatThinking(true);
 
+    // Resolve any PDF attachments BEFORE rendering the user bubble so we can show
+    // a "📎 attached: A101" chip directly in the message.
+    const drawingsNow = useDrawingPipelineStore.getState().drawings;
+    const pdfAttachments = await attachReferencedPdfs(text, drawingsNow);
+    const attachedLabels = pdfAttachments.map(a => a.drawing.sheetNumber || a.drawing.label || "Sheet");
+
+    store.appendDisplayMessage({
+      role: "user",
+      text,
+      attachedDrawings: attachedLabels.length ? attachedLabels : undefined,
+      ts: Date.now(),
+    });
+
+    const thinkingConfig = getThinkingConfig(text);
+
     try {
-      // Snapshot current API messages then append the new user turn
-      let currentApiMsgs = [...store.apiMessages, { role: "user", content: text }];
+      const systemArr = buildSystemPromptArray();
+      // Strip PDFs from older user turns — only the current turn carries documents
+      const cleanedHistory = stripPdfBlocksFromHistory(store.apiMessages);
+      const userContent = buildUserContentWithPdfs(text, pdfAttachments);
+      let currentApiMsgs = [...cleanedHistory, { role: "user", content: userContent }];
       const toolActions = [];
       let finalText = "";
 
       for (let iter = 0; iter < MAX_TOOL_ITERS; iter++) {
-        const response = await callAnthropic({
+        const response = await callAnthropicStreamingWithTools({
           model: INTERPRET_MODEL,
-          max_tokens: 2000,
-          system: buildSystemPrompt(),
+          // When thinking is enabled, max_tokens must cover budget + output
+          max_tokens: thinkingConfig ? 12000 : 2000,
+          system: systemArr,
           messages: currentApiMsgs,
           tools: NOVA_TOOLS,
+          thinking: thinkingConfig,
+          onThinking: () => { setThinkingActive(true); setStreamingText(""); },
+          onText: (t) => { setThinkingActive(false); setStreamingText(t); },
         });
 
-        // Text-only response — we're done
-        if (typeof response === "string") {
-          finalText = response;
-          break;
-        }
+        const { content, stop_reason, text: responseText } = response;
+        const toolUses = content.filter(c => c.type === "tool_use");
 
-        // Tool-use response: { content: [...blocks], stop_reason }
-        const { content } = response;
-        const toolUses  = content.filter(c => c.type === "tool_use");
-        const textParts = content.filter(c => c.type === "text").map(c => c.text).join("").trim();
-
-        // Append assistant turn (with tool calls) to API history
+        // Preserve full content (including thinking blocks) in multi-turn history
         currentApiMsgs = [...currentApiMsgs, { role: "assistant", content }];
 
-        if (toolUses.length === 0) {
-          finalText = textParts;
+        if (toolUses.length === 0 || stop_reason === "end_turn") {
+          finalText = responseText;
           break;
         }
 
-        // Execute each tool call
+        // Execute tools — clear streaming text while working
+        setStreamingText("");
+        setThinkingActive(false);
         const toolResultBlocks = [];
         for (const tu of toolUses) {
           let result;
-          try {
-            result = await executeNovaTool(tu.name, tu.input);
-          } catch (toolErr) {
-            result = { error: toolErr.message };
-          }
+          try { result = await executeNovaTool(tu.name, tu.input); }
+          catch (toolErr) { result = { error: toolErr.message }; }
           toolActions.push({ toolName: tu.name, input: tu.input, result });
           toolResultBlocks.push({
             type: "tool_result",
@@ -145,14 +175,12 @@ export default function NovaChatPanel() {
           });
         }
 
-        // Append tool results as user turn
         currentApiMsgs = [...currentApiMsgs, { role: "user", content: toolResultBlocks }];
-
-        // Last iteration safeguard
-        if (iter === MAX_TOOL_ITERS - 1) finalText = textParts || "Done.";
+        if (iter === MAX_TOOL_ITERS - 1) finalText = responseText || "Done.";
       }
 
-      // Persist updated API history and show the final response
+      setStreamingText("");
+      setThinkingActive(false);
       useNovaStore.getState().setApiMessages(currentApiMsgs);
       useNovaStore.getState().appendDisplayMessage({
         role: "assistant",
@@ -161,6 +189,8 @@ export default function NovaChatPanel() {
         ts: Date.now(),
       });
     } catch (err) {
+      setStreamingText("");
+      setThinkingActive(false);
       useNovaStore.getState().appendDisplayMessage({
         role: "assistant",
         text: `Something went wrong: ${err.message}`,
@@ -170,7 +200,7 @@ export default function NovaChatPanel() {
     } finally {
       useNovaStore.getState().setChatThinking(false);
     }
-  }, [input, chatThinking, buildSystemPrompt]);
+  }, [input, chatThinking, buildSystemPromptArray]);
 
   const handleKeyDown = useCallback(e => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -231,15 +261,20 @@ export default function NovaChatPanel() {
           borderBottom: chatOpen ? `1px solid ${border}` : "1px solid transparent",
         }}
       >
-        {/* Orb */}
-        <div style={{
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          background: `radial-gradient(circle at 35% 35%, #9B8AFB, #7C6BF0 50%, #4C3BB0)`,
-          boxShadow: `0 0 7px ${accent}80`,
-          flexShrink: 0,
-        }} />
+        {/* Orb — canonical NOVA presence, state-driven */}
+        <NovaPresence
+          size={20}
+          accent={accent}
+          state={
+            thinkingActive ? "thinking"
+            : streamingText ? "speaking"
+            : chatThinking  ? "thinking"
+            : chatOpen      ? "sensing"
+            : "dormant"
+          }
+          trackCursor={chatOpen && !chatThinking}
+          live
+        />
 
         <span style={{
           fontSize: 11,
@@ -333,23 +368,20 @@ export default function NovaChatPanel() {
         {chatMessages.map((msg, i) => (
           <div key={i} style={{ display: "flex", gap: 7, flexDirection: msg.role === "user" ? "row-reverse" : "row", alignItems: "flex-start" }}>
             {/* Avatar */}
-            <div style={{
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 8,
-              fontWeight: 700,
-              marginTop: 1,
-              ...(msg.role === "assistant"
-                ? { background: `radial-gradient(circle at 35% 35%, #9B8AFB, #5C4ECC)`, boxShadow: `0 0 5px ${accent}66`, color: "white" }
-                : { background: surface, border: `1px solid ${border}`, color: textSec }),
-            }}>
-              {msg.role === "assistant" ? "N" : "S"}
-            </div>
+            {msg.role === "assistant" ? (
+              <div style={{ width: 20, height: 20, marginTop: 1 }}>
+                <NovaPresence size={20} accent={accent} state="dormant" live={false} />
+              </div>
+            ) : (
+              <div style={{
+                width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 8, fontWeight: 700, marginTop: 1,
+                background: surface, border: `1px solid ${border}`, color: textSec,
+              }}>
+                S
+              </div>
+            )}
 
             {/* Bubble */}
             <div style={{
@@ -366,6 +398,27 @@ export default function NovaChatPanel() {
             }}>
               {msg.text}
 
+              {/* PDF attachments — show what was sent to NOVA */}
+              {msg.attachedDrawings?.length > 0 && (
+                <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {msg.attachedDrawings.map((label, k) => (
+                    <span key={k} style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: accent,
+                      background: `${accent}1A`,
+                      border: `1px solid ${accent}40`,
+                      borderRadius: 10,
+                      padding: "2px 7px",
+                      letterSpacing: "0.02em",
+                      fontFamily: T.font.sans,
+                    }}>
+                      📎 {label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Tool action cards */}
               {msg.toolActions?.length > 0 && (
                 <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
@@ -378,22 +431,55 @@ export default function NovaChatPanel() {
           </div>
         ))}
 
-        {/* Thinking indicator */}
-        {chatThinking && (
+        {/* Streaming text — live response bubble */}
+        {streamingText && !chatThinking && (
           <div style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
+            <div style={{ width: 20, height: 20, marginTop: 1, flexShrink: 0 }}>
+              <NovaPresence size={20} accent={accent} state="speaking" live />
+            </div>
             <div style={{
-              width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
-              background: `radial-gradient(circle at 35% 35%, #9B8AFB, #5C4ECC)`,
-              boxShadow: `0 0 5px ${accent}66`,
-            }} />
+              maxWidth: "75%", padding: "8px 11px", fontSize: 13, lineHeight: 1.5,
+              fontFamily: T.font.sans, borderRadius: "2px 10px 10px 10px",
+              background: surface, border: `1px solid ${accent}44`, color: textPri,
+            }}>
+              {streamingText}
+              <span style={{ display: "inline-block", width: 2, height: "1em", background: accent, marginLeft: 2, verticalAlign: "middle", animation: "novaCursor 0.8s step-end infinite" }} />
+            </div>
+          </div>
+        )}
+
+        {/* Thinking indicator — extended reasoning active */}
+        {thinkingActive && (
+          <div style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
+            <div style={{ width: 22, height: 22, flexShrink: 0 }}>
+              <NovaPresence size={22} accent={accent} state="thinking" live />
+            </div>
             <div style={{
-              padding: "10px 12px",
-              background: surface,
-              border: `1px solid ${border}`,
-              borderRadius: "2px 10px 10px 10px",
-              display: "flex",
-              gap: 4,
-              alignItems: "center",
+              padding: "8px 12px", background: surface, border: `1px solid ${accent}33`,
+              borderRadius: "2px 10px 10px 10px", display: "flex", alignItems: "center", gap: 7,
+            }}>
+              <span style={{ fontSize: 11, color: accent, fontFamily: T.font.sans, fontWeight: 500, letterSpacing: "0.03em" }}>
+                NOVA is thinking
+              </span>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{
+                  width: 3, height: 3, borderRadius: "50%", background: accent,
+                  animation: `novaDotBounce 1.4s ease-in-out ${i * 0.25}s infinite`,
+                }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Standard thinking indicator — waiting for first token */}
+        {chatThinking && !thinkingActive && !streamingText && (
+          <div style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
+            <div style={{ width: 20, height: 20, flexShrink: 0 }}>
+              <NovaPresence size={20} accent={accent} state="thinking" live />
+            </div>
+            <div style={{
+              padding: "10px 12px", background: surface, border: `1px solid ${border}`,
+              borderRadius: "2px 10px 10px 10px", display: "flex", gap: 4, alignItems: "center",
             }}>
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
@@ -462,11 +548,18 @@ export default function NovaChatPanel() {
         </button>
       </div>
 
-      {/* CSS for thinking dots animation */}
       <style>{`
         @keyframes novaDotBounce {
           0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
           30% { opacity: 1; transform: translateY(-3px); }
+        }
+        @keyframes novaCursor {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        @keyframes novaThinkPulse {
+          0%, 100% { box-shadow: 0 0 8px ${accent}99; }
+          50% { box-shadow: 0 0 18px ${accent}; }
         }
       `}</style>
     </div>

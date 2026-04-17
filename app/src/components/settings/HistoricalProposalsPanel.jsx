@@ -193,7 +193,7 @@ export default function HistoricalProposalsPanel() {
   const extractProposalPdf = async (base64, fileName) => {
     if (!base64 || base64.length < 100) throw new Error(`Cannot extract "${fileName}": base64 too short`);
     const response = await callAnthropic({
-      model: "claude-sonnet-4-20250514", max_tokens: 4000,
+      model: "claude-sonnet-4-6", max_tokens: 4000,
       messages: [{ role: "user", content: [pdfBlock(base64), { type: "text", text: `You are analyzing a construction proposal/bid document. Extract the following information:\n\n1. **projectName**: The project name\n2. **client**: The client/owner name\n3. **architect**: The architect firm name (if mentioned)\n4. **projectSF**: Building square footage (number only)\n5. **buildingType**: Classify as one of: ${BUILDING_TYPES.map(b => `"${b.key}"`).join(", ")}\n6. **workType**: Classify as one of: ${WORK_TYPES.map(w => `"${w.key}"`).join(", ")}\n7. **totalCost**: Total bid/proposal amount (number only)\n8. **divisions**: Object mapping CSI division codes to dollar amounts\n9. **laborType**: "open_shop", "union", or "prevailing_wage"\n10. **zipCode**: Project zip code (5 digits)\n11. **stories**: Number of stories above grade\n12. **structuralSystem**: Classify as one of: ${STRUCTURAL_SYSTEMS.map(s => `"${s.key}"`).join(", ")}\n13. **deliveryMethod**: Classify as one of: ${DELIVERY_METHODS.map(d => `"${d.key}"`).join(", ")}\n14. **markups**: Array of below-the-line items with key, label, type, inputValue, category\n15. **proposalType**: "gc" or "sub"\n\nReturn ONLY a JSON object.` }] }],
       system: "You are NOVA, the AI construction intelligence inside NOVATerra. Analyze this historical proposal to extract cost data. Return only valid JSON.",
     });

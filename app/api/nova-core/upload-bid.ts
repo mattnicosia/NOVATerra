@@ -187,7 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         input_hash: inputHash,
         source_email: sourceEmail,
         sub_company_name: form.sub_company_name || null,
-        model_used: 'claude-sonnet-4-20250514',
+        model_used: 'claude-sonnet-4-6',
         total_lines_parsed: 0,
         high_confidence: 0,
         mid_confidence: 0,

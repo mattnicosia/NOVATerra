@@ -75,7 +75,7 @@ export default function CreateBidPackageModal({ onClose }) {
       setAiInfilling(true);
       try {
         const result = await callAnthropic({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 500,
           system:
             "You are NOVA, an AI assistant for a general contractor. Given a cover message template and project details, fill in the template with specific project information. Return ONLY the filled-in message text, no JSON wrapping.",

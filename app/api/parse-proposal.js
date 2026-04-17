@@ -108,7 +108,7 @@ export default async function handler(req, res) {
     // Call Claude API with PDF document
     const client = new Anthropic({ apiKey: anthropicKey });
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       system: PROPOSAL_PARSE_PROMPT,
       messages: buildProposalMessages(pdfBase64),

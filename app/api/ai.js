@@ -13,11 +13,12 @@ const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
 const MODEL_REMAP = {
   "claude-3-5-haiku-20241022": "claude-haiku-4-5-20251001",
   "claude-haiku-3-5-20241022": "claude-haiku-4-5-20251001",
-  "claude-3-5-sonnet-20241022": "claude-sonnet-4-20250514",
-  "claude-3-5-sonnet-20240620": "claude-sonnet-4-20250514",
-  "claude-3-opus-20240229": "claude-sonnet-4-20250514",
+  "claude-3-5-sonnet-20241022": "claude-sonnet-4-6",
+  "claude-3-5-sonnet-20240620": "claude-sonnet-4-6",
+  "claude-3-opus-20240229": "claude-sonnet-4-6",
   "claude-3-haiku-20240307": "claude-haiku-4-5-20251001",
-  "claude-3-sonnet-20240229": "claude-sonnet-4-20250514",
+  "claude-3-sonnet-20240229": "claude-sonnet-4-6",
+  "claude-sonnet-4-20250514": "claude-sonnet-4-6",
 };
 
 // Read the raw request body manually (bypasses Vercel's default ~5 MB body parser limit)
@@ -87,7 +88,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: err.message });
   }
 
-  const { model, max_tokens, messages, system, temperature, tools, tool_choice, stream } = parsed;
+  const { model, max_tokens, messages, system, temperature, tools, tool_choice, stream, thinking } = parsed;
 
   if (!messages || !Array.isArray(messages)) {
     console.error("[ai-proxy] Missing messages. Body keys:", Object.keys(parsed || {}));
@@ -101,19 +102,20 @@ export default async function handler(req, res) {
     `[ai-proxy] model=${model || "default"} content=[${contentTypes}] bodySize=${(bodySize / 1024 / 1024).toFixed(1)}MB`,
   );
 
-  const resolvedModel = MODEL_REMAP[model] || model || "claude-sonnet-4-20250514";
+  const resolvedModel = MODEL_REMAP[model] || model || "claude-sonnet-4-6";
   const body = { model: resolvedModel, max_tokens: max_tokens || 1000, messages };
   if (system) body.system = system;
   if (temperature !== undefined) body.temperature = temperature;
   if (tools) body.tools = tools;
   if (tool_choice) body.tool_choice = tool_choice;
   if (stream) body.stream = true;
+  if (thinking) body.thinking = thinking;
 
-  // PDF/document support is now GA — no beta header needed (pdfs-2024-09-25 was deprecated)
   const headers = {
     "Content-Type": "application/json",
     "x-api-key": apiKey,
     "anthropic-version": "2023-06-01",
+    "anthropic-beta": "prompt-caching-2024-07-31",
   };
 
   try {

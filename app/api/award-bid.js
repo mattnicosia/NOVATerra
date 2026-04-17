@@ -182,7 +182,7 @@ export default async function handler(req, res) {
             try {
               const client = new Anthropic({ apiKey: anthropicKey });
               const resp = await client.messages.create({
-                model: "claude-sonnet-4-20250514",
+                model: "claude-sonnet-4-6",
                 max_tokens: 200,
                 system:
                   "Write 2-3 sentences of constructive, professional feedback for a subcontractor who was not awarded a bid. Be specific but kind. Do not mention the winning sub or their price.",

@@ -96,7 +96,7 @@ export default async function handler(req, res) {
       // Haiku classification
       const client = new Anthropic({ apiKey: anthropicKey });
       const response = await client.messages.create({
-        model: "claude-sonnet-4-20250514",  // Using Sonnet for both — Haiku model TBD
+        model: "claude-sonnet-4-6",  // Using Sonnet for both — Haiku model TBD
         max_tokens: 1000,
         system: CLASSIFY_PROMPT,
         messages: buildClassifyMessages(pdfBase64),
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
       // Sonnet full parse with enhanced prompt
       const client = new Anthropic({ apiKey: anthropicKey });
       const response = await client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 4000,
         system: buildEnhancedParsePrompt(effectiveDocType),
         messages: buildEnhancedParseMessages(pdfBase64, effectiveDocType),

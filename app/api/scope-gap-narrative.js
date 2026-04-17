@@ -86,7 +86,7 @@ ${
 Matched Divisions: ${(gapReport.matched || []).map(m => `Div ${m.division}`).join(", ") || "None"}`;
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 500,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],

@@ -102,7 +102,7 @@ async function runVisionPredictions(drawing, takeoff, measurementType, _clickPoi
     console.log(`[NOVA Vision] Analyzing "${description}" on drawing ${drawing.id} (page ${drawing.pdfPage || 1})`);
     const _visionStart = Date.now();
     const resp = await callAnthropic({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       messages: [
         {

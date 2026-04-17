@@ -95,7 +95,7 @@ export async function fireAutoResponse(triggerType, context) {
     const prompt = TRIGGER_PROMPTS[triggerType];
     if (prompt) {
       const result = await callAnthropic({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         max_tokens: 400,
         system: prompt.system,
         messages: [{ role: "user", content: prompt.buildContext(context) }],
@@ -189,7 +189,7 @@ export async function generateAlternatives(draft) {
 
   try {
     const result = await callAnthropic({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 800,
       system: prompt.system.replace(
         /Output JSON:.*$/,

@@ -6,13 +6,13 @@
 import { supabase } from "./supabase";
 
 const PROXY_URL = "/api/ai";
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = "claude-sonnet-4-6";
 // ── Tiered model routing ──
 // Haiku: fast/cheap — schedule detection, OCR, data extraction, subdivision math
 // Sonnet: judgment — scope interpretation, narrative, coordination analysis
-export const SCAN_MODEL = "claude-haiku-4-5-20251001";       // ~$0.01-0.03/page
-export const INTERPRET_MODEL = "claude-sonnet-4-20250514";   // ~$0.10-0.15/page
-export const NARRATIVE_MODEL = "claude-sonnet-4-20250514";   // ~$0.10/call
+export const SCAN_MODEL = "claude-haiku-4-5-20251001";  // ~$0.01-0.03/page
+export const INTERPRET_MODEL = "claude-sonnet-4-6";     // ~$0.10-0.15/page
+export const NARRATIVE_MODEL = "claude-sonnet-4-6";     // ~$0.10/call
 
 // Get the Supabase auth token for server-side proxy authentication.
 // Uses getSession() first (fast, cached), then falls back to refreshSession()
@@ -73,6 +73,13 @@ export function createAIAbort() {
   return new AbortController();
 }
 
+// ─── PROMPT CACHE HELPER ─────────────────────────────────────────
+// Wraps a system prompt string in a cache_control block so Anthropic caches it.
+// The server sends the prompt-caching-2024-07-31 beta header — this activates it.
+export function buildCachedSystem(text) {
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+}
+
 // ─── CORE: Non-streaming call ────────────────────────────────────
 export async function callAnthropic({
   apiKey: _apiKey,
@@ -83,6 +90,7 @@ export async function callAnthropic({
   temperature,
   tools,
   tool_choice,
+  thinking,
   signal,
   _publicProxy = false, // internal: use /api/rom-ai without auth
 }) {
@@ -114,6 +122,7 @@ export async function callAnthropic({
   if (temperature !== undefined) body.temperature = temperature;
   if (tools) body.tools = tools;
   if (tool_choice) body.tool_choice = tool_choice;
+  if (thinking) body.thinking = thinking;
 
   // Pre-flight: log body size and check for empty document content
   const bodyJson = JSON.stringify(body);
@@ -296,6 +305,140 @@ export async function callAnthropicStream({
     }
   }
   return fullText;
+}
+
+// ─── STREAMING WITH TOOL USE + EXTENDED THINKING ─────────────────
+// Full SSE parser that handles text deltas, tool_use blocks (with input_json_delta),
+// and thinking blocks in a single stream. Returns the same shape as callAnthropic
+// for tool-use responses so the agentic loop in NovaChatPanel works unchanged.
+export async function callAnthropicStreamingWithTools({
+  model = DEFAULT_MODEL,
+  max_tokens = 2000,
+  messages,
+  system,
+  tools,
+  thinking,
+  onText,     // (fullTextSoFar: string) => void — called on every text delta
+  onThinking, // () => void — called when a thinking block starts
+  signal,
+}) {
+  const token = await getAuthToken();
+  if (!token) throw new Error("Please sign in to use AI features.");
+
+  const body = { model, max_tokens, messages, stream: true };
+  if (system) body.system = system;
+  if (tools?.length) body.tools = tools;
+  if (thinking) body.thinking = thinking;
+
+  const effectiveSignal = signal || AbortSignal.timeout(180_000);
+
+  let activeToken = token;
+  let resp = await fetch(PROXY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${activeToken}` },
+    body: JSON.stringify(body),
+    signal: effectiveSignal,
+  });
+
+  if (resp.status === 401) {
+    const freshToken = await forceRefreshToken();
+    if (freshToken) {
+      activeToken = freshToken;
+      resp = await fetch(PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${activeToken}` },
+        body: JSON.stringify(body),
+        signal: effectiveSignal,
+      });
+    }
+  }
+
+  if (!resp.ok) {
+    const errBody = await resp.json().catch(() => ({}));
+    const msg = errBody?.error?.message || errBody?.error || resp.statusText;
+    if (resp.status === 401) throw new Error("Session expired — please sign in again.");
+    if (resp.status === 429) throw new Error("Rate limited — try again shortly");
+    throw new Error(`API error ${resp.status}: ${msg}`);
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  // Per-index block state tracking
+  const blocks = {}; // index → { type, id?, name?, text, inputJson, thinking }
+  let stopReason = null;
+  let fullText = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const raw = line.slice(6);
+      if (raw === "[DONE]") continue;
+      let ev;
+      try { ev = JSON.parse(raw); } catch { continue; }
+
+      switch (ev.type) {
+        case "message_start":
+          if (ev.message?.usage) _trackUsage(ev.message.usage.input_tokens, ev.message.usage.output_tokens);
+          break;
+
+        case "content_block_start":
+          blocks[ev.index] = { ...ev.content_block, inputJson: "", thinkingText: "" };
+          if (ev.content_block.type === "thinking" && onThinking) onThinking();
+          break;
+
+        case "content_block_delta": {
+          const blk = blocks[ev.index];
+          if (!blk) break;
+          const d = ev.delta;
+          if (d.type === "text_delta") {
+            blk.text = (blk.text || "") + d.text;
+            fullText = Object.values(blocks)
+              .filter(b => b.type === "text")
+              .map(b => b.text || "")
+              .join("");
+            if (onText) onText(fullText);
+          } else if (d.type === "input_json_delta") {
+            blk.inputJson = (blk.inputJson || "") + d.partial_json;
+          } else if (d.type === "thinking_delta") {
+            blk.thinkingText = (blk.thinkingText || "") + d.thinking;
+          }
+          break;
+        }
+
+        case "content_block_stop":
+          if (blocks[ev.index]?.type === "tool_use") {
+            try { blocks[ev.index].input = JSON.parse(blocks[ev.index].inputJson || "{}"); }
+            catch { blocks[ev.index].input = {}; }
+          }
+          break;
+
+        case "message_delta":
+          if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+          if (ev.usage) _trackUsage(ev.usage.input_tokens, ev.usage.output_tokens);
+          break;
+      }
+    }
+  }
+
+  // Reconstruct ordered content array (Anthropic format for multi-turn history)
+  const content = Object.entries(blocks)
+    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+    .map(([, blk]) => {
+      if (blk.type === "tool_use") return { type: "tool_use", id: blk.id, name: blk.name, input: blk.input || {} };
+      if (blk.type === "text") return { type: "text", text: blk.text || "" };
+      if (blk.type === "thinking") return { type: "thinking", thinking: blk.thinkingText || "" };
+      return blk;
+    });
+
+  return { content, stop_reason: stopReason, text: fullText.trim() };
 }
 
 // ─── PUBLIC STREAMING (no auth, uses /api/rom-ai) ────────────────

@@ -322,7 +322,7 @@ export default async function handler(req, res) {
     // Send the original PDF as a vision document so Sonnet can see tables/layouts
     // that Datalab OCR may have missed, plus include the OCR markdown as supplementary text
     const extractRes = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       system: buildExtractionPrompt(docType),
       messages: [
