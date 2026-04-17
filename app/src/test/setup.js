@@ -23,6 +23,23 @@ class IntersectionObserverMock {
 }
 globalThis.IntersectionObserver = IntersectionObserverMock;
 
+// localStorage / sessionStorage polyfill for node-env tests
+// (Zustand stores touch these at init — real browsers have them, jsdom has them,
+// plain node does not.)
+function createStoragePolyfill() {
+  const store = new Map();
+  return {
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k),
+    clear: () => store.clear(),
+    key: i => [...store.keys()][i] ?? null,
+    get length() { return store.size; },
+  };
+}
+if (typeof globalThis.localStorage === "undefined") globalThis.localStorage = createStoragePolyfill();
+if (typeof globalThis.sessionStorage === "undefined") globalThis.sessionStorage = createStoragePolyfill();
+
 globalThis.matchMedia =
   globalThis.matchMedia ||
   vi.fn().mockImplementation((query) => ({
@@ -40,7 +57,8 @@ globalThis.matchMedia =
 globalThis.URL.createObjectURL = globalThis.URL.createObjectURL || vi.fn(() => "blob:mock");
 globalThis.URL.revokeObjectURL = globalThis.URL.revokeObjectURL || vi.fn();
 
-// Canvas stub
+// Canvas stub — skipped in node-env tests that don't have jsdom globals
+if (typeof HTMLCanvasElement !== "undefined") {
 HTMLCanvasElement.prototype.getContext =
   HTMLCanvasElement.prototype.getContext ||
   vi.fn(() => ({
@@ -69,8 +87,9 @@ HTMLCanvasElement.prototype.getContext =
     rect: vi.fn(),
     clip: vi.fn(),
   }));
+}
 
-globalThis.scrollTo = vi.fn();
+globalThis.scrollTo = globalThis.scrollTo || (() => {});
 
 // ── Cleanup ──────────────────────────────────────────────────────────
 afterEach(() => {
