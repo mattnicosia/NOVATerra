@@ -6,6 +6,7 @@ import { Resend } from "resend";
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
 import { checkRateLimit } from "./lib/rateLimiter.js";
+import { sendThenBackground } from "./lib/background.js";
 
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"']/g, char => (
@@ -140,14 +141,26 @@ export default async function handler(req, res) {
       </div>
     `;
 
-    await resend.emails.send({
+    const emailPayload = {
       from: `NOVATerra <${fromEmail}>`,
       to: normalizedEmail,
       subject: `Your ${displayBuildingType} Estimate — ${fmt(totalMid)}`,
       html,
-    });
+    };
 
-    return res.status(200).json({ success: true, emailSent: true });
+    // Respond immediately so the public ROM landing page gets snappy feedback;
+    // the email + any downstream logging run in the background.
+    sendThenBackground(
+      res,
+      202,
+      { success: true, emailSent: "queued" },
+      async () => {
+        await resend.emails.send(emailPayload);
+        console.log(`[send-rom-results] sent to=${normalizedEmail}`);
+      },
+      "send-rom-results",
+    );
+    return;
   } catch (err) {
     console.error("[send-rom-results] Email send failed:", err);
     return res.status(200).json({ success: true, emailSent: false, reason: err.message });

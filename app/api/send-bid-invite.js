@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { supabaseAdmin, verifyUser } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
 import { checkRateLimit } from "./lib/rateLimiter.js";
+import { sendThenBackground } from "./lib/background.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -123,30 +124,42 @@ export default async function handler(req, res) {
 </html>`;
 
     const resend = new Resend(apiKey);
-    const { data: emailData, error: emailError } = await resend.emails.send({
-      from: `NOVA Bids <${fromEmail}>`,
-      to: [inv.sub_email],
-      subject: `Bid Invitation: ${pkg.name}`,
-      html,
-    });
 
-    if (emailError) {
-      console.error("[send-bid-invite] Resend error:", emailError);
-      return res.status(502).json({ error: emailError.message || "Failed to send email" });
-    }
-
-    // Update invitation status
+    // Mark invitation as pending send so the UI shows "Sending..." immediately.
+    // Background work updates to 'sent' with the Resend ID once the send lands.
     await supabaseAdmin
       .from("bid_invitations")
-      .update({
-        status: "sent",
-        resend_email_id: emailData.id,
-        sent_at: new Date().toISOString(),
-      })
+      .update({ status: "sending", sent_at: new Date().toISOString() })
       .eq("id", invitationId);
 
-    console.log(`[send-bid-invite] OK emailId=${emailData.id} to=${inv.sub_email}`);
-    return res.status(200).json({ status: "ok", emailId: emailData.id });
+    // Respond immediately; send email + finalize DB in background.
+    sendThenBackground(
+      res,
+      202,
+      { status: "queued", invitationId, to: inv.sub_email },
+      async () => {
+        const { data: emailData, error: emailError } = await resend.emails.send({
+          from: `NOVA Bids <${fromEmail}>`,
+          to: [inv.sub_email],
+          subject: `Bid Invitation: ${pkg.name}`,
+          html,
+        });
+        if (emailError) {
+          await supabaseAdmin
+            .from("bid_invitations")
+            .update({ status: "failed", error: String(emailError.message || emailError) })
+            .eq("id", invitationId);
+          throw new Error(`Resend error: ${emailError.message || JSON.stringify(emailError)}`);
+        }
+        await supabaseAdmin
+          .from("bid_invitations")
+          .update({ status: "sent", resend_email_id: emailData.id })
+          .eq("id", invitationId);
+        console.log(`[send-bid-invite] OK emailId=${emailData.id} to=${inv.sub_email}`);
+      },
+      "send-bid-invite",
+    );
+    return;
   } catch (err) {
     console.error("[send-bid-invite] Error:", err);
     return res.status(500).json({ error: err.message || "Internal server error" });

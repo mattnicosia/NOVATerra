@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { cors } from "./lib/cors.js";
 import { verifyUser } from "./lib/supabaseAdmin.js";
 import { checkRateLimit } from "./lib/rateLimiter.js";
+import { sendThenBackground } from "./lib/background.js";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
@@ -54,42 +55,35 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Email service not configured — set RESEND_API_KEY env var" });
   }
 
-  try {
-    const resend = new Resend(apiKey);
-    const pdfBuffer = Buffer.from(pdfBase64, "base64");
+  const resend = new Resend(apiKey);
+  const pdfBuffer = Buffer.from(pdfBase64, "base64");
 
-    const emailPayload = {
-      from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
-      to: toList,
-      subject,
-      text: body || "",
-      attachments: [
-        {
-          filename: pdfFilename || "Proposal.pdf",
-          content: pdfBuffer,
-        },
-      ],
-    };
+  const emailPayload = {
+    from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+    to: toList,
+    subject,
+    text: body || "",
+    attachments: [{ filename: pdfFilename || "Proposal.pdf", content: pdfBuffer }],
+  };
 
-    if (replyTo) emailPayload.reply_to = replyTo;
+  if (replyTo) emailPayload.reply_to = replyTo;
+  const ccList = parseEmails(cc);
+  if (ccList.length > 0) emailPayload.cc = ccList;
+  const bccList = parseEmails(bcc);
+  if (bccList.length > 0) emailPayload.bcc = bccList;
 
-    const ccList = parseEmails(cc);
-    if (ccList.length > 0) emailPayload.cc = ccList;
-
-    const bccList = parseEmails(bcc);
-    if (bccList.length > 0) emailPayload.bcc = bccList;
-
-    const { data, error } = await resend.emails.send(emailPayload);
-
-    if (error) {
-      console.error("[send-proposal] Resend error:", error);
-      return res.status(502).json({ error: error.message || "Failed to send email" });
-    }
-
-    console.log(`[send-proposal] OK id=${data.id} to=${to}`);
-    return res.status(200).json({ status: "ok", emailId: data.id });
-  } catch (err) {
-    console.error("[send-proposal] Error:", err);
-    return res.status(500).json({ error: err.message || "Internal server error" });
-  }
+  // Respond immediately, send email in background via Vercel waitUntil.
+  // User-visible latency drops from ~2-3s (Resend round-trip) to <100ms.
+  // Failures are logged server-side; the client considers the request queued.
+  sendThenBackground(
+    res,
+    202,
+    { status: "queued", to: toList, subject },
+    async () => {
+      const { data, error } = await resend.emails.send(emailPayload);
+      if (error) throw new Error(`Resend error: ${error.message || JSON.stringify(error)}`);
+      console.log(`[send-proposal] OK id=${data?.id} to=${toList.join(",")}`);
+    },
+    "send-proposal",
+  );
 }

@@ -36,6 +36,7 @@
     "@sentry/react": "^10.41.0",
     "@supabase/supabase-js": "^2.49.1",
     "@vercel/analytics": "^1.6.1",
+    "@vercel/functions": "^3.4.3",
     "dompurify": "^3.3.3",
     "framer-motion": "^12.35.0",
     "html2pdf.js": "^0.14.0",
