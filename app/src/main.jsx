@@ -2,6 +2,8 @@ import React, { Component } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { inject as injectAnalytics } from "@vercel/analytics";
+import * as Sentry from "@sentry/react";
+import { validateClientEnv } from "@/utils/validateEnv";
 import App from "./App";
 import "./App.css";
 
@@ -10,6 +12,36 @@ import "./App.css";
 // eslint-disable-next-line no-undef
 console.log("[NOVA] Build:", __BUILD_TS__);
 window.__NOVA_BUILD = __BUILD_TS__; // eslint-disable-line no-undef
+
+// ── Env validation — fail loud at boot, not at first API call ──
+let envError = null;
+try {
+  validateClientEnv();
+} catch (err) {
+  envError = err;
+  console.error("[NOVA]", err.message);
+}
+
+// ── Sentry — production error tracking ────────────────────────
+// DSN must be set in Vercel env as VITE_SENTRY_DSN. Skipped silently in dev.
+const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+if (SENTRY_DSN && import.meta.env.PROD) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: import.meta.env.MODE,
+    release: typeof __BUILD_TS__ !== "undefined" ? String(__BUILD_TS__) : undefined, // eslint-disable-line no-undef
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 1.0,
+    integrations: [Sentry.browserTracingIntegration(), Sentry.replayIntegration()],
+    beforeSend(event) {
+      // Drop noise: chunk-load errors are handled by the auto-reload below
+      const msg = event.exception?.values?.[0]?.value || "";
+      if (/Failed to fetch dynamically imported module|Importing a module script failed/i.test(msg)) return null;
+      return event;
+    },
+  });
+}
 
 // ── Dev-only: expose stores for AI estimator simulation ──────
 if (import.meta.env.DEV) {
@@ -52,6 +84,12 @@ class RootErrorBoundary extends Component {
   }
   componentDidCatch(error, errorInfo) {
     console.error("[RootErrorBoundary]", error, errorInfo);
+    // Forward to Sentry with React component stack as context
+    Sentry.withScope(scope => {
+      scope.setTag("boundary", "root");
+      scope.setExtra("componentStack", errorInfo?.componentStack);
+      Sentry.captureException(error);
+    });
   }
   render() {
     if (!this.state.hasError) return this.props.children;
@@ -121,12 +159,30 @@ class RootErrorBoundary extends Component {
 }
 
 // ── Render ─────────────────────────────────────────────────────
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <RootErrorBoundary>
-        <App />
-      </RootErrorBoundary>
-    </BrowserRouter>
-  </React.StrictMode>,
-);
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
+if (envError) {
+  // Misconfigured deploy — show a hard error instead of rendering a broken app
+  root.render(
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      height: "100vh", padding: 40, fontFamily: "Switzer, sans-serif",
+      color: "#fff", background: "#0a0a1a", textAlign: "center",
+    }}>
+      <h1 style={{ fontSize: 22, marginBottom: 12 }}>Configuration error</h1>
+      <pre style={{ fontSize: 12, opacity: 0.8, maxWidth: 600, whiteSpace: "pre-wrap", textAlign: "left" }}>
+        {envError.message}
+      </pre>
+    </div>,
+  );
+} else {
+  root.render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <RootErrorBoundary>
+          <App />
+        </RootErrorBoundary>
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+}

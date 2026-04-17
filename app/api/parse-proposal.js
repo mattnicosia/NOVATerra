@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { allowed, retryAfter } = checkRateLimit(`parse_proposal_${requesterUserId}`);
+    const { allowed, retryAfter } = await checkRateLimit(`parse_proposal_${requesterUserId}`);
     if (!allowed) {
       return res.status(429).json({ error: "Rate limited — too many parse requests", retryAfter });
     }

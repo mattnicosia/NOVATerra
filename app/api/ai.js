@@ -66,7 +66,7 @@ export default async function handler(req, res) {
   }
 
   // Rate limit per user
-  const { allowed, retryAfter } = checkRateLimit(`ai_${user.id}`);
+  const { allowed, retryAfter } = await checkRateLimit(`ai_${user.id}`);
   if (!allowed) {
     return res.status(429).json({ error: "Rate limited — too many AI requests", retryAfter });
   }

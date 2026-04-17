@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     userId = user.id;
   }
 
-  const { allowed, retryAfter } = checkRateLimit(`embed_${userId}`);
+  const { allowed, retryAfter } = await checkRateLimit(`embed_${userId}`);
   if (!allowed) {
     return res.status(429).json({ error: "Rate limited — too many embedding requests", retryAfter });
   }

@@ -40,9 +40,11 @@ export default async function handler(req, res) {
     .split(",")[0]
     .trim();
   const projectFingerprint = buildProjectFingerprint({ buildingType, projectSF, source });
-  const ipRate = checkRateLimit(`rom_ip_${clientIp}`);
-  const recipientRate = checkRateLimit(`rom_recipient_${normalizedEmail}`);
-  const projectRate = checkRateLimit(`rom_project_${normalizedEmail}_${projectFingerprint}`);
+  const [ipRate, recipientRate, projectRate] = await Promise.all([
+    checkRateLimit(`rom_ip_${clientIp}`),
+    checkRateLimit(`rom_recipient_${normalizedEmail}`),
+    checkRateLimit(`rom_project_${normalizedEmail}_${projectFingerprint}`),
+  ]);
   if (!ipRate.allowed || !recipientRate.allowed || !projectRate.allowed) {
     return res.status(429).json({
       error: "Rate limited",

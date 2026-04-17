@@ -153,7 +153,7 @@ export default async function handler(req, res) {
 
         try {
           // Rate limit check before downloading
-          const rateCheck = checkRateLimit(providerKey);
+          const rateCheck = await checkRateLimit(providerKey);
           if (!rateCheck.allowed) {
             results.errors.push({
               url: link.url,

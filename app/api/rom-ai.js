@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
   // IP-based rate limit: 5 requests per minute per IP
   const ip = getClientIp(req);
-  const { allowed, retryAfter } = checkRateLimit(`rom_${ip}`, { maxRequests: 5, windowMs: 60_000 });
+  const { allowed, retryAfter } = await checkRateLimit(`rom_${ip}`, { maxRequests: 5, windowMs: 60_000 });
   if (!allowed) {
     return res.status(429).json({ error: "Too many requests — please wait", retryAfter });
   }

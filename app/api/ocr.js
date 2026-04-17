@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   const user = await verifyUser(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
 
-  const { allowed, retryAfter } = checkRateLimit(`ocr_${user.id}`);
+  const { allowed, retryAfter } = await checkRateLimit(`ocr_${user.id}`);
   if (!allowed) {
     return res.status(429).json({ error: "Rate limited — too many OCR requests", retryAfter });
   }
