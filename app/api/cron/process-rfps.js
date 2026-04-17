@@ -25,9 +25,16 @@ async function updateProgress(rfpId, step, progress) {
 }
 
 export default async function handler(req, res) {
-  // Verify cron secret (Vercel sets CRON_SECRET for cron jobs)
+  // Fail-closed cron auth: require CRON_SECRET to be set AND matched.
+  // Previous conditional `if (cronSecret && ...)` let unauthenticated calls
+  // through when the env var was unset — exposed an expensive Claude-calling
+  // endpoint to the open internet.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    console.error("[cron/process-rfps] CRON_SECRET not set — refusing to run");
+    return res.status(503).json({ error: "Cron secret not configured" });
+  }
+  if (req.headers.authorization !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
