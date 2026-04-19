@@ -15,6 +15,7 @@ import Sec from "@/components/shared/Sec";
 import Fld from "@/components/shared/Fld";
 import Ic from "@/components/shared/Ic";
 import Modal from "@/components/shared/Modal";
+import DuplicateProjectDialog from "@/components/estimate/DuplicateProjectDialog";
 import TimePicker from "@/components/shared/TimePicker";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
@@ -231,6 +232,25 @@ export default function ProjectInfoPage() {
 
   const [quickAddModal, setQuickAddModal] = useState(null);
   const [quickAddValue, setQuickAddValue] = useState("");
+
+  // ── Duplicate-project guard for manual edits ──────────────────
+  // Triggered onBlur of name/address — if the (name,address) pair matches
+  // another estimate (excluding self), prompt the user with the same dialog
+  // used by the RFP import flow.
+  const findDuplicateProject = useEstimatesStore(s => s.findDuplicateProject);
+  const [dupDialog, setDupDialog] = useState(null); // { existing, prevValue, field }
+
+  const checkDuplicateOnBlur = useCallback(() => {
+    const match = findDuplicateProject(project.name, project.address);
+    if (!match) return;
+    if (match.id === activeEstimateId) return; // matching self
+    setDupDialog({
+      existing: { id: match.id, name: match.name, lastModified: match.lastModified, estimateNumber: match.estimateNumber, client: match.client },
+      // Snapshot the values that triggered the match so Cancel can revert cleanly
+      prevName: project.name,
+      prevAddress: project.address,
+    });
+  }, [findDuplicateProject, project.name, project.address, activeEstimateId]);
   const [hoursSuggestion, setHoursSuggestion] = useState(null);
   const [estNumError, setEstNumError] = useState("");
   const prevEstNumRef = useRef("");
@@ -498,6 +518,7 @@ export default function ProjectInfoPage() {
               <input
                 value={project.name}
                 onChange={e => up("name", e.target.value)}
+                onBlur={checkDuplicateOnBlur}
                 placeholder="e.g. Smith Residence"
                 style={inp(C)}
               />
@@ -934,6 +955,7 @@ export default function ProjectInfoPage() {
               <AddressAutocomplete
                 value={project.address || ""}
                 onChange={v => up("address", v)}
+                onBlur={checkDuplicateOnBlur}
                 onGeocode={geo => {
                   up("address", geo.address);
                   up("city", geo.city);
@@ -941,6 +963,9 @@ export default function ProjectInfoPage() {
                   up("zipCode", geo.zip);
                   up("latitude", geo.lat);
                   up("longitude", geo.lng);
+                  // Geocode is a strong "I just confirmed this address" signal —
+                  // run the dup check immediately rather than waiting for blur.
+                  setTimeout(checkDuplicateOnBlur, 0);
                 }}
                 style={inp(C)}
               />
@@ -1836,6 +1861,22 @@ export default function ProjectInfoPage() {
           </div>
         </Modal>
       )}
+
+      <DuplicateProjectDialog
+        open={!!dupDialog}
+        existing={dupDialog?.existing}
+        incomingName={dupDialog?.prevName}
+        incomingAddress={dupDialog?.prevAddress}
+        onOpenExisting={() => {
+          const existingId = dupDialog.existing.id;
+          setDupDialog(null);
+          // Route to existing estimate. The current (newly-named) estimate is left
+          // alone — user can delete it from the dashboard if it's a mistaken create.
+          navigate(`/estimate/${existingId}`);
+        }}
+        onCreateAsNew={() => setDupDialog(null) /* keep as typed, no action */}
+        onCancel={() => setDupDialog(null) /* manual edit: close dialog, user can edit fields themselves */}
+      />
     </div>
   );
 }

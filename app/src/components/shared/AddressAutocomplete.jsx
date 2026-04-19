@@ -10,7 +10,7 @@ import { useTheme } from "@/hooks/useTheme";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
-export default function AddressAutocomplete({ value = "", onChange, onGeocode, style }) {
+export default function AddressAutocomplete({ value = "", onChange, onGeocode, onBlur, style }) {
   const C = useTheme();
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState([]);
@@ -114,6 +114,7 @@ export default function AddressAutocomplete({ value = "", onChange, onGeocode, s
         onChange={e => handleInput(e.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+        onBlur={onBlur}
         placeholder="Start typing an address..."
         style={{
           ...style,
