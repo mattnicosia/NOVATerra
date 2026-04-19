@@ -48,6 +48,7 @@ import {
   pullEstimate,
   pullAllEstimates,
   pullEstimatesIndex,
+  pullDeletedEstimateIds,
 } from "./cloudSync-pull";
 export {
   pullData,
@@ -62,6 +63,7 @@ export {
   pullEstimate,
   pullAllEstimates,
   pullEstimatesIndex,
+  pullDeletedEstimateIds,
 };
 
 // ---------- Re-exports: normalized profile/contact sync ----------

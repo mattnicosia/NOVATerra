@@ -271,63 +271,94 @@ export function usePersistenceLoad() {
         }
       }
 
-      // ─── ALWAYS merge cloud index with local (cross-device sync) ───
-      // Even when local index exists, the other device may have created/deleted estimates.
-      // Pull cloud index and merge: add any IDs missing locally, respect deleted IDs.
+      // ─── ALWAYS reconcile local index against authoritative table (cross-device sync) ───
+      // Two fixes over the previous impl that was causing duplicate resurrections:
+      //   1. Use pullEstimatesIndex() (normalized columns, filters deleted_at) as source of
+      //      truth instead of pullData("index") (stale JSONB blob that never gets cleaned).
+      //   2. REMOVE locally-cached entries that are soft-deleted in the authoritative table.
+      //      Previous merge only ADDED, so once a stale ID landed locally it lived forever.
       if (localHasIndex) {
         try {
-          const cloudIdx = await cloudSync.pullData("index");
-          if (Array.isArray(cloudIdx) && cloudIdx.length > 0) {
-            // Load deleted IDs for filtering
-            let deletedIds = [];
-            try {
-              const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
-              deletedIds = delRaw ? JSON.parse(delRaw.value) : [];
-              const userId = useAuthStore.getState().user?.id;
-              const orgId2 = useOrgStore.getState().org?.id || "solo";
-              const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId || "anon"}-${orgId2}`);
-              if (lsRaw) { for (const id of JSON.parse(lsRaw)) { if (!deletedIds.includes(id)) deletedIds.push(id); } }
-            } catch { /* ignore */ }
-            const deletedSet = new Set(deletedIds);
+          const [cloudLive, cloudDeletedIds] = await Promise.all([
+            cloudSync.pullEstimatesIndex(),
+            cloudSync.pullDeletedEstimateIds(),
+          ]);
 
-            const localIndex = useEstimatesStore.getState().estimatesIndex;
-            const localIds = new Set(localIndex.map(e => e.id));
-            let merged = false;
-            const newEntries = [];
-            for (const cloudEntry of cloudIdx) {
-              if (deletedSet.has(cloudEntry.id)) continue;
-              if (!localIds.has(cloudEntry.id)) {
-                newEntries.push(cloudEntry);
-                merged = true;
-              }
+          // Load locally-tracked deleted IDs (persisted + localStorage mirror)
+          let deletedIds = [];
+          try {
+            const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+            deletedIds = delRaw ? JSON.parse(delRaw.value) : [];
+            const userId = useAuthStore.getState().user?.id;
+            const orgId2 = useOrgStore.getState().org?.id || "solo";
+            const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId || "anon"}-${orgId2}`);
+            if (lsRaw) { for (const id of JSON.parse(lsRaw)) { if (!deletedIds.includes(id)) deletedIds.push(id); } }
+          } catch { /* ignore */ }
+          // Merge cloud-side deleted IDs into the local deleted-set
+          for (const id of cloudDeletedIds || []) {
+            if (!deletedIds.includes(id)) deletedIds.push(id);
+          }
+          const deletedSet = new Set(deletedIds);
+
+          const localIndex = useEstimatesStore.getState().estimatesIndex;
+          const localIds = new Set(localIndex.map(e => e.id));
+          const cloudLiveArr = Array.isArray(cloudLive) ? cloudLive : [];
+          const cloudLiveIds = new Set(cloudLiveArr.map(e => e.id));
+
+          // 1) Remove any local entry that the cloud says is deleted
+          const purgedIds = [];
+          const filteredLocal = localIndex.filter(e => {
+            if (deletedSet.has(e.id)) {
+              purgedIds.push(e.id);
+              return false;
             }
-            // Also check: local entries that are NOT in cloud (deleted on other device)
-            // We can't know for sure they were deleted vs never pushed, so keep them.
-            if (merged) {
-              const fullIndex = [...localIndex, ...newEntries];
-              // Dedup by ID before persisting — prevents duplicate dashboard entries
-              const dedupMap = new Map();
-              for (const e of fullIndex) { if (e?.id) dedupMap.set(e.id, e); }
-              const dedupedIndex = [...dedupMap.values()];
-              useEstimatesStore.getState().setEstimatesIndex(dedupedIndex);
-              await storage.set(idbKey("bldg-index"), JSON.stringify(dedupedIndex));
-              console.log(`[usePersistence] Cloud merge: added ${newEntries.length} estimate(s) from cloud`);
-              // Also pull the actual data blobs for new entries
-              for (const entry of newEntries) {
-                try {
-                  const estData = await cloudSync.pullEstimate(entry.id);
-                  if (estData) {
-                    const hydrated = await cloudSync.hydrateBlobs(estData).catch(() => estData);
-                    await storage.set(idbKey(`bldg-est-${entry.id}`), JSON.stringify(hydrated));
-                  }
-                } catch (blobErr) {
-                  console.warn(`[usePersistence] Cloud merge: failed to pull data for ${entry.id}:`, blobErr.message);
+            return true;
+          });
+
+          // 2) Add any cloud-live entry missing locally
+          const newEntries = [];
+          for (const cloudEntry of cloudLiveArr) {
+            if (deletedSet.has(cloudEntry.id)) continue;
+            if (!localIds.has(cloudEntry.id)) newEntries.push(cloudEntry);
+          }
+
+          const indexChanged = purgedIds.length > 0 || newEntries.length > 0;
+          if (indexChanged) {
+            const combined = [...filteredLocal, ...newEntries];
+            const dedupMap = new Map();
+            for (const e of combined) { if (e?.id) dedupMap.set(e.id, e); }
+            const finalIndex = [...dedupMap.values()];
+            useEstimatesStore.getState().setEstimatesIndex(finalIndex);
+            await storage.set(idbKey("bldg-index"), JSON.stringify(finalIndex));
+            console.log(
+              `[usePersistence] Cloud reconcile: +${newEntries.length} added, -${purgedIds.length} purged (cloud-deleted)`,
+              purgedIds.length > 0 ? { purgedIds } : "",
+            );
+
+            // Persist expanded deleted-IDs set so they stay filtered across devices
+            try { await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify([...deletedSet])); } catch { /* ignore */ }
+
+            // Also clean up the per-estimate IDB cache for purged IDs
+            for (const id of purgedIds) {
+              try { await storage.delete(idbKey(`bldg-est-${id}`)); } catch { /* ignore */ }
+            }
+
+            // Pull data blobs for newly added entries
+            for (const entry of newEntries) {
+              try {
+                const estData = await cloudSync.pullEstimate(entry.id);
+                if (estData) {
+                  const hydrated = await cloudSync.hydrateBlobs(estData).catch(() => estData);
+                  await storage.set(idbKey(`bldg-est-${entry.id}`), JSON.stringify(hydrated));
                 }
+              } catch (blobErr) {
+                console.warn(`[usePersistence] Cloud reconcile: failed to pull data for ${entry.id}:`, blobErr.message);
               }
             }
           }
+          void cloudLiveIds; // keep reference in case future code needs it
         } catch (mergeErr) {
-          console.warn("[usePersistence] Cloud index merge failed (non-critical):", mergeErr.message);
+          console.warn("[usePersistence] Cloud index reconcile failed (non-critical):", mergeErr.message);
         }
       }
 
@@ -578,33 +609,11 @@ export function usePersistenceLoad() {
             console.log(`[usePersistence] Loaded ${cloudIndex.length} estimates from normalized columns`);
           }
 
-          // FALLBACK: if normalized columns returned nothing, try legacy index blob.
-          // This handles the transition period where old estimates may not have columns yet.
-          if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
-            console.log("[usePersistence] Normalized columns empty — falling back to legacy index blob");
-            cloudIndex = await cloudSync.pullData("index");
-
-            // ─── ORG-SCOPE RECOVERY (legacy path) ───
-            if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
-              const lastOrgId = localStorage.getItem("bldg-last-org-id");
-              if (lastOrgId) {
-                console.log(`[usePersistence] Cloud pull empty — trying last-known org "${lastOrgId.slice(0, 8)}..."`);
-                const orgIndex = await cloudSync.pullDataWithOrgId("index", lastOrgId);
-                if (orgIndex && Array.isArray(orgIndex) && orgIndex.length > 0) {
-                  console.log(`[usePersistence] FOUND ${orgIndex.length} estimates in org-scoped cloud — recovering`);
-                  cloudIndex = orgIndex;
-                }
-              }
-              if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
-                console.log("[usePersistence] Cloud pull still empty — trying scope-blind recovery (all orgs)...");
-                const anyIndex = await cloudSync.pullDataAnyScope("index");
-                if (anyIndex && Array.isArray(anyIndex) && anyIndex.length > 0) {
-                  console.log(`[usePersistence] SCOPE-BLIND RECOVERY: found ${anyIndex.length} estimates`);
-                  cloudIndex = anyIndex;
-                }
-              }
-            }
-          }
+          // No legacy blob fallback. If pullEstimatesIndex() returns empty, the user
+          // genuinely has no live estimates — or there's a transient DB error and we'd
+          // rather show nothing than resurrect stale entries from a frozen JSONB blob.
+          // Previous fallback to pullData("index") was the source of the deleted-estimate
+          // resurrection bug (blob never gets cleaned when rows are soft-deleted).
 
           if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
             // Filter out locally-deleted estimates before restoring
@@ -918,24 +927,12 @@ export function usePersistenceLoad() {
           }
         }
 
-        // 3. Try cloud pull — scope-aware with scope-blind ultimate fallback
+        // 3. Try cloud pull — normalized columns are the only authoritative source.
+        // Previous recovery path pulled the legacy JSONB "index" blob which is never
+        // cleaned when rows are soft-deleted → resurrected deleted estimates.
         if (!recovered) {
           try {
-            // Try current scope first
-            let cloudIndex = await cloudSync.pullData("index");
-            // Try last-known org
-            if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
-              const lastOrgId = localStorage.getItem("bldg-last-org-id");
-              if (lastOrgId) {
-                console.log(`[usePersistence] RECOVERY GUARD: trying last-known org for cloud index`);
-                cloudIndex = await cloudSync.pullDataWithOrgId("index", lastOrgId);
-              }
-            }
-            // SCOPE-BLIND: try ALL orgs
-            if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
-              console.log("[usePersistence] RECOVERY GUARD: scope-blind cloud index pull...");
-              cloudIndex = await cloudSync.pullDataAnyScope("index");
-            }
+            let cloudIndex = await cloudSync.pullEstimatesIndex();
             if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
               const filtered =
                 recoveryDeletedSet.size > 0 ? cloudIndex.filter(e => !recoveryDeletedSet.has(e.id)) : cloudIndex;

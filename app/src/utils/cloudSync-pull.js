@@ -477,6 +477,33 @@ export const pullAllEstimates = async () => {
  * from the authoritative table, not the JSONB blob.
  * This replaces pullData("index") as the primary index source.
  */
+/**
+ * Pull ALL soft-deleted estimate IDs for the current scope.
+ * Used during cross-device reconcile — if a row is deleted in the authoritative
+ * table but still present in the client's local index, remove it.
+ */
+export const pullDeletedEstimateIds = async () => {
+  if (!isReady()) return [];
+  try {
+    const scope = getScope();
+    let query = supabase
+      .from("user_estimates")
+      .select("estimate_id")
+      .not("deleted_at", "is", null);
+    if (scope?.org_id) {
+      query = query.eq("org_id", scope.org_id);
+    } else {
+      query = query.eq("user_id", getUserId()).is("org_id", null);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(r => r.estimate_id).filter(Boolean);
+  } catch (err) {
+    console.warn("[cloudSync] pullDeletedEstimateIds failed:", err?.message || err);
+    return [];
+  }
+};
+
 export const pullEstimatesIndex = async () => {
   if (!isReady()) return null;
   try {
