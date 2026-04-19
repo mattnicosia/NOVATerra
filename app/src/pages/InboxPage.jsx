@@ -428,10 +428,14 @@ export default function InboxPage() {
           let totalPages = 0;
           for (const att of allPdfAtts) {
             try {
-              // Use proxy endpoint for large files (no storagePath), or standard attachment endpoint
+              // Use proxy endpoint for large files (no storagePath), or standard attachment endpoint.
+              // Email PDFs from pending_rfps.attachments carry `storagePath` directly;
+              // cloud PDFs carry `downloadPath` (set in cloudPdfAtts above). Fall back across
+              // both shapes so neither path silently 404s with `path=undefined`.
+              const path = att.downloadPath || att.storagePath;
               const url = att.proxyToken
                 ? `${API_BASE}/api/proxy-cloud-file?token=${encodeURIComponent(att.proxyToken)}`
-                : `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
+                : `${API_BASE}/api/attachment?path=${encodeURIComponent(path)}`;
               const resp = await fetch(url, { headers: authHeaders });
               if (!resp.ok) {
                 console.error(`PDF download failed: ${att.filename} (${resp.status})`);
@@ -810,10 +814,14 @@ export default function InboxPage() {
           const newDrawings = [];
           for (const att of allPdfAtts) {
             try {
-              // Use proxy endpoint for large files (no storagePath), or standard attachment endpoint
+              // Use proxy endpoint for large files (no storagePath), or standard attachment endpoint.
+              // Email PDFs from pending_rfps.attachments carry `storagePath` directly;
+              // cloud PDFs carry `downloadPath` (set in cloudPdfAtts above). Fall back across
+              // both shapes so neither path silently 404s with `path=undefined`.
+              const path = att.downloadPath || att.storagePath;
               const url = att.proxyToken
                 ? `${API_BASE}/api/proxy-cloud-file?token=${encodeURIComponent(att.proxyToken)}`
-                : `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
+                : `${API_BASE}/api/attachment?path=${encodeURIComponent(path)}`;
               const resp = await fetch(url, { headers: authHeaders });
               if (!resp.ok) continue;
               const buffer = await resp.arrayBuffer();
