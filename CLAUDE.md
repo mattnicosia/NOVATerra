@@ -1,5 +1,13 @@
 # NOVATerra — Project Instructions
 
+## Platform Strategy (Read This First)
+This product is part of a multi-product GC platform. Before any strategic conversation, read:
+`/Users/mattnicosia/Desktop/Projects/BLDG-Platform-Strategy.md`
+
+When architectural decisions are made that affect the platform (shared services, integration contracts, data model choices), write them back to that file. Both BLDG OS and NOVATerra Claude Code sessions read and write to it. This is the shared brain across products.
+
+Key rule: **If a capability is useful in more than one product, it doesn't belong to either of them.** Document parsing/intelligence is the primary example — it belongs in BLDG Intelligence (future shared service), not in NOVATerra or BLDG OS.
+
 ## Response Protocol (Every Prompt)
 On every user prompt, start with a brief header before working:
 1. **Processing**: One line restating what you're about to do
