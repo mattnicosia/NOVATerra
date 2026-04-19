@@ -14,6 +14,7 @@ import { processContact } from "@/utils/contactDedup";
 import RfpCard from "@/components/inbox/RfpCard";
 import RfpDetailModal from "@/components/inbox/RfpDetailModal";
 import ImportConfirmModal from "@/components/inbox/ImportConfirmModal";
+import DuplicateProjectDialog from "@/components/estimate/DuplicateProjectDialog";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, pageContainer, card, sectionLabel, inp } from "@/utils/styles";
@@ -77,6 +78,8 @@ export default function InboxPage() {
 
   const [viewRfp, setViewRfp] = useState(null);
   const [importRfpData, setImportRfpData] = useState(null);
+  // Duplicate-project guard state — modal shown when importFromRfp throws DUPLICATE_PROJECT
+  const [dupDialog, setDupDialog] = useState(null); // { existing, incomingName, incomingAddress, resolve }
   const [importing, setImporting] = useState(false);
   const [senderEmails, setSenderEmails] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -524,10 +527,45 @@ export default function InboxPage() {
       // --- Save step ---
       steps = setStep(steps, saveStepIdx, "active", "Saving estimate...");
 
-      // Create estimate in IndexedDB (pass sourceRfpId for email threading)
-      const estId = await importFromRfp(data, { sourceRfpId: importRfpData.id });
-      // Load the saved estimate into all stores so project data is available immediately
+      // Create estimate in IndexedDB. importFromRfp throws DUPLICATE_PROJECT
+      // when a matching project (name+address) already exists — prompt the user
+      // for the right intent before creating a separate row.
+      let estId;
+      let routedToExisting = false;
+      try {
+        estId = await importFromRfp(data, { sourceRfpId: importRfpData.id });
+      } catch (err) {
+        if (err?.code === "DUPLICATE_PROJECT") {
+          const choice = await new Promise(resolve => {
+            setDupDialog({
+              existing: { id: err.existingId, name: err.existingName, lastModified: err.existingLastModified },
+              incomingName: data?.project?.name || "",
+              incomingAddress: data?.project?.address || "",
+              resolve,
+            });
+          });
+          setDupDialog(null);
+          if (choice === "open-existing") {
+            estId = err.existingId;
+            routedToExisting = true;
+          } else if (choice === "create-as-new") {
+            estId = await importFromRfp(data, { sourceRfpId: importRfpData.id, allowDuplicateProject: true });
+          } else {
+            // Cancel — abort the import flow cleanly
+            steps = setStep(steps, saveStepIdx, "pending", "Cancelled");
+            setImporting(false);
+            return;
+          }
+        } else {
+          throw err;
+        }
+      }
+
+      // Load the saved (or existing) estimate into all stores
       await loadEstimate(estId);
+      if (routedToExisting) {
+        steps = setStep(steps, saveStepIdx, "done", "Routed to existing estimate");
+      }
 
       // Link RFP → estimate in Supabase (bidirectional, also links child emails)
       try {
@@ -1355,6 +1393,15 @@ export default function InboxPage() {
           parentProjectName={importRfpData.parsed_data?.parentProjectName || importRfpData.parsed_data?.projectName}
         />
       )}
+      <DuplicateProjectDialog
+        open={!!dupDialog}
+        existing={dupDialog?.existing}
+        incomingName={dupDialog?.incomingName}
+        incomingAddress={dupDialog?.incomingAddress}
+        onOpenExisting={() => dupDialog?.resolve("open-existing")}
+        onCreateAsNew={() => dupDialog?.resolve("create-as-new")}
+        onCancel={() => dupDialog?.resolve("cancel")}
+      />
     </div>
   );
 }

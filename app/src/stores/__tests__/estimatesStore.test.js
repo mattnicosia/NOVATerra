@@ -732,6 +732,65 @@ describe("estimatesStore", () => {
       await getState().importFromRfp({ project: {} });
       expect(getState().estimatesIndex[0].name).toBe("Imported RFP");
     });
+
+    // ── Duplicate-project guard ─────────────────────────────────────
+    describe("duplicate-project guard", () => {
+      const FIRST = {
+        project: { name: "36 Old School House Road", address: "8101 Schoolhouse Rd", client: "Triad Builders" },
+        items: [],
+      };
+      const SECOND_DUP = {
+        project: { name: "36 OLD SCHOOL HOUSE ROAD", address: "  8101 schoolhouse rd  ", client: "Different Client" },
+        items: [],
+      };
+      const SECOND_DIFFERENT = {
+        project: { name: "Gao Residence", address: "12 Maple St", client: "Troy Gao" },
+        items: [],
+      };
+
+      it("first import succeeds (no duplicate)", async () => {
+        const id = await getState().importFromRfp(FIRST);
+        expect(typeof id).toBe("string");
+        expect(getState().estimatesIndex).toHaveLength(1);
+      });
+
+      it("throws DUPLICATE_PROJECT when name+address match (case + whitespace insensitive)", async () => {
+        await getState().importFromRfp(FIRST);
+        await expect(getState().importFromRfp(SECOND_DUP)).rejects.toMatchObject({
+          code: "DUPLICATE_PROJECT",
+          existingName: "36 Old School House Road",
+        });
+        // Index should still have only the first entry — no row was created
+        expect(getState().estimatesIndex).toHaveLength(1);
+      });
+
+      it("does NOT throw when project is genuinely different", async () => {
+        await getState().importFromRfp(FIRST);
+        const id = await getState().importFromRfp(SECOND_DIFFERENT);
+        expect(typeof id).toBe("string");
+        expect(getState().estimatesIndex).toHaveLength(2);
+      });
+
+      it("allowDuplicateProject:true bypasses the guard (user picked 'Create as new')", async () => {
+        await getState().importFromRfp(FIRST);
+        const id = await getState().importFromRfp(SECOND_DUP, { allowDuplicateProject: true });
+        expect(typeof id).toBe("string");
+        expect(getState().estimatesIndex).toHaveLength(2); // both rows present, by user intent
+      });
+
+      it("findDuplicateProject returns the matching index entry", async () => {
+        await getState().importFromRfp(FIRST);
+        const match = getState().findDuplicateProject("36 old school house road", "8101 SCHOOLHOUSE RD");
+        expect(match).toBeTruthy();
+        expect(match.name).toBe("36 Old School House Road");
+      });
+
+      it("findDuplicateProject returns null when no match", async () => {
+        await getState().importFromRfp(FIRST);
+        const match = getState().findDuplicateProject("Some Other Project", "999 Other St");
+        expect(match).toBeNull();
+      });
+    });
   });
 
   // ── 14. duplicateEstimate ──────────────────────────────────────────

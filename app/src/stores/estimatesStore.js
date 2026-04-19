@@ -725,9 +725,51 @@ export const useEstimatesStore = create((set, get) => ({
     ).catch(() => {});
   },
 
+  // Find an existing estimate matching project name + address (case-insensitive,
+  // whitespace-trimmed). Used by RFP import + new-estimate flows to detect when
+  // a user is about to create a row for a project they've already estimated.
+  // Returns the matching index entry, or null. Soft-deleted entries are excluded
+  // because they live in the deleted-IDs set and shouldn't block creation.
+  findDuplicateProject: (name, address) => {
+    const norm = s => String(s || "").toLowerCase().trim().replace(/\s+/g, " ");
+    const nName = norm(name);
+    const nAddr = norm(address);
+    if (!nName && !nAddr) return null;
+    const idx = get().estimatesIndex || [];
+    return (
+      idx.find(e => {
+        const eName = norm(e.name);
+        const eAddr = norm(e.address);
+        // Strong match: name AND address both equal
+        if (nName && nAddr && eName === nName && eAddr === nAddr) return true;
+        // Name-only match (when one side has no address) — softer but useful
+        if (nName && eName === nName && (!nAddr || !eAddr)) return true;
+        return false;
+      }) || null
+    );
+  },
+
   // Import a pre-built estimate from an RFP
   // options.sourceRfpId: the RFP ID that originated this estimate (for email threading)
+  // options.allowDuplicateProject: if true, skip the dup-project check (user explicitly
+  //   confirmed they want a separate estimate for this project)
   importFromRfp: async (estimateData, options = {}) => {
+    // Duplicate-project guard. Caller should call findDuplicateProject() first
+    // and prompt the user before retrying with allowDuplicateProject: true.
+    if (!options.allowDuplicateProject) {
+      const existing = get().findDuplicateProject(
+        estimateData?.project?.name,
+        estimateData?.project?.address,
+      );
+      if (existing) {
+        const err = new Error("Duplicate project — caller should prompt user first");
+        err.code = "DUPLICATE_PROJECT";
+        err.existingId = existing.id;
+        err.existingName = existing.name;
+        err.existingLastModified = existing.lastModified;
+        throw err;
+      }
+    }
     const id = uid();
     const data = { ...estimateData };
     const { ownerId, orgId } = get()._getOwnership();
