@@ -2,7 +2,54 @@
 
 > Until you've performed a restore, you don't have backups.
 
-## 1. Supabase Point-in-Time Recovery (PITR)
+## 0. Automated local snapshot (primary insurance — no Supabase add-on required)
+
+Two scripts under `app/scripts/` handle this without needing PITR:
+
+### 0.1 Take a snapshot
+
+```bash
+cd app
+node scripts/backup-snapshot.mjs --verify
+```
+
+Writes a timestamped JSON file to `/Users/mattnicosia/Desktop/Projects/NOVATerra/backups/novaterra-<ISO>.json` containing all rows from 13 critical tables (user_estimates, user_data, contacts, company_profiles, bid_packages, bid_invitations, organizations, org_members, org_invitations, living_proposals, living_proposal_*). Skips `embeddings` — regenerable via `backfill-history.mjs`. `--verify` re-reads the dump and confirms row counts match.
+
+Typical size: ~40 MB. Takes ~5 seconds.
+
+### 0.2 Restore (dry-run first — ALWAYS)
+
+```bash
+cd app
+# Dry-run — validates file is usable, writes nothing
+node scripts/restore-snapshot.mjs --file=../backups/novaterra-<ISO>.json
+
+# Actual restore (UPSERTs by id/user_id+estimate_id/user_id+key). Use only
+# after a real data loss event; pointing this at production with a stale
+# snapshot will overwrite newer data.
+node scripts/restore-snapshot.mjs --file=../backups/novaterra-<ISO>.json --force
+```
+
+The dry-run should report row counts matching §0.1. `--force` is required to actually write; default is safe.
+
+### 0.3 Cadence
+
+Run `backup-snapshot.mjs` weekly (minimum) — wire it to a cron or pre-deploy hook. Keep at least the last 4 weeks locally + sync to external storage (iCloud Drive, S3, B2) for off-device redundancy.
+
+### 0.4 What's covered / not covered
+
+| Covered | Not covered |
+|---|---|
+| All user_estimates rows (full JSONB data blob) | Storage bucket contents (drawings, PDFs) — see §3 |
+| Profiles, contacts, companies, orgs, bid data | Supabase Auth users (auth.* tables — platform-managed) |
+| Living proposals + their versions/views | `embeddings` table (regenerate via `backfill-history.mjs`) |
+| Schema that exists in `app/supabase/migrations/` | RLS policies (need to re-apply from migrations) |
+
+Restoring into a fresh Supabase project: apply all `app/supabase/migrations/*.sql` first (to create schema + RLS), then run `restore-snapshot.mjs --force`. Users must be re-invited via Supabase Auth separately.
+
+---
+
+## 1. Supabase Point-in-Time Recovery (PITR) — optional add-on
 
 PITR is the primary backup mechanism. It retains write-ahead logs so you can
 restore the database to any moment within the retention window.
@@ -139,9 +186,9 @@ multi-tenant scenarios where the data may only exist on one machine.
 
 | Date | Who | Restore time | Data integrity | Issues found |
 |------|-----|--------------|----------------|--------------|
-| _YYYY-MM-DD_ | — | — | — | **First drill not yet performed** |
+| 2026-04-19 | Matt (automated via scripts/) | ~5s snapshot + <1s dry-run restore | ✓ 183 rows across 13 tables, verified readable, dry-run validated | First drill — built + tested the automated snapshot/restore pipeline. PITR not enabled on this project; local JSON dump used as primary mechanism. |
 
 ---
 
-**Last updated:** 2026-04-17
-**Next drill due:** 2026-07-17
+**Last updated:** 2026-04-19
+**Next drill due:** 2026-07-19
