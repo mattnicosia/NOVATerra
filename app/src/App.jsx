@@ -519,7 +519,12 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const isDashboard = location.pathname === "/";
-  const isCanvasRoute = location.pathname.includes("/takeoffs") || location.pathname.includes("/estimate/");
+  // Routes that need the viewport set to overflow:hidden because they own their
+  // own internal scroll/zoom canvas (the takeoffs PDF canvas). All other estimate
+  // sub-routes (/estimate/:id/info, /documents, /plans, /alternates, /review,
+  // /reports, /network) are normal scrollable pages — they were broken by the old
+  // .includes("/estimate/") match which caught every sub-route.
+  const isCanvasRoute = location.pathname.includes("/takeoffs");
   const updateAvailable = useUiStore(s => s.updateAvailable);
 
   // ── First org login redirect: send invited users to settings/company profile ──
