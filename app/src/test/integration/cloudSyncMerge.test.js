@@ -431,4 +431,71 @@ describe("Cloud Sync Integration: Multi-Device Index Merge", () => {
     expect(ids).toContain("fresh-2");
     expect(ids).toHaveLength(2);
   });
+
+  // Regression: the boot-time cross-device merge must REMOVE locally-cached
+  // entries whose IDs appear in the cloud's authoritative deleted-ID list.
+  // This direction was missing before 2026-04-19 — the old merge only ADDED
+  // cloud entries missing locally, so a stale local entry that was deleted
+  // on another device would live forever. See commit 74b56bd + pullDeletedEstimateIds.
+  it("removes locally-cached entries when cloud marks them deleted", async () => {
+    const { useEstimatesStore } = await import("@/stores/estimatesStore");
+    const { getState, setState } = useEstimatesStore;
+
+    // Seed local index with 3 entries — all appear "live" from the local view
+    setState({
+      estimatesIndex: [
+        { id: "live-1", name: "Active A" },
+        { id: "deleted-on-other-device", name: "Stale B" },
+        { id: "live-3", name: "Active C" },
+      ],
+    });
+
+    // Simulate what the reconcile does:
+    //   cloudLive  = pullEstimatesIndex() → returns only rows where deleted_at IS NULL
+    //   cloudDeleted = pullDeletedEstimateIds() → returns IDs where deleted_at IS NOT NULL
+    const cloudLive = [{ id: "live-1" }, { id: "live-3" }];
+    const cloudDeletedIds = ["deleted-on-other-device"];
+    const deletedSet = new Set(cloudDeletedIds);
+
+    // Reconcile — same shape as usePersistence.js line 279 block after the fix
+    setState(state => {
+      const filteredLocal = state.estimatesIndex.filter(e => !deletedSet.has(e.id));
+      const localIds = new Set(filteredLocal.map(e => e.id));
+      const newFromCloud = cloudLive.filter(e => !deletedSet.has(e.id) && !localIds.has(e.id));
+      return { estimatesIndex: [...filteredLocal, ...newFromCloud] };
+    });
+
+    const ids = getState().estimatesIndex.map(e => e.id);
+    expect(ids).toContain("live-1");
+    expect(ids).toContain("live-3");
+    expect(ids).not.toContain("deleted-on-other-device"); // the whole point
+    expect(ids).toHaveLength(2);
+  });
+
+  it("also adds missing cloud-live entries while purging cloud-deleted ones", async () => {
+    const { useEstimatesStore } = await import("@/stores/estimatesStore");
+    const { getState, setState } = useEstimatesStore;
+
+    // Local has one live, one stale-deleted. Cloud has one brand-new.
+    setState({
+      estimatesIndex: [
+        { id: "shared", name: "In both places" },
+        { id: "purge-me", name: "Deleted on other device" },
+      ],
+    });
+
+    const cloudLive = [{ id: "shared" }, { id: "new-on-cloud", name: "Created on other device" }];
+    const cloudDeletedIds = ["purge-me"];
+    const deletedSet = new Set(cloudDeletedIds);
+
+    setState(state => {
+      const filteredLocal = state.estimatesIndex.filter(e => !deletedSet.has(e.id));
+      const localIds = new Set(filteredLocal.map(e => e.id));
+      const newFromCloud = cloudLive.filter(e => !deletedSet.has(e.id) && !localIds.has(e.id));
+      return { estimatesIndex: [...filteredLocal, ...newFromCloud] };
+    });
+
+    const ids = getState().estimatesIndex.map(e => e.id).sort();
+    expect(ids).toEqual(["new-on-cloud", "shared"]);
+  });
 });

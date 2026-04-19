@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    # NOVATerra source lives in app/ — every node step needs this cwd
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Lint + format are informational for now — CI wasn't running before,
+      # so pre-existing code may have accumulated issues. Tighten by removing
+      # `continue-on-error` once the baseline is clean.
+      - name: Lint
+        run: npx eslint src/ api/ --max-warnings 0
+        continue-on-error: true
+
+      - name: Format check
+        run: npx prettier --check "src/**/*.{js,jsx,css}" "api/**/*.js"
+        continue-on-error: true
+
+      # Hard gates: tests and build must pass
+      - name: Unit + integration tests
+        run: npx vitest run --reporter=verbose --exclude 'src/test/integration/novaRegression.test.js'
+
+      - name: Build
+        run: npx vite build
+
+      - name: Dead file audit
+        run: node scripts/audit-dead-files.js --ci
+        continue-on-error: true  # informational, don't block
+
+  # Optional: NOVA Chat regression suite.
+  # Runs only if ANTHROPIC_API_KEY is set as a repo secret. Spends ~$0.15 per run.
+  nova-regression:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Run NOVA regression suite
+        if: env.ANTHROPIC_API_KEY != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npx vitest run src/test/integration/novaRegression.test.js --reporter=verbose
+      - name: Skipped notice
+        if: env.ANTHROPIC_API_KEY == ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: echo "::warning::Skipping NOVA regression — set ANTHROPIC_API_KEY repo secret to enable"
