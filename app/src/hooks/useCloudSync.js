@@ -697,7 +697,7 @@ async function syncEstimates() {
           const { reloadActiveEstimate } = await import("@/utils/cloudSync");
           await reloadActiveEstimate(freshData, activeId);
           console.log(`[cloudSync] Active estimate ${activeId} reloaded from newer cloud data`);
-          useUiStore.getState().showToast("Estimate updated from another device", "info");
+          // Toast is fired inside _reloadActiveEstimate — don't double-fire here.
         }
       } catch (err) {
         console.warn("[cloudSync] Failed to reload active estimate from cloud:", err.message);
