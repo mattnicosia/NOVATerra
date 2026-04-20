@@ -100,7 +100,10 @@ export default function PlanRoomPage() {
   const [showOverlay, setShowOverlay] = useState(null);
   const [previewDrawingId, setPreviewDrawingId] = useState(null);
   const fileInputRef = useRef(null);
-  const isSetupMode = project.setupComplete === false;
+  // Exit setup mode as soon as drawings exist — covers races where the upload
+  // pipeline's setupComplete flip didn't run, so the Discovery dashboard (and
+  // its Re-run Discovery button) stays reachable.
+  const isSetupMode = project.setupComplete === false && drawings.length === 0;
   const hasProcessing = documents.some(d => d.processingStatus === "processing");
 
   // Stale processing recovery
