@@ -241,13 +241,41 @@ export default function PlanRoomPage() {
               <Ic d={I.plans} size={22} color={C.accent} />
               Discovery
               {documents.length > 0 && <span style={{ fontSize: T.fontSize.xs, color: C.textDim, padding: "2px 8px", borderRadius: T.radius.full, background: C.bg2, fontWeight: T.fontWeight.medium }}>{documents.length} file{documents.length !== 1 ? "s" : ""}</span>}
-              {drawings.length > 0 && (
-                <button onClick={handleRescan} disabled={rescanning || scanProgress.phase} style={bt(C, { fontSize: 10, fontWeight: 600, padding: "4px 12px", borderRadius: T.radius.sm, color: rescanning || scanProgress.phase ? C.textDim : C.accent, background: rescanning || scanProgress.phase ? `${C.textDim}08` : `${C.accent}08`, border: `1px solid ${rescanning || scanProgress.phase ? C.textDim + "20" : C.accent + "20"}`, cursor: rescanning || scanProgress.phase ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 4, marginLeft: 4 })}>
-                  {rescanning || scanProgress.phase ? (<><span style={{ display: "inline-block", width: 10, height: 10, border: `2px solid ${C.textDim}40`, borderTop: `2px solid ${C.textDim}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />Scanning…</>) : (<><Ic d={I.refresh} size={11} color={C.accent} />Discover</>)}
-                </button>
-              )}
             </h1>
             <p style={{ fontSize: T.fontSize.xs, color: C.textDim, margin: `${T.space[1]}px 0 0`, fontFamily: T.font.sans }}>Upload documents and view NOVA's analysis — schedules, parameters, and ROM estimate.</p>
+            {drawings.length > 0 && (
+              <button
+                onClick={handleRescan}
+                disabled={rescanning || scanProgress.phase}
+                style={bt(C, {
+                  marginTop: T.space[3],
+                  fontSize: T.fontSize.sm,
+                  fontWeight: 600,
+                  padding: "8px 18px",
+                  borderRadius: T.radius.sm,
+                  color: rescanning || scanProgress.phase ? C.textDim : "#fff",
+                  background: rescanning || scanProgress.phase ? `${C.textDim}18` : C.accent,
+                  border: rescanning || scanProgress.phase ? `1px solid ${C.textDim}30` : "none",
+                  cursor: rescanning || scanProgress.phase ? "not-allowed" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                })}
+                title={scanResults ? "Re-run NOVA discovery scan across all drawings" : "Run NOVA discovery scan"}
+              >
+                {rescanning || scanProgress.phase ? (
+                  <>
+                    <span style={{ display: "inline-block", width: 12, height: 12, border: `2px solid ${C.textDim}40`, borderTop: `2px solid ${C.textDim}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    Scanning…
+                  </>
+                ) : (
+                  <>
+                    <Ic d={I.refresh} size={13} color="#fff" />
+                    {scanResults ? "Re-run Discovery" : "Run Discovery"}
+                  </>
+                )}
+              </button>
+            )}
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             {hasData && <button onClick={() => setShowResetConfirm(true)} style={bt(C, { fontSize: 10, padding: "5px 12px", borderRadius: T.radius.sm, color: C.red || "#ef4444", background: `${C.red || "#ef4444"}08`, border: `1px solid ${C.red || "#ef4444"}20` })}><Ic d={I.trash} size={11} color={C.red || "#ef4444"} /> Reset All</button>}
