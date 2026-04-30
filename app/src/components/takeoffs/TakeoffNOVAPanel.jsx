@@ -12,11 +12,13 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
-import { MessageBubble, ActionCards } from "@/components/ai/AIChatPanel";
+import { MessageBubble, ActionCards, summarizeToolResults } from "@/components/ai/AIChatPanel";
 import { NOVA_TOOLS, executeNovaTool, previewNovaTool } from "@/utils/novaTools";
 import { callAnthropic, buildProjectContext } from "@/utils/ai";
 import { scanAllSheets, recordPredictionFeedback } from "@/utils/predictiveEngine";
-import { nn, formatCurrency } from "@/utils/format";
+import { nn, formatCurrency, uid } from "@/utils/format";
+import { TO_COLORS } from "@/utils/takeoffHelpers";
+import { unitToTool } from "@/hooks/useMeasurementEngine";
 
 // ── Tiny helper: uid for proposals ──
 let _puid = 0;
@@ -84,6 +86,7 @@ export default function TakeoffNOVAPanel({
   const tkPredAccepted = useDrawingPipelineStore(s => s.tkPredAccepted);
   const tkPredRejected = useDrawingPipelineStore(s => s.tkPredRejected);
   const tkPredRefining = useDrawingPipelineStore(s => s.tkPredRefining);
+  const tkPredContext = useDrawingPipelineStore(s => s.tkPredContext);
   const acceptPrediction = useDrawingPipelineStore(s => s.acceptPrediction);
   const rejectPrediction = useDrawingPipelineStore(s => s.rejectPrediction);
   const clearPredictions = useDrawingPipelineStore(s => s.clearPredictions);
@@ -107,6 +110,7 @@ export default function TakeoffNOVAPanel({
   // ── Internal state ──
   const [novaChatInput, setNovaChatInput] = useState("");
   const [novaChatLoading, setNovaChatLoading] = useState(false);
+  const [novaThinkingPhase, setNovaThinkingPhase] = useState(null); // Narrates what NOVA is doing
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -262,19 +266,21 @@ export default function TakeoffNOVAPanel({
   };
 
   const acceptAllInProposal = proposalId => {
+    let assemblyResult = null;
     setProposals(prev =>
       prev.map(p => {
         if (p.id !== proposalId) return p;
-        // Execute all unhandled items
-        p.previews.forEach((preview, i) => {
-          if (!p.acceptedIds.has(i) && !p.rejectedIds.has(i)) {
-            _executeOneProposal(p.toolName, preview);
-          }
-        });
+        assemblyResult = _executeGroupProposal(p);
         return { ...p, acceptedIds: new Set(p.previews.map((_, i) => i)), status: "resolved" };
       }),
     );
-    showToast("All proposals accepted");
+    if (assemblyResult) {
+      const { groupName, count, diffUnitCount, primaryUnit } = assemblyResult;
+      const diffNote = diffUnitCount > 0 ? ` (${diffUnitCount} with different units need separate measurement)` : "";
+      showToast(`"${groupName}" assembly added — measure once to complete ${count - diffUnitCount} ${primaryUnit} items${diffNote}`);
+    } else {
+      showToast("All proposals accepted");
+    }
   };
 
   const rejectAllInProposal = proposalId => {
@@ -330,6 +336,78 @@ export default function TakeoffNOVAPanel({
     }
   };
 
+  // Execute all items in a proposal as a linked assembly when accepting all at once.
+  // Returns metadata if an assembly was created, null otherwise.
+  const _executeGroupProposal = proposal => {
+    const { toolName, previews, acceptedIds, rejectedIds, toolInput } = proposal;
+    const toAdd = previews.filter((_, i) => !acceptedIds.has(i) && !rejectedIds.has(i));
+
+    // Only group add_line_items proposals with 2+ fresh items
+    const shouldGroup = toolName === "add_line_items" && toAdd.length >= 2 && acceptedIds.size === 0;
+
+    if (!shouldGroup) {
+      toAdd.forEach(preview => _executeOneProposal(toolName, preview));
+      return null;
+    }
+
+    // Track which items exist before adding so we can identify the new ones
+    const idsBefore = new Set(useItemsStore.getState().items.map(i => i.id));
+    toAdd.forEach(preview => _executeOneProposal("add_line_items", preview));
+    const newItems = useItemsStore.getState().items.filter(i => !idsBefore.has(i.id));
+    if (newItems.length < 2) return null;
+
+    // Determine primary unit (most common)
+    const unitCounts = {};
+    newItems.forEach(it => { unitCounts[it.unit] = (unitCounts[it.unit] || 0) + 1; });
+    const primaryUnit = Object.entries(unitCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "SF";
+
+    const groupName = toolInput?.group_name || `${previews[0].description.split(" ").slice(0, 3).join(" ")} Assembly`;
+
+    // Create a single assembly takeoff linked to all the new items
+    const ts = useDrawingPipelineStore.getState();
+    const newId = uid();
+    ts.setTakeoffs([
+      ...ts.takeoffs,
+      {
+        id: newId,
+        description: groupName,
+        quantity: "",
+        unit: primaryUnit,
+        color: TO_COLORS[ts.takeoffs.length % TO_COLORS.length],
+        drawingRef: "",
+        group: groupName,
+        linkedItemId: "grouped",
+        code: newItems[0].code || "",
+        variables: [],
+        formula: "",
+        measurements: [],
+        bidContext: useUiStore.getState().activeGroupId || "base",
+        createdAt: Date.now(),
+        novaAssemblyItemIds: newItems.map(i => i.id),
+        assemblyName: groupName,
+        source: { category: "nova", label: "NOVA" },
+      },
+    ]);
+
+    // Auto-start measuring if a drawing is open
+    const drawingId = useDrawingPipelineStore.getState().selectedDrawingId;
+    if (drawingId) {
+      const latestTs = useDrawingPipelineStore.getState();
+      latestTs.setTkActiveTakeoffId(newId);
+      latestTs.setTkTool(unitToTool(primaryUnit));
+      latestTs.setTkMeasureState("measuring");
+      latestTs.setTkActivePoints([]);
+      latestTs.setTkContextMenu?.(null);
+    }
+
+    return {
+      groupName,
+      count: newItems.length,
+      diffUnitCount: newItems.filter(i => i.unit !== primaryUnit).length,
+      primaryUnit,
+    };
+  };
+
   // ── NOVA Chat handler ──
   const isEstimate = context === "estimate";
 
@@ -370,6 +448,7 @@ export default function TakeoffNOVAPanel({
     if (!msg || novaChatLoading) return;
     setNovaChatInput("");
     setNovaChatLoading(true);
+    setNovaThinkingPhase("Reading your project…");
 
     // Append user message to display + API history
     appendDisplayMessage({ role: "user", text: msg });
@@ -383,6 +462,7 @@ export default function TakeoffNOVAPanel({
 
     // Capture drawing snapshot for vision — attach on every message so NOVA
     // always sees the current sheet, not a stale one from earlier in the conversation.
+    setNovaThinkingPhase("Capturing drawing…");
     const drawingSnapshot = captureDrawingSnapshot(canvasRef, drawingImgRef);
     const hasDrawing = !!drawingSnapshot;
 
@@ -403,22 +483,39 @@ export default function TakeoffNOVAPanel({
     setApiMessages(newApiMsgs);
 
     try {
-      const CHAT_SYS = `You are NOVA, an expert construction estimating AI embedded in a takeoff and estimating tool. Be concise and direct. Reference CSI codes when relevant. You have tools to modify the estimate.
+      const CHAT_SYS = `You are NOVA, an expert construction estimating AI embedded in a takeoff and estimating tool. Be concise and direct. Reference CSI codes when relevant. You have tools to read scan data, create takeoffs, and modify the estimate.
 
 ${hasDrawing
   ? "DRAWING VISION: You have been given a screenshot of the current drawing sheet the user is viewing. You can see and analyze it directly — describe elements, count items, identify symbols, read notes/labels, etc."
   : "DRAWING VISION: No drawing is currently loaded. You can only reason from estimate items and takeoff data."
 }
 
-IMPORTANT: When modifying many items, work in batches of up to 25 items per tool call. If there are more items to process, make multiple tool calls or tell the user you will continue in the next message.`;
+TAKEOFF WORKFLOW — follow this order when the user asks for any count, measurement, or takeoff:
+1. Call query_scan_data first — check for existing schedule data.
+2. If a matching schedule exists → call takeoff_from_schedule. Exact, no vision required.
+3. If no schedule but project SF is set → call takeoff_parametric (roof area, floor area, wall perimeter, etc.).
+4. If neither applies and a drawing is on screen → call create_takeoff with normalized boundary points.
+5. After any takeoff is created → call validate_takeoff to sanity-check it.
 
-      // ── Multi-pass loop: auto-continue when response is truncated ──
+CRITICAL: NEVER describe what you "would do" — always call the tool. If blocked, explain the specific missing input clearly and do NOT say "done".
+
+ESTIMATE WORKFLOW: When modifying many items, work in batches of up to 25 per tool call.`;
+
+      // ── Multi-round loop: handles tool_use continuation AND max_tokens truncation ──
       let allTextParts = [];
-      let allToolCalls = [];
+      let allToolCalls = []; // all tool calls across rounds (for proposal collection in estimate mode)
+      let allToolResults = []; // executed results (for display in takeoff mode)
       let conversationMsgs = [...newApiMsgs];
-      const MAX_PASSES = 5;
+      const MAX_ROUNDS = 8;
+      let round = 0;
 
-      for (let pass = 0; pass < MAX_PASSES; pass++) {
+      while (round < MAX_ROUNDS) {
+        round++;
+        setNovaThinkingPhase(
+          round === 1
+            ? (hasDrawing ? "Analyzing drawing…" : "Thinking…")
+            : `Continuing (round ${round})…`,
+        );
         const resp = await callAnthropic({
           system: CHAT_SYS,
           max_tokens: 4096,
@@ -430,21 +527,50 @@ IMPORTANT: When modifying many items, work in batches of up to 25 items per tool
           allTextParts.push(resp);
           break;
         }
-
         if (!resp?.content) break;
 
         const { textParts, toolCalls } = _parseResponse(resp.content);
-        allTextParts.push(...textParts);
+        if (textParts.length) allTextParts.push(...textParts);
         allToolCalls.push(...toolCalls);
 
-        if (resp.stop_reason !== "max_tokens") break;
+        if (toolCalls.length === 0) {
+          // No tools this round — continue only if truncated
+          if (resp.stop_reason === "max_tokens") {
+            conversationMsgs = [
+              ...conversationMsgs,
+              { role: "assistant", content: textParts.join("\n") || "Processing..." },
+              { role: "user", content: "Continue where you left off." },
+            ];
+            continue;
+          }
+          break; // end_turn with no tools = done
+        }
 
-        const partialText = textParts.join("\n");
-        const toolSummary = toolCalls.length > 0 ? `\n[Applied ${toolCalls.length} tool call(s) so far]` : "";
+        // Estimate mode: collect tool calls as proposals without executing
+        if (isEstimate) break;
+
+        // Takeoff/chat mode: execute tools and feed results back for next round
+        setNovaThinkingPhase(`Running ${toolCalls.length} tool${toolCalls.length !== 1 ? "s" : ""}…`);
+        const roundResults = await Promise.all(toolCalls.map(async tc => {
+          try {
+            return { tool_use_id: tc.id, ...(await executeNovaTool(tc.name, tc.input)) };
+          } catch (err) {
+            return { tool_use_id: tc.id, success: false, message: err.message };
+          }
+        }));
+        allToolResults.push(...roundResults);
+
         conversationMsgs = [
           ...conversationMsgs,
-          { role: "assistant", content: partialText + toolSummary || "Processing..." },
-          { role: "user", content: "Continue where you left off. Process the remaining items that haven't been handled yet." },
+          { role: "assistant", content: resp.content },
+          {
+            role: "user",
+            content: toolCalls.map((tc, i) => ({
+              type: "tool_result",
+              tool_use_id: tc.id,
+              content: JSON.stringify(roundResults[i]),
+            })),
+          },
         ];
       }
 
@@ -452,38 +578,32 @@ IMPORTANT: When modifying many items, work in batches of up to 25 items per tool
       const assistantContent = allTextParts.join("\n") || "Done.";
       setApiMessages([...conversationMsgs, { role: "assistant", content: assistantContent }]);
 
-      // ── Process collected results → display ──
-      if (allToolCalls.length === 0 && allTextParts.length > 0) {
+      // ── Display ──
+      if (allToolCalls.length === 0) {
         appendDisplayMessage({ role: "assistant", text: assistantContent });
-      } else if (allToolCalls.length > 0) {
-        if (isEstimate) {
-          const { newProposals, totalItems } = _collectProposals(allToolCalls);
-          if (newProposals.length > 0) {
-            setProposals(prev => [...prev, ...newProposals]);
-            appendDisplayMessage({
-              role: "assistant",
-              text: allTextParts.join("\n") || `I have ${totalItems} proposed change${totalItems !== 1 ? "s" : ""} ready for your review.`,
-            });
-          } else {
-            appendDisplayMessage({ role: "assistant", text: allTextParts.join("\n") || "No changes to propose." });
-          }
+      } else if (isEstimate) {
+        setNovaThinkingPhase(`Preparing ${allToolCalls.length} proposed change${allToolCalls.length !== 1 ? "s" : ""}…`);
+        const { newProposals, totalItems } = _collectProposals(allToolCalls);
+        if (newProposals.length > 0) {
+          setProposals(prev => [...prev, ...newProposals]);
+          appendDisplayMessage({
+            role: "assistant",
+            text: allTextParts.join("\n") || `I have ${totalItems} proposed change${totalItems !== 1 ? "s" : ""} ready for your review.`,
+          });
         } else {
-          const toolResults = await Promise.all(allToolCalls.map(async tc => {
-            try {
-              return { tool_use_id: tc.id, ...(await executeNovaTool(tc.name, tc.input)) };
-            } catch (err) {
-              return { tool_use_id: tc.id, success: false, message: err.message };
-            }
-          }));
-          appendDisplayMessage({ role: "assistant", text: allTextParts.join("\n") || "", actions: toolResults });
+          appendDisplayMessage({ role: "assistant", text: allTextParts.join("\n") || "No changes to propose." });
         }
       } else {
-        appendDisplayMessage({ role: "assistant", text: "No response from NOVA." });
+        // Takeoff mode — tools already executed during loop
+        const joined = allTextParts.join("\n").trim();
+        const fallbackText = joined || summarizeToolResults(allToolResults) || "Done.";
+        appendDisplayMessage({ role: "assistant", text: fallbackText, actions: allToolResults.length > 0 ? allToolResults : undefined });
       }
     } catch (err) {
       appendDisplayMessage({ role: "assistant", text: `Error: ${err.message}` });
     } finally {
       setNovaChatLoading(false);
+      setNovaThinkingPhase(null);
     }
   };
 
@@ -846,7 +966,7 @@ IMPORTANT: When modifying many items, work in batches of up to 25 items per tool
                   borderTop: `1px solid ${C.orange}20`,
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: 10,
                   background: `${C.orange}08`,
                   fontSize: 11,
                   color: C.orange,
@@ -864,7 +984,18 @@ IMPORTANT: When modifying many items, work in batches of up to 25 items per tool
                     flexShrink: 0,
                   }}
                 />
-                NOVA is re-analyzing predictions with updated context...
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+                  <span>
+                    Re-analyzing predictions{tkPredContext?.tag ? ` for "${tkPredContext.tag}"` : ""}…
+                  </span>
+                  {tkPredContext && (tkPredContext.missCount > 0 || tkPredContext.matchCount > 0) && (
+                    <span style={{ fontSize: 9, fontWeight: 500, color: C.textDim, opacity: 0.85 }}>
+                      {tkPredContext.matchCount} accepted · {tkPredContext.missCount} miss
+                      {tkPredContext.missCount !== 1 ? "es" : ""}
+                      {tkPredContext.confidence != null && ` · confidence ${Math.round(tkPredContext.confidence * 100)}%`}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -902,9 +1033,25 @@ IMPORTANT: When modifying many items, work in batches of up to 25 items per tool
                   }}
                 />
               ))}
-              <span style={{ fontSize: 9, color: C.textMuted, marginLeft: 3, fontFamily: T.font.sans }}>
-                Thinking...
+              <span
+                key={novaThinkingPhase || "thinking"}
+                style={{
+                  fontSize: 9,
+                  color: C.text,
+                  marginLeft: 3,
+                  fontWeight: 500,
+                  fontFamily: T.font.sans,
+                  animation: "fadeInPhase 0.25s ease-out",
+                }}
+              >
+                {novaThinkingPhase || "Thinking…"}
               </span>
+              <style>{`
+                @keyframes fadeInPhase {
+                  from { opacity: 0; transform: translateY(-2px); }
+                  to   { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
             </div>
           )}
         </div>
